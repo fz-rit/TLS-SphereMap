@@ -39,7 +39,7 @@ def hdr_adjustment(image, method='clahe', **kwargs):
             adjusted_image[mask] = slope * (image[mask] - start)
 
     elif method == 'sigmoid':
-        cutoff = kwargs.get('cutoff', 0.5)
+        cutoff = kwargs.get('cutoff', 0.05)
         gain = kwargs.get('gain', 10)
         adjusted_image = exposure.adjust_sigmoid(image, cutoff=cutoff, gain=gain)
 
