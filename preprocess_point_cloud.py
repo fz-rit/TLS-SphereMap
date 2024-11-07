@@ -42,7 +42,8 @@ def preprocess_point_cloud(filename: Path) -> pd.DataFrame:
         (df['Return Number'] == 1) &
         (df['Intensity'] >= 50) &
         (df['Intensity'] <= 1000) & 
-        (df['range1metres'] >= 0.25)
+        (df['range1metres'] >= 0.25) & 
+        (df['range1metres'] <= 10) 
         
     ]
 
