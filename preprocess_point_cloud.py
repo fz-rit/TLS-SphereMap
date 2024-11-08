@@ -7,13 +7,18 @@ ZENITH_NORM_SCALE = 135
 CANVAS_WIDTH = 1440 
 CANVAS_HEIGHT = 540
 
-def preprocess_point_cloud(filename: Path) -> pd.DataFrame:
+def preprocess_point_cloud(filename: Path, range1metres_min: float = 0.25, range1metres_max: float = 15.0) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
+    
     Parameters:
     filename (Path): The path to the point cloud data file in CSV format.
+    range1metres_min (float): Minimum threshold for range1metres filtering, in meters.
+    range1metres_max (float): Maximum threshold for range1metres filtering, in meters.
+    
     Returns:
     pandas.DataFrame: A DataFrame containing the filtered and processed point cloud data with additional columns for pixel coordinates.
+    
     The input CSV file is expected to have the following columns:
     - 'X': X coordinate of the point.
     - 'Y': Y coordinate of the point.
@@ -23,6 +28,7 @@ def preprocess_point_cloud(filename: Path) -> pd.DataFrame:
     - 'range1metres': Range to the point in meters.
     - 'Intensity': Intensity value of the point.
     - 'Return Number': Return number of the point.
+    
     The function performs the following steps:
     1. Reads the file into a pandas DataFrame.
     2. Filters the DataFrame to include only points with a return number of 1 and intensity between 50 and 1000.
@@ -42,9 +48,8 @@ def preprocess_point_cloud(filename: Path) -> pd.DataFrame:
         (df['Return Number'] == 1) &
         (df['Intensity'] >= 50) &
         (df['Intensity'] <= 1000) & 
-        (df['range1metres'] >= 0.25) & 
-        (df['range1metres'] <= 10) 
-        
+        (df['range1metres'] >= range1metres_min) & 
+        (df['range1metres'] <= range1metres_max) 
     ]
 
     # Step 3: Extract scanning angles and map to pixel coordinates
