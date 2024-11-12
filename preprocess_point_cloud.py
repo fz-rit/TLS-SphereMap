@@ -7,6 +7,9 @@ ZENITH_NORM_SCALE = 135
 CANVAS_WIDTH = 1440 
 CANVAS_HEIGHT = 540
 
+
+
+
 def preprocess_point_cloud(filename: Path, range1metres_min: float = 0.25, range1metres_max: float = 15.0) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
@@ -37,11 +40,21 @@ def preprocess_point_cloud(filename: Path, range1metres_min: float = 0.25, range
     """
     
     # Step 1: Read the file as a pandas DataFrame
-    df = pd.read_csv(
-        filename,
-        delimiter=',', 
-        names=['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
-    )
+    # Define column names if there's no header
+    column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
+
+    # Try reading the file assuming there is a header
+    try:
+        df = pd.read_csv(filename, sep=',')
+        # Check if the first row looks like column names (e.g., by type or value checks)
+        if set(df.columns).intersection(column_names):  # Adjust this condition as needed for your data
+            print("Header detected.")
+        else:
+            print("No header detected, re-reading with predefined column names.")
+            df = pd.read_csv(filename, sep=',', names=column_names)
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        df = pd.read_csv(filename, sep=',', names=column_names)
 
     # Step 2: Clean the dataset
     df_filtered = df[

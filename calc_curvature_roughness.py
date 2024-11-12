@@ -53,11 +53,11 @@ def batch_neighborhood_search(points, radius, max_neighbors, device):
         neighbors_list.append(neighbors)
     return neighbors_list
 
-def estimate_curvature_roughness_batched(points, radius=0.05, max_neighbors=10):
+def estimate_curvature_roughness_batched(points, curvature_radius=0.05, roughness_radius=0.2, max_neighbors=10):
     """Estimate curvature for a batch of points with GPU-based neighborhood search."""
     points = torch.tensor(points, dtype=torch.float32, device='cuda')
     # Calculate curvature
-    neighbors_list = batch_neighborhood_search(points, radius, max_neighbors, device='cuda')
+    neighbors_list = batch_neighborhood_search(points, curvature_radius, max_neighbors, device='cuda')
     padded_neighbors, mask = pad_neighbors(points, neighbors_list, max_neighbors)
     
     centroids = padded_neighbors.sum(dim=1) / mask.sum(dim=1, keepdim=True)
@@ -68,7 +68,7 @@ def estimate_curvature_roughness_batched(points, radius=0.05, max_neighbors=10):
     curvatures = eigenvalues[:, 0] / eigenvalues.sum(dim=1)
 
     # Calculate roughness
-    neighbors_list = batch_neighborhood_search(points, radius=0.15, max_neighbors=max_neighbors, device='cuda')
+    neighbors_list = batch_neighborhood_search(points, roughness_radius, max_neighbors, device='cuda')
     padded_neighbors, mask = pad_neighbors(points, neighbors_list, max_neighbors)
     
     centroids = padded_neighbors.sum(dim=1) / mask.sum(dim=1, keepdim=True)
@@ -82,12 +82,12 @@ def estimate_curvature_roughness_batched(points, radius=0.05, max_neighbors=10):
     return curvatures.cpu().numpy(), roughness.cpu().numpy()
 
 
-def process_batches(dfs, curvature_radius, max_neighbors):
+def process_batches(dfs, curvature_radius, roughness_radius, max_neighbors):
     """Process point cloud batches to calculate curvature and roughness."""
     all_points, all_curvatures, all_roughness = [], [], []
     for df_batch in tqdm(dfs, desc="Processing Batches", unit="batch"):
         points = df_batch[['X', 'Y', 'Z']].to_numpy()
-        curvatures, roughness = estimate_curvature_roughness_batched(points, radius=curvature_radius, max_neighbors=max_neighbors)
+        curvatures, roughness = estimate_curvature_roughness_batched(points, curvature_radius, roughness_radius, max_neighbors=max_neighbors)
         all_points.append(points)
         all_curvatures.append(curvatures)
         all_roughness.append(roughness)
@@ -103,7 +103,6 @@ def visualize_results(all_points, all_curvatures, all_roughness):
     
     # Visualize curvature
     # Apply a colormap (e.g., jet colormap)
-
     pcd.colors = o3d.utility.Vector3dVector(all_curvatures_colors)
     print("Displaying curvature visualization...")
     o3d.visualization.draw_geometries([pcd])
@@ -113,14 +112,16 @@ def visualize_results(all_points, all_curvatures, all_roughness):
     print("Displaying roughness visualization...")
     o3d.visualization.draw_geometries([pcd])
 
-def export_results(df_filtered, all_curvatures, 
+def export_results(df_filtered, 
+                   all_curvatures, 
                    all_roughness, 
-                   output_dir):
+                   output_dir,
+                   filename):
     """Append curvature and roughness to DataFrame and export."""
     df_filtered['curvature'] = all_curvatures
     df_filtered['roughness'] = all_roughness
-    export_path = output_dir / "processed_point_cloud.txt"
-    df_filtered[['X', 'Y', 'Z', 'curvature', 'roughness']].to_csv(export_path, sep='\t', index=False)
+    export_path = output_dir / f"{filename.stem}_curvature_roughness.txt"
+    df_filtered.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 
 def check_and_clean_for_nans(all_curvatures):
@@ -140,9 +141,13 @@ def calculate_curvature_and_roughness(config):
     filename = Path(config["filename"])
     output_dir = Path(config["output_dir"])
     curvature_radius = config["curvature_radius"]
+    roughness_radius = config["roughness_radius"]
     max_neighbors = config["max_neighbors"]
-    range1metres_min = config.get("range1metres_min", 2.25)
+    batch_num = config["batch_num"]
+    range1metres_min = config.get("range1metres_min", 2.25) # default values for range1metres_min and range1metres_max were set intentionally thin to test the code.
     range1metres_max = config.get("range1metres_max", 4.0)
+    visualize = config.get("visualize", True)
+    export = config.get("export", True)
 
     # Preprocess point cloud
     df_filtered = preprocess_point_cloud(filename, range1metres_min, range1metres_max)
@@ -150,17 +155,20 @@ def calculate_curvature_and_roughness(config):
 
     # Check the number of points and decide whether to batch or process directly
     num_points = df_filtered.shape[0]
-    if num_points > 50000:
+    if num_points > 30_000:
         print("*********Large dataset detected. Processing in batches...*********")
-        df_grouped = df_filtered.groupby(pd.cut(df_filtered['azimuth'], 10))
+        df_grouped = df_filtered.groupby(pd.cut(df_filtered['azimuth'], batch_num))
         dfs = [group for _, group in df_grouped]
-        all_points, all_curvatures, all_roughness = process_batches(dfs, curvature_radius, max_neighbors)
+        all_points, all_curvatures, all_roughness = process_batches(dfs, curvature_radius, roughness_radius, max_neighbors)
     else:
         print("*********Small dataset detected. Processing all at once...*********")
         all_points = df_filtered[['X', 'Y', 'Z']].to_numpy()
-        all_curvatures, all_roughness = estimate_curvature_roughness_batched(all_points, radius=curvature_radius, max_neighbors=max_neighbors)
+        all_curvatures, all_roughness = estimate_curvature_roughness_batched(all_points, 
+                                                                             curvature_radius, 
+                                                                             roughness_radius,
+                                                                             max_neighbors)
 
-    # Check for NaN values in curvatures and roughness
+    # Check and clean for NaN values in curvatures and roughness
     valid_mask_curv = check_and_clean_for_nans(all_curvatures)
     valid_mask_rough = check_and_clean_for_nans(all_roughness)
     valid_mask = valid_mask_curv & valid_mask_rough
@@ -187,13 +195,16 @@ def calculate_curvature_and_roughness(config):
     get_histogram(normalized_roughness, output_dir, title="Normalized Roughness", saveflag=config["histogram_saveflag"])
 
     # Visualize results
-    visualize_results(all_points, normalized_curvatures, normalized_roughness)
+    if visualize:
+        visualize_results(all_points, normalized_curvatures, normalized_roughness)
 
     # Export results
-    export_results(df_filtered_out, 
-                   normalized_curvatures, 
-                   normalized_roughness, 
-                   output_dir)
+    if export:    
+        export_results(df_filtered_out, 
+                        normalized_curvatures, 
+                        normalized_roughness, 
+                        output_dir,
+                        filename)
 
 def main():
     # Start tracking time
@@ -209,7 +220,7 @@ def main():
     else:
         start_gpu_memory = 0
     
-    config_path = Path('/home/felix/mylab/tls_point_segmentation/input_params/calc_curvature_roughness_input.json')
+    config_path = Path('./input_params/calc_curvature_roughness_input_amiri.json')
     config = load_config(config_path)
     
     calculate_curvature_and_roughness(config)

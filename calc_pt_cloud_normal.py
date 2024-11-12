@@ -32,7 +32,7 @@ def calc_normals_of_pt_cloud(filename, output_dir):
 
     # Save the result to a text file
     output_file_path = output_dir / f'{filename.stem}_filtered_normaled.txt'
-    df_filtered.to_csv(output_file_path, sep='\t', index=False)
+    df_filtered.to_csv(output_file_path, sep=',', index=False)
     print(f'Point cloud with normals saved to {output_file_path}!')
 
     # # Visualize to check the normals
@@ -40,7 +40,7 @@ def calc_normals_of_pt_cloud(filename, output_dir):
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('/home/felix/mylab/tls_point_segmentation/input_params/calc_pt_cloud_normal_inputs.json')
+    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_amiri.json')
     filename, output_dir = load_config(config_path)
 
     # Process the point cloud
