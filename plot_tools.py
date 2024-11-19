@@ -18,6 +18,13 @@ Functions:
 import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
+from skimage import io
+
+AZIMUTH_NORM_SCALE = 360
+ZENITH_NORM_SCALE = 135
+# Since degree resolution=0.25: 360/0.25=1440
+CANVAS_WIDTH = 1440 
+CANVAS_HEIGHT = 540
 
 def get_image_histogram(image_data: np.ndarray, output_dir:Path, title: str = '', saveflag: bool = False) -> None:
     """
@@ -148,7 +155,7 @@ def get_histogram(input_vec: np.ndarray, output_dir:Path, title: str = '', savef
         print(f'Histogram saved to {output_dir} directory')
 
 
-def display_unwrapped_images(subplot_images: tuple[np.ndarray], 
+def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
                              output_dir: Path,
                              colormap: str = 'plasma', 
@@ -166,11 +173,7 @@ def display_unwrapped_images(subplot_images: tuple[np.ndarray],
     Returns:
     None
     """
-    AZIMUTH_NORM_SCALE = 360
-    ZENITH_NORM_SCALE = 135
-    # Since degree resolution=0.25: 360/0.25=1440
-    CANVAS_WIDTH = 1440 
-    CANVAS_HEIGHT = 540
+
     num_subplots = len(subplot_images)
     fig, axes = plt.subplots(num_subplots, 1, figsize=(12, 4*num_subplots))
 
@@ -199,3 +202,27 @@ def display_unwrapped_images(subplot_images: tuple[np.ndarray],
         
         fig.savefig(output_dir / 'combined_unwrapped_images.png')
         print(f'Images saved to {output_dir} directory')
+
+
+def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
+                            figure_title: str, 
+                            output_dir: Path, 
+                            saveflag: bool = False) -> None:
+    """
+    Display the unwrapped RGB image with custom ticks.
+    """
+    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
+    x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
+    plt.figure(figsize=(12, 6))
+    plt.imshow(rgb_image, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
+    
+    plt.title(figure_title)
+    plt.xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
+    plt.yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
+    plt.xlabel('Azimuth Angle (degrees)')
+    plt.ylabel('Zenith from Z (degree)')
+    plt.show()
+
+    if saveflag:
+        rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
+        io.imsave(f'{output_dir}/{figure_title}.tif', rgb_image_uint8)

@@ -15,4 +15,12 @@ pip install scikit-image
 
 # To solve the open3d Segmentation fault issue.
 pip install numpy==1.26.4
+
+# Install torch-geometric related dependencies, suppose you have PyTorch CUDA version: 12.1 and PyTorch version: 2.4.1
+pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+pip install torch-sparse -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+pip install torch-cluster -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+pip install torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+pip install torch-geometric
+
 ```

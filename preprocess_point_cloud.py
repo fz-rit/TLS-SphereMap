@@ -58,12 +58,13 @@ def preprocess_point_cloud(filename: Path, range1metres_min: float = 0.25, range
 
     # Step 2: Clean the dataset
     df_filtered = df[
-        (df['Return Number'] == 1) &
-        (df['Intensity'] >= 50) &
-        (df['Intensity'] <= 1000) & 
-        (df['range1metres'] >= range1metres_min) & 
-        (df['range1metres'] <= range1metres_max) 
+        (df['Return Number'] == 1)
+        & (df['Intensity'] >= 50)
+        & (df['Intensity'] <= 1000)
+        & (df['range1metres'] >= range1metres_min)
+        & (df['range1metres'] <= range1metres_max) 
     ]
+
 
     # Step 3: Extract scanning angles and map to pixel coordinates
     # Map azimuth (0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
