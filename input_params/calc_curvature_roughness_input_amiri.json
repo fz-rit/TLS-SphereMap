@@ -5,7 +5,7 @@
     "roughness_radius": 0.2,
     "max_neighbors": 10,
     "histogram_title": "Curvature",
-    "histogram_saveflag": true,
+    "histogram_saveflag": false,
     "batch_num": 30,
     "range1metres_min": 0.5,
     "range1metres_max": 20.0,

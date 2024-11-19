@@ -1,3 +1,14 @@
+"""
+Contributor: fzhcis@rit.edu
+Version: 1.0
+Last Updated: 11/19/2024
+Description:
+This script processes a point cloud to estimate curvature and roughness using GPU acceleration.
+It includes functions for loading configuration, preprocessing point clouds, performing neighborhood searches,
+estimating curvature and roughness, visualizing results, and exporting the processed data.
+The script also monitors CPU and GPU memory usage during execution.
+"""
+
 import open3d as o3d
 import numpy as np
 import pandas as pd
@@ -10,6 +21,9 @@ from tqdm import tqdm
 from preprocess_point_cloud import preprocess_point_cloud
 from plot_tools import get_histogram
 from matplotlib import pyplot as plt
+import threading
+from contextlib import contextmanager
+
 
 def load_config(json_path):
     """Load configuration from a JSON file."""
@@ -39,7 +53,6 @@ def batch_neighborhood_search(points, radius, max_neighbors, device):
     """Perform neighborhood search on the GPU in batches."""
     points = points.to(device)
     dist_matrix = torch.cdist(points, points)
-    # neighbors_list = [(dist_matrix[i] <= radius).nonzero(as_tuple=True)[0] for i in range(len(points))]
     neighbors_list = []
 
     for i in range(len(points)):
@@ -206,43 +219,68 @@ def calculate_curvature_and_roughness(config):
                         output_dir,
                         filename)
 
+
+# Utility function for CPU memory monitoring
+@contextmanager
+def cpu_memory_monitoring():
+    process = psutil.Process()
+    peak_memory = [0]  # Using a list to allow modification within the nested function
+    stop_event = threading.Event()
+
+    def monitor_memory():
+        while not stop_event.is_set():
+            mem = process.memory_info().rss
+            if mem > peak_memory[0]:
+                peak_memory[0] = mem
+            time.sleep(0.1)  # Adjust the sleep interval as needed
+
+    monitor_thread = threading.Thread(target=monitor_memory)
+    monitor_thread.start()
+
+    try:
+        yield peak_memory
+    finally:
+        stop_event.set()
+        monitor_thread.join()
+
+# Utility function for GPU memory monitoring
+@contextmanager
+def gpu_memory_monitoring():
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+    try:
+        yield
+    finally:
+        pass  # No cleanup required for GPU monitoring
+
 def main():
     # Start tracking time
     start_time = time.time()
     
-    # Start tracking memory usage
-    process = psutil.Process()
-    start_memory = process.memory_info().rss / 1024 / 1024  # Convert to MB
-    
-    # Start tracking GPU memory
-    if torch.cuda.is_available():
-        start_gpu_memory = torch.cuda.memory_allocated() / 1024 / 1024  # Convert to MB
-    else:
-        start_gpu_memory = 0
-    
-    config_path = Path('./input_params/calc_curvature_roughness_input_amiri.json')
-    config = load_config(config_path)
-    
-    calculate_curvature_and_roughness(config)
+    # Begin CPU and GPU memory monitoring
+    with cpu_memory_monitoring() as peak_memory:
+        with gpu_memory_monitoring():
+            # Computational part
+            config_path = Path('./input_params/calc_curvature_roughness_input_zmachine.json')
+            config = load_config(config_path)
+            calculate_curvature_and_roughness(config)
     
     # End tracking time
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    
-    # End tracking memory usage
-    end_memory = process.memory_info().rss / 1024 / 1024  # Convert to MB
-    memory_used = end_memory - start_memory
-    
-    # End tracking GPU memory
+    elapsed_time = time.time() - start_time
+
+    # Convert peak memory to MB
+    peak_cpu_memory_mb = peak_memory[0] / (1024 * 1024)
+
+    # Retrieve peak GPU memory usage
     if torch.cuda.is_available():
-        end_gpu_memory = torch.cuda.memory_allocated() / 1024 / 1024  # Convert to MB
-        gpu_memory_used = end_gpu_memory - start_gpu_memory
+        peak_gpu_memory_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
     else:
-        gpu_memory_used = 0
-    
+        peak_gpu_memory_mb = 0
+
+    # Print results
     print(f"Elapsed Time: {elapsed_time:.2f} seconds")
-    print(f"CPU Memory Used: {memory_used:.2f} MB")
-    print(f"GPU Memory Used: {gpu_memory_used:.2f} MB")
+    print(f"Peak CPU Memory Used: {peak_cpu_memory_mb:.2f} MB")
+    print(f"Peak GPU Memory Used: {peak_gpu_memory_mb:.2f} MB")
 
 if __name__ == "__main__":
     main()

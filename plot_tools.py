@@ -1,3 +1,20 @@
+"""
+Contributor: fzhcis@rit.edu
+Version: 1.0
+Last Updated: 11/19/2024
+Description:
+This module contains functions for generating and displaying histograms of image data and input vectors, 
+as well as displaying unwrapped images with titles and colorbars.
+Functions:
+----------
+- get_image_histogram(image_data: np.ndarray, output_dir: Path, title: str = '', saveflag: bool = False) -> None:
+- get_histogram(input_vec: np.ndarray, output_dir: Path, title: str = '', saveflag: bool = False) -> None:
+    Generate and display a histogram of values in the input vector data.
+- display_unwrapped_images(subplot_images: tuple[np.ndarray], titles: tuple[str], output_dir: Path, 
+    colormap: str = 'plasma', saveflag: bool = False) -> None:
+    Display images with titles and colorbars.
+"""
+
 import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
@@ -129,3 +146,56 @@ def get_histogram(input_vec: np.ndarray, output_dir:Path, title: str = '', savef
     if saveflag:
         fig.savefig(f'{output_dir}/Histogram_{title}.png', dpi=300)
         print(f'Histogram saved to {output_dir} directory')
+
+
+def display_unwrapped_images(subplot_images: tuple[np.ndarray], 
+                             titles: tuple[str],
+                             output_dir: Path,
+                             colormap: str = 'plasma', 
+                             saveflag: bool = False,
+                             ) -> None:
+    """
+    Display images with titles and colorbars.
+
+    Parameters:
+    subplot_images (np.ndarray): A tuple of images to display.
+    titles (str): Titles for the images.
+    colormap (str): Colormap to use for displaying the images. Default is 'plasma'.
+    saveflag (bool): If True, save the images to the output_dir. Default is False.
+
+    Returns:
+    None
+    """
+    AZIMUTH_NORM_SCALE = 360
+    ZENITH_NORM_SCALE = 135
+    # Since degree resolution=0.25: 360/0.25=1440
+    CANVAS_WIDTH = 1440 
+    CANVAS_HEIGHT = 540
+    num_subplots = len(subplot_images)
+    fig, axes = plt.subplots(num_subplots, 1, figsize=(12, 4*num_subplots))
+
+    # Set the colormap to something more visually friendly
+    colormap = colormap  # e.g.: 'jet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
+
+    # Define custom ticks using np.linspace
+    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
+    x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
+
+    for ax, subplot_img, title in zip(axes, subplot_images, titles):
+        im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
+        ax.set_xlabel('Azimuth Angle (degrees)')
+        ax.set_ylabel('Zenith from Z (degree)')
+        ax.set_xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
+        ax.set_yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Adjust colorbar size
+        ax.set_title(title)
+    
+    plt.tight_layout()
+    plt.show()
+
+    if saveflag:
+        for i, title in enumerate(titles):
+            plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
+        
+        fig.savefig(output_dir / 'combined_unwrapped_images.png')
+        print(f'Images saved to {output_dir} directory')
