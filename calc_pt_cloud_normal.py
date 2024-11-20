@@ -13,6 +13,9 @@ import json
 from pathlib import Path
 from preprocess_point_cloud import preprocess_point_cloud
 
+# Ignore warnings
+pd.options.mode.chained_assignment = None  # Disable SettingWithCopyWarning
+
 def load_config(json_path):
     """Load configuration from a JSON file."""
     with open(json_path, 'r') as file:
@@ -20,7 +23,7 @@ def load_config(json_path):
     # return Path(config["filename"]), Path(config["output_dir"])
     return config
 
-def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max):
+def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, visualize=False):
     """Process the point cloud by estimating normals and saving the result."""
     # Preprocess the point cloud
     df_filtered = preprocess_point_cloud(filename, range1metres_max=range_max, range1metres_min=range_min)
@@ -45,7 +48,8 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max):
     print(f'Point cloud with normals saved to {output_file_path}!')
 
     # Visualize to check the normals
-    o3d.visualization.draw_geometries([pcd], point_show_normal=True)
+    if visualize:
+        o3d.visualization.draw_geometries([pcd], point_show_normal=True)
 
 def main():
     # Load the configuration file for input paths
@@ -53,9 +57,13 @@ def main():
     config_dic = load_config(config_path)
     filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
     range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]
+    visualize = config_dic["visualize"]
 
     # Process the point cloud
-    calc_normals_of_pt_cloud(filename, output_dir, range_min=range_min, range_max=range_max)
+    calc_normals_of_pt_cloud(filename, output_dir, 
+                             range_min=range_min, 
+                             range_max=range_max,
+                             visualize=visualize)
 
 if __name__ == "__main__":
     main()
