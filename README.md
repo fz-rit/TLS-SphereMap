@@ -24,3 +24,13 @@ pip install torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-geometric
 
 ```
+
+# Usage
+- First, calculate the normals of the point cloud.
+    - Make a copy of the `calc_pt_cloud_normal_inputs.json` file and adjust the input output paths in the json file
+    - Adjust the path pointing to the new json file in `calc_pt_cloud_normal.py`
+    - run:  
+        ```
+        python calc_pt_cloud_normal.py
+        ```
+- Second, generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.4.ipynb` and then run the whole notebook.
