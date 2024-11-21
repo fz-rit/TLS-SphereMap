@@ -1,0 +1,7 @@
+{
+    "filename": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/palau_2024/AURSET3/forest/UMBCBL009_2024-03-28-00-35-40_AURSET3NorthU_060180_003712.800_1151376296.txt",
+    "output_dir": "/home/fzhcis/mylab/data/point_cloud_segmentation/unwrap_outputs/AURSET3/UMBCBL009_2024-03-28-00-35-40_AURSET3NorthU_060180_003712.800_1151376296",
+    "range1metres_min": 0.25,
+    "range1metres_max": 25.0,
+    "visualize": false
+}

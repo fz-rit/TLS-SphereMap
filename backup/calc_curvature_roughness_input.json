@@ -1,0 +1,14 @@
+{
+    "filename": "/mnt/data/point_cloud_segmentation/selected_data/UMBCBL009_2024-03-28-02-47-26_ALRSET12_060180_000200.800_1830507489.txt",
+    "output_dir": "/mnt/outputs/point_cloud_segmentation/run2",
+    "curvature_radius": 0.1,
+    "roughness_radius": 0.2,
+    "max_neighbors": 10,
+    "histogram_title": "Curvature",
+    "histogram_saveflag": true,
+    "batch_num": 20,
+    "range1metres_min": 0.5,
+    "range1metres_max": 20.0,
+    "visualize": false,
+    "export": true
+}
