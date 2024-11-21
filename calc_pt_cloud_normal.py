@@ -41,6 +41,8 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, visuali
     normals = np.asarray(pcd.normals)
     df_filtered[['nx', 'ny', 'nz']] = normals
     print(df_filtered.head())
+    print(f"Output dataframe shape: {df_filtered.shape}.")
+    print(f'Point cloud with normals calculated!')
 
     # Save the result to a text file
     output_file_path = output_dir / f'{filename.stem}_filtered_normaled.txt'
@@ -53,7 +55,7 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, visuali
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine.json')
+    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_amiri.json')
     config_dic = load_config(config_path)
     filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
     range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]

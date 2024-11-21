@@ -1,4 +1,7 @@
 {
-    "filename": "C:/Users/fzhcis/Documents/projects/from_RobC/for_Fei/data/palau_2024/ALRSET1/UMBCBL009_2024-03-28-02-47-26_ALRSET12_060180_000200.800_1830507489.txt",
-    "output_dir": "C:/Users/fzhcis/Documents/mylab/tls_demo/outputs/1111"
+    "filename": "G:/My Drive/projects_with_Jan/for_Fei/harvard_forest_2021/033/33_05.las",
+    "output_dir": "G:/My Drive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_05",
+    "range1metres_min": 0.25,
+    "range1metres_max": 30.0,
+    "visualize": false
 }

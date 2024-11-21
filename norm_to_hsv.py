@@ -4,7 +4,21 @@ from matplotlib.colors import hsv_to_rgb
 from pandas import DataFrame
 
 def normals_to_color(normals: np.ndarray) -> np.ndarray:
+    normals = np.round(normals, decimals=5)
     # Step 2: Convert normals to spherical coordinates (azimuth and elevation)
+    if np.isnan(normals).any():
+        print("Normals contain NaN values")
+        raise ValueError("Normals should not contain NaN values")
+    # Ensure normals are within the range [-1, 1]
+    if not np.all((normals >= -1) & (normals <= 1)):
+        print(f"Normals range per column: \
+              \nnx min={normals[:, 0].min()}, \
+              \nnx max={normals[:, 0].max()}, \
+              \nny min={normals[:, 1].min()}, \
+              \nny max={normals[:, 1].max()}, \
+              \nnz min={normals[:, 2].min()}, \
+              \nnz max={normals[:, 2].max()}")
+        raise ValueError("Normals should be in the range [-1, 1]")
     azimuth = np.arctan2(normals[:, 1], normals[:, 0])  # Angle in the XY plane
     elevation = np.arcsin(normals[:, 2])  # Angle relative to the Z-axis
 

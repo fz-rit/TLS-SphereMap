@@ -1,5 +1,7 @@
 import pandas as pd
 from pathlib import Path
+import laspy
+import numpy as np
 
 AZIMUTH_NORM_SCALE = 360
 ZENITH_NORM_SCALE = 135
@@ -7,7 +9,67 @@ ZENITH_NORM_SCALE = 135
 CANVAS_WIDTH = 1440 
 CANVAS_HEIGHT = 540
 
+def read_point_cloud(filename: Path) -> pd.DataFrame:
+    """
+    Reads a point cloud from a file and returns it as a pandas DataFrame.
+    Parameters:
+    filename (Path): The path to the point cloud file. Supported file extensions are '.txt' and '.las'.
+    Returns:
+    pd.DataFrame: A DataFrame containing the point cloud data with columns:
+        - 'X': X coordinates
+        - 'Y': Y coordinates
+        - 'Z': Z coordinates
+        - 'zenith': Zenith angle (in degrees, range: 0 to 180)
+        - 'azimuth': Azimuth angle (in degrees, range: 0 to 360)
+        - 'range1metres': Range in meters
+        - 'Intensity': Intensity of the return
+        - 'Return Number': Return number
+    Raises:
+    ValueError: If the file extension is not supported.
+    """
+    if filename.suffix == '.txt':
+        # Define column names if there's no header
+        column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
 
+        # Try reading the file assuming there is a header
+        try:
+            df = pd.read_csv(filename, sep=',')
+            # Check if the first row looks like column names (e.g., by type or value checks)
+            if set(df.columns).intersection(column_names):  # Adjust this condition as needed for your data
+                print("Header detected.")
+            else:
+                print("No header detected, re-reading with predefined column names.")
+                df = pd.read_csv(filename, sep=',', names=column_names)
+        except Exception as e:
+            print(f"Error reading file: {e}")
+            df = pd.read_csv(filename, sep=',', names=column_names)
+    elif filename.suffix == '.las':
+        # Read the LAS file with laspy and then convert to dataframe.
+        with laspy.open(filename) as las_file:
+            las = las_file.read()
+            scale_factors = las.header.scales
+            las_x = las.X * scale_factors[0]
+            las_y = las.Y * scale_factors[1]
+            las_z = las.Z * scale_factors[2]
+            data = {
+            'X': las_x,
+            'Y': las_y,
+            'Z': las_z,
+            'Intensity': las.intensity,
+            'Return Number': np.array(las.return_number),}
+            df = pd.DataFrame(data)
+            # Calculate azimuth in degrees
+            df['azimuth'] = np.arctan2(las_y, las_x) * 180 / np.pi
+            # Remap azimuth values: [0, 180] stays the same, [-1, -180] becomes [181, 360]
+            df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+            # Calculate zenith in degrees (0 to 180)
+            df['zenith'] = np.arctan2((las_x ** 2 + las_y ** 2) ** 0.5, las_z) * 180 / np.pi
+            df['range1metres'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
+    else:
+        raise ValueError(f"Unsupported file extension: {filename.suffix}")
+
+    return df
+        
 
 
 def preprocess_point_cloud(filename: Path, 
@@ -42,32 +104,17 @@ def preprocess_point_cloud(filename: Path,
     4. Ensures the pixel indices are within the bounds of the canvas.
     """
     
-    # Step 1: Read the file as a pandas DataFrame
-    # Define column names if there's no header
-    column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
-
-    # Try reading the file assuming there is a header
-    try:
-        df = pd.read_csv(filename, sep=',')
-        # Check if the first row looks like column names (e.g., by type or value checks)
-        if set(df.columns).intersection(column_names):  # Adjust this condition as needed for your data
-            print("Header detected.")
-        else:
-            print("No header detected, re-reading with predefined column names.")
-            df = pd.read_csv(filename, sep=',', names=column_names)
-    except Exception as e:
-        print(f"Error reading file: {e}")
-        df = pd.read_csv(filename, sep=',', names=column_names)
+    # # Step 1: Read the file as a pandas DataFrame
+    df = read_point_cloud(filename)
 
     # Step 2: Clean the dataset
     df_filtered = df[
         (df['Return Number'] == 1)
         & (df['Intensity'] >= 50)
-        & (df['Intensity'] <= 1000)
+        & (df['Intensity'] <= 1000) # experimentally determined
         & (df['range1metres'] >= range1metres_min)
         & (df['range1metres'] <= range1metres_max) 
     ]
-
 
     # Step 3: Extract scanning angles and map to pixel coordinates
     # Map azimuth (0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
@@ -84,3 +131,9 @@ def preprocess_point_cloud(filename: Path,
     df_filtered['y_pix'] = df_filtered['y_pix'].clip(0, CANVAS_HEIGHT - 1)
 
     return df_filtered
+
+# Example usage
+if __name__ == "__main__":
+    filename = Path(r"G:\My Drive\projects_with_Jan\for_Fei\harvard_forest_2021\033\33_01.las")
+    df = preprocess_point_cloud(filename)
+    print(df.head())

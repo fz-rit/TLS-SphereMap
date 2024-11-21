@@ -187,7 +187,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
         ax.set_xlabel('Azimuth Angle (degrees)')
-        ax.set_ylabel('Zenith from Z (degree)')
+        ax.set_ylabel('Elevation from Z (degree)')
         ax.set_xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
         ax.set_yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Adjust colorbar size
@@ -220,7 +220,7 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     plt.xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
     plt.yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
     plt.xlabel('Azimuth Angle (degrees)')
-    plt.ylabel('Zenith from Z (degree)')
+    plt.ylabel('Elevation from Z (degree)')
     plt.show()
 
     if saveflag:
