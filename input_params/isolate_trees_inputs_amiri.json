@@ -1,0 +1,19 @@
+{
+    "cloudcompare_path": "C:\\Program Files\\CloudCompare\\CloudCompare.exe",
+    "input_file": "G:\\My Drive\\projects_with_Jan\\point_cloud_segmentation\\unwrap_outputs\\harvard_forest_33\\33_01\\33_01_filtered_normaled.txt",
+    "output_dir": "G:\\My Drive\\projects_with_Jan\\point_cloud_segmentation\\output",
+    "parameters": {
+        "skip": 1,
+        "precision": 8,
+        "lambda1": 1.0,
+        "k1": 5,
+        "decimate_resolution1": 0.05,
+        "lambda2": 20,
+        "k2": 20,
+        "max_gap": 2.0,
+        "decimate_resolution2": 0.1,
+        "rho": 0.5,
+        "vertical_overlap_weight": 0.5,
+        "log_file": "cloudcompare_treeiso_log.txt"
+    }
+}
