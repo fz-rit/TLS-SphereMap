@@ -88,14 +88,16 @@ def reformat_outputfile(root_dir: Union[str, Path], digit_num: int=5, del_interm
     df.drop(columns=["init_segs", "intermediate_segs"], inplace=True, errors='ignore')
 
     # Write the reformatted data to the output file
-    # df.to_csv(output_file, index=False, float_format=f'%{digit_num}f')
     df.to_csv(output_file, index=False, float_format='%g')
     print(f"Reformatted data written to {output_file}")
     
 
     if del_intermid_file:
+        original_file = root_dir / (intermediate_file.name.split('_filtered_normaled_')[0] + '_filtered_normaled.txt')
+        original_file.unlink()
         intermediate_file.unlink()
         print(f"Intermediate file {intermediate_file} deleted.")
+        print(f"Original file {original_file} deleted.")
         
 
     return output_file

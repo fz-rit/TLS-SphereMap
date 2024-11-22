@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
 from skimage import io
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 AZIMUTH_NORM_SCALE = 360
 ZENITH_NORM_SCALE = 135
@@ -201,6 +202,76 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
             plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
         
         fig.savefig(output_dir / 'combined_unwrapped_images.png')
+        print(f'Images saved to {output_dir} directory')
+
+
+
+
+def display_single_band_img_wt_discrete_values(
+    image_data: np.ndarray,
+    output_dir: Path,
+    title: str = "Point Density Map",
+    saveflag: bool = False
+) -> None:
+    """
+    Displays a single-band image with discrete values using a custom colormap, and optionally saves the image.
+
+    Parameters
+    ----------
+    image_data : np.ndarray
+        The image data to display, expected to contain discrete integer values.
+    output_dir : Path
+        The directory where the image will be saved if `saveflag` is True.
+    title : str, optional
+        The title of the image, by default "Point Density Map".
+    saveflag : bool, optional
+        If True, saves the image to the output directory, by default False.
+
+    Returns
+    -------
+    None
+        This function does not return any value.
+    """
+    # Display the image with the discrete colormap
+    fig, ax = plt.subplots(figsize=(12, 4))
+    unique_values = np.unique(image_data)
+    num_unique_values = len(unique_values)
+
+    if num_unique_values < 50:
+        colors = plt.get_cmap('jet', num_unique_values)(np.arange(num_unique_values))
+    else:
+        # Sample the 'jet' colormap to get 50 colors
+        jet_colors = plt.get_cmap('jet', 50)(np.linspace(0, 1, 50))
+        # Repeat the colors to match the number of unique values
+        repeated_colors = np.tile(jet_colors, (int(np.ceil(num_unique_values / 50)), 1))[:num_unique_values]
+        # Shuffle the colors to make adjacent values more distinguishable
+        np.random.seed(0)  # For reproducibility
+        np.random.shuffle(repeated_colors)
+        colors = repeated_colors
+
+    colors[0] = [0, 0, 0, 1]  # Set the color for zero to black (RGBA)
+    cmap = ListedColormap(colors)
+
+    # Create a boundary norm with explicit bounds
+    boundaries = np.concatenate([[unique_values[0] - 0.5], unique_values + 0.5])
+    norm = BoundaryNorm(boundaries, num_unique_values)
+
+    im = ax.imshow(image_data, cmap=cmap, norm=norm)
+    cbar = fig.colorbar(im, ax=ax, ticks=unique_values)
+    cbar.set_ticklabels([str(int(i)) for i in unique_values])
+    cbar.set_label('Points per pixel')
+    ax.set_title(title)
+    plt.show()
+
+
+    if saveflag:
+        # Save the raw image without labels or colorbars
+        normalized_data = norm(image_data)
+        rgba_image = cmap(normalized_data)
+        plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
+
+        # # Save the displayed image with annotations
+        # fig.savefig(output_dir / f'{title}.png', dpi=600)
         print(f'Images saved to {output_dir} directory')
 
 
