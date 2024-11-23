@@ -233,7 +233,7 @@ def display_single_band_img_wt_discrete_values(
         This function does not return any value.
     """
     # Display the image with the discrete colormap
-    fig, ax = plt.subplots(figsize=(12, 4))
+    fig, ax = plt.subplots(figsize=(18, 5))
     unique_values = np.unique(image_data)
     num_unique_values = len(unique_values)
 
@@ -245,7 +245,7 @@ def display_single_band_img_wt_discrete_values(
         # Repeat the colors to match the number of unique values
         repeated_colors = np.tile(jet_colors, (int(np.ceil(num_unique_values / 50)), 1))[:num_unique_values]
         # Shuffle the colors to make adjacent values more distinguishable
-        np.random.seed(0)  # For reproducibility
+        np.random.seed(1)  # For reproducibility
         np.random.shuffle(repeated_colors)
         colors = repeated_colors
 

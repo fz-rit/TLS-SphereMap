@@ -34,4 +34,10 @@ pip install torch-geometric
         ```
         python calc_pt_cloud_normal.py
         ```
-- Second, generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.4.ipynb` and then run the whole notebook.
+- Second, generate treeiso single-tree segmentation labels, 
+    - Make a copy of the `isolate_trees_inputs_amiri.json` file and adjust the input output paths in the json file 
+    - Adjust the path pointing to the new json file in `isolate_trees.py` and run it with  
+        ```
+        python isolate_trees.py
+        ```
+- Third, generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.5.ipynb` and then run the whole notebook.

@@ -1,6 +1,6 @@
 {
-    "filename": "G:/My Drive/projects_with_Jan/for_Fei/harvard_forest_2021/033/33_01.las",
-    "output_dir": "G:/My Drive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_01",
+    "filename": "G:/My Drive/projects_with_Jan/for_Fei/harvard_forest_2021/033/33_04.las",
+    "output_dir": "G:/My Drive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_04",
     "range1metres_min": 0.25,
     "range1metres_max": 30.0,
     "visualize": false
