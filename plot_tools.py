@@ -161,7 +161,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
                              output_dir: Path,
                              colormap: str = 'plasma', 
                              saveflag: bool = False,
-                             ) -> None:
+                             upside_down: bool = False) -> None:
     """
     Display images with titles and colorbars.
 
@@ -182,13 +182,13 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     colormap = colormap  # e.g.: 'jet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
 
     # Define custom ticks using np.linspace
-    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
+    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1) if upside_down else 135 - np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
     x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
-
+    y_label = 'Elevation Angle (degree)' if upside_down else 'Zenith Angle (degree)'
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
         ax.set_xlabel('Azimuth Angle (degrees)')
-        ax.set_ylabel('Elevation from Z (degree)')
+        ax.set_ylabel(y_label)
         ax.set_xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
         ax.set_yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Adjust colorbar size
@@ -199,7 +199,8 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 
     if saveflag:
         for i, title in enumerate(titles):
-            plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
+            if title == 'Intensity Map (adjusted)':
+                plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
         
         fig.savefig(output_dir / 'combined_unwrapped_images.png')
         print(f'Images saved to {output_dir} directory')
@@ -278,12 +279,15 @@ def display_single_band_img_wt_discrete_values(
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
                             figure_title: str, 
                             output_dir: Path, 
-                            saveflag: bool = False) -> None:
+                            saveflag: bool = False,
+                            upside_down: bool = False,
+                            ) -> None:
     """
     Display the unwrapped RGB image with custom ticks.
     """
-    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
+    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1) if upside_down else 135 - np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
     x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
+    y_label = 'Elevation Angle (degree)' if upside_down else 'Zenith Angle (degree)'
     plt.figure(figsize=(12, 6))
     plt.imshow(rgb_image, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
     
@@ -291,7 +295,7 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     plt.xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
     plt.yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
     plt.xlabel('Azimuth Angle (degrees)')
-    plt.ylabel('Elevation from Z (degree)')
+    plt.ylabel(y_label)
     plt.show()
 
     if saveflag:

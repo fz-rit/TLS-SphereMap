@@ -75,7 +75,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
 def preprocess_point_cloud(filename: Path, 
                            range1metres_min: float = 0.25, 
                            range1metres_max: float = 15.0,
-                           upside_down: bool = True) -> pd.DataFrame:
+                           upside_down: bool = False) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
     
@@ -121,9 +121,9 @@ def preprocess_point_cloud(filename: Path,
     df_filtered['x_pix'] = ((df_filtered['azimuth'] / AZIMUTH_NORM_SCALE) * (CANVAS_WIDTH - 1)).astype(int)
 
     # Map zenith (0-135 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), flipping the y-axis
-    if not upside_down:
+    if not upside_down: # for Harvard Forest datasets, y_pix = 0 is at the top, zenith ranges from 0 to 135, where 0 is the top and 135 is the bottom.
         df_filtered['y_pix'] = ((df_filtered['zenith'] / ZENITH_NORM_SCALE) * (CANVAS_HEIGHT - 1)).astype(int)
-    else:
+    else: # for Mangrove datasets, y_pix = 0 is at the bottom, zenith ranges from 0 to 135, where 0 is the bottom and 135 is the top.
         df_filtered['y_pix'] = (((ZENITH_NORM_SCALE - df_filtered['zenith']) / ZENITH_NORM_SCALE) * (CANVAS_HEIGHT - 1)).astype(int)
 
     # Ensure pixel indices are within bounds
