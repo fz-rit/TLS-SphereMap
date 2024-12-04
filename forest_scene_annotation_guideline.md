@@ -75,6 +75,7 @@ This guideline is designed to ensure consistency and accuracy when labeling fore
 ---
 
 
+
 ## **3. Mask Encoding**
 
 The segmentation map is provided in two formats:
@@ -82,15 +83,14 @@ The segmentation map is provided in two formats:
 1. A **colorized RGB PNG file**, where each label is represented by a unique color.
 2. A **monochrome TIFF file**, where grayscale values correspond to specific labels derived from the RGB image.
 
-| Label Name    | Segmentation Label | RGB Color                                             | Grayscale Value |
-|---------------|--------------------|-------------------------------------------------------|-----------------|
-| Leaves        | 1                  | [0, 166, 81] <br> ![#00A651](https://via.placeholder.com/15/00A651/000000?text=+) | 122             |
-| Bark          | 2                  | [0, 174, 239] <br> ![#00AEEF](https://via.placeholder.com/15/00AEEF/000000?text=+) | 141             |
-| Soil          | 3                  | [255, 242, 0] <br> ![#FFF200](https://via.placeholder.com/15/FFF200/000000?text=+) | 233             |
-| Miscellaneous | 4                  | [237, 28, 36] <br> ![#ED1C24](https://via.placeholder.com/15/ED1C24/000000?text=+) | 100             |
+| Label Name    | Segmentation Label | RGB Color        | Color Patch | Grayscale Value |
+|---------------|--------------------|------------------|-------------|-----------------|
+| Leaves        | 1                  | [0, 166, 81]     | 🟩          | 122             |
+| Bark          | 2                  | [0, 174, 239]    | 🟦          | 141             |
+| Soil          | 3                  | [255, 242, 0]    | 🟨          | 233             |
+| Miscellaneous | 4                  | [237, 28, 36]    | 🟥          | 100             |
 
 ---
-
 
 ## 4. Dataset Checklist
 Before completing annotation:
