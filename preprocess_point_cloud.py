@@ -75,6 +75,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
 def preprocess_point_cloud(filename: Path, 
                            range1metres_min: float = 0.25, 
                            range1metres_max: float = 15.0,
+                           clean_pc: bool = True,
                            upside_down: bool = False) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
@@ -108,13 +109,16 @@ def preprocess_point_cloud(filename: Path,
     df = read_point_cloud(filename)
 
     # Step 2: Clean the dataset
-    df_filtered = df[
-        (df['Return Number'] == 1)
-        & (df['Intensity'] >= 50)
-        & (df['Intensity'] <= 1000) # experimentally determined
-        & (df['range1metres'] >= range1metres_min)
-        & (df['range1metres'] <= range1metres_max) 
-    ]
+    if clean_pc:
+        df_filtered = df[
+            (df['Return Number'] == 1)
+            & (df['Intensity'] >= 50)
+            & (df['Intensity'] <= 1000) # experimentally determined
+            & (df['range1metres'] >= range1metres_min)
+            & (df['range1metres'] <= range1metres_max) 
+        ]
+    else:
+        df_filtered = df
 
     # Step 3: Extract scanning angles and map to pixel coordinates
     # Map azimuth (0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)

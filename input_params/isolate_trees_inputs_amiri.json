@@ -1,7 +1,7 @@
 {
     "cloudcompare_path": "C:\\Program Files\\CloudCompare\\CloudCompare.exe",
-    "root_dir": "G:\\My Drive\\projects_with_Jan\\point_cloud_segmentation\\unwrap_outputs\\harvard_forest_33\\33_01",
-    "input_file": "33_01_filtered_normaled.txt",
+    "root_dir": "G:\\My Drive\\projects_with_Jan\\point_cloud_segmentation\\unwrap_outputs\\harvard_forest_33\\33_04",
+    "input_file": "33_04_filtered_normaled.txt",
     "keep_intermid_file": false,
     "parameters": {
         "skip": 1,

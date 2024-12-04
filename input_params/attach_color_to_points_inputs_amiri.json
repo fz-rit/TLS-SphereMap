@@ -1,7 +1,0 @@
-{
-    "root_dir": "G:/My Drive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_01",
-    "pt_cloud_filename": "33_01_filtered_normaled_treeiso.txt",
-    "seg_map_rgb_filename": "seg_map_manual_33_01.png",
-    "seg_map_mono_filename": "seg_map_manual_33_01.tif",
-    "output_dir": "G:/My Drive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_01/outputs"
-}

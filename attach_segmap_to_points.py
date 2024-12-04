@@ -191,7 +191,7 @@ def attach_segmentation_color_label_to_points(pt_cloud_path: Path,
     Parameters:
     -----------
     pt_cloud_path : Path
-        The path to the point cloud data file in CSV format.
+        The path to the point cloud data file in either .las or .txt format.
     seg_map_rgb_path : Path
         The path to the segmentation map RGB image file.
     seg_map_mono_path : Path
@@ -205,7 +205,12 @@ def attach_segmentation_color_label_to_points(pt_cloud_path: Path,
         The DataFrame with additional columns for RGB values and segmentation labels.
     """
     # Read the point cloud data
-    pts_df = read_point_cloud(pt_cloud_path)
+    if pt_cloud_path.suffix == '.las':
+        pts_df = preprocess_point_cloud(pt_cloud_path, clean_pc=False, upside_down=False)
+    elif pt_cloud_path.suffix == '.txt':
+        pts_df = read_point_cloud(pt_cloud_path)
+    else:
+        raise ValueError(f"Unsupported file extension: {pt_cloud_path.suffix}")
     pts_df = pts_df.reset_index(drop=True)
     seg_map_rgb = io.imread(seg_map_rgb_path)  # (height, width, rgb-channels)
     seg_map_gray = io.imread(seg_map_mono_path)  # (height, width)
@@ -215,6 +220,9 @@ def attach_segmentation_color_label_to_points(pt_cloud_path: Path,
     pts_df_colored_labeled = attach_seg_map_label_to_points(pts_df_colored, seg_map_gray)
 
     # Save the colorized point cloud to a text file
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+        print(f'Created output directory: {output_dir}!!!')
     output_file_path = output_dir / f'{pt_cloud_path.stem}_wt_segmap.txt'
     pts_df_colored_labeled.to_csv(output_file_path, sep=',', index=False)
     print(f'Colorized point cloud data saved to {output_file_path}!')
@@ -224,7 +232,7 @@ def attach_segmentation_color_label_to_points(pt_cloud_path: Path,
 
 if __name__ == '__main__':
 
-    json_path = Path('./input_params/attach_color_to_points_inputs_amiri.json')
+    json_path = Path('./input_params/attach_segmap_to_points_amiri.json')
     with open(json_path, 'r') as file:
         config = json.load(file)
 
