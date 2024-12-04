@@ -76,7 +76,7 @@ This guideline is designed to ensure consistency and accuracy when labeling fore
 
 
 
-## **3. Mask Encoding**
+## 3. Segmentation Map Preparation
 
 The segmentation map is provided in two formats:
 
