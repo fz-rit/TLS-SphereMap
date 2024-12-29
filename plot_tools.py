@@ -92,7 +92,11 @@ def get_image_histogram(image_data: np.ndarray, output_dir:Path, title: str = ''
         print(f'Histogram saved to {output_dir} directory')
 
 
-def get_histogram(input_vec: np.ndarray, output_dir:Path, title: str = '', saveflag: bool = False) -> None:
+def get_histogram(input_vec: np.ndarray, 
+                  output_dir:Path, 
+                  title: str = '', 
+                  saveflag: bool = False,
+                  log_y: bool = False) -> None:
     """
     Generate and display a histogram of values in the input_vec data.
 
@@ -142,8 +146,13 @@ def get_histogram(input_vec: np.ndarray, output_dir:Path, title: str = '', savef
     ax2.set_ylabel('Normalized Portion', color='orange')
     ax2.tick_params(axis='y', labelcolor='orange')
 
+    if log_y:
+        ax1.set_yscale('log')
+        ax2.set_yscale('log')
+
     # Add grid, legend, and title
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
+    ax2.grid(axis='y', linestyle='--', alpha=0.7)
     plt.title(f'Histogram of {title}')
     fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
 
