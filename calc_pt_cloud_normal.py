@@ -20,12 +20,11 @@ def load_config(json_path):
     """Load configuration from a JSON file."""
     with open(json_path, 'r') as file:
         config = json.load(file)
-    # return Path(config["filename"]), Path(config["output_dir"])
     return config
 
 def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_down, visualize=False):
     """Process the point cloud by estimating normals and saving the result."""
-    # Preprocess the point cloud
+    # Filter the point cloud by range values
     df_filtered = preprocess_point_cloud(filename, range1metres_max=range_max, range1metres_min=range_min, upside_down=upside_down)
 
     # Load point cloud data and create PointCloud object
@@ -70,7 +69,7 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_amiri.json')
+    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine.json')
     config_dic = load_config(config_path)
     filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
     range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]

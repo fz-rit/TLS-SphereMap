@@ -233,7 +233,7 @@ def attach_segmentation_color_label_to_points(pt_cloud_path: Path,
 
 if __name__ == '__main__':
 
-    json_path = Path('./input_params/attach_segmap_to_points_amiri.json')
+    json_path = Path('./input_params/attach_segmap_to_points_zmachine.json')
     with open(json_path, 'r') as file:
         config = json.load(file)
 
@@ -242,5 +242,6 @@ if __name__ == '__main__':
     seg_map_rgb_path = root_dir / config["seg_map_rgb_filename"]
     seg_map_mono_path = root_dir / config["seg_map_mono_filename"]
     output_dir = Path(config["output_dir"])
+    output_dir = root_dir if output_dir == Path("") else output_dir
 
     attach_segmentation_color_label_to_points(pt_cloud_path, seg_map_rgb_path, seg_map_mono_path, output_dir)

@@ -85,6 +85,7 @@ The segmentation map is provided in two formats:
 
 | Label Name    | Segmentation Label | RGB Color        | Color Patch | Grayscale Value |
 |---------------|--------------------|------------------|-------------|-----------------|
+| Void          | 0                  | [0, 0, 0]        | ⬛          | 0               |
 | Leaves        | 1                  | [0, 166, 81]     | 🟩          | 122             |
 | Bark          | 2                  | [0, 174, 239]    | 🟦          | 141             |
 | Soil          | 3                  | [255, 242, 0]    | 🟨          | 233             |

@@ -110,11 +110,15 @@ def preprocess_point_cloud(filename: Path,
 
     # Step 2: Clean the dataset
     if clean_pc:
+        # df_filtered = df[
+        #     (df['Return Number'] == 1)
+        #     & (df['Intensity'] >= 50)
+        #     & (df['Intensity'] <= 1000) # experimentally determined
+        #     & (df['range1metres'] >= range1metres_min)
+        #     & (df['range1metres'] <= range1metres_max) 
+        # ]
         df_filtered = df[
-            (df['Return Number'] == 1)
-            & (df['Intensity'] >= 50)
-            & (df['Intensity'] <= 1000) # experimentally determined
-            & (df['range1metres'] >= range1metres_min)
+            (df['range1metres'] >= range1metres_min)
             & (df['range1metres'] <= range1metres_max) 
         ]
     else:
