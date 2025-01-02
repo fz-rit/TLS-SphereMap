@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from skimage import io
+import json
 from preprocess_point_cloud import preprocess_point_cloud
 
 
@@ -23,7 +24,7 @@ def attach_segmentation_colors_to_points(pts_df: pd.DataFrame, seg_map_path: Pat
     pd.DataFrame
         The DataFrame with additional columns for RGB values.
     """
-    # Step 8: Attach the color of the pixels in the segmentation map back to the points
+    # Attach the color of the pixels in the segmentation map back to the points
     ## read the segmented image
     seg_map = io.imread(seg_map_path)  # (height, width, rgb-channels)
 
@@ -49,6 +50,7 @@ def attach_segmentation_colors_to_points(pts_df: pd.DataFrame, seg_map_path: Pat
     print(f'Colorized point cloud data saved to {output_file_path}!')
     
     return pts_df
+
 
 if __name__ == '__main__':
     pt_cloud_path = Path(r'C:\Users\fzhcis\Documents\projects\from_RobC\for_Fei\data\palau_2024\ALRSET1\UMBCBL009_2024-03-28-02-47-26_ALRSET12_060180_000200.800_1830507489.txt')

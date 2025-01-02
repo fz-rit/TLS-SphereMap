@@ -1,7 +1,7 @@
 
 # Annotation Guideline for Forest Scene Semantic Segmentation
 
-This guideline is designed to ensure consistency and accuracy when labeling forest scenes for semantic segmentation. It defines the labeling rules for five categories: **Leaves**, **Bark (trunk and branch)**, **Grass and Shrubs**, **Soil**, and **Miscellaneous**.
+This guideline is designed to ensure consistency and accuracy when labeling forest scenes for semantic segmentation. It defines the labeling rules for five categories: **Leaves**, **Bark**, **Soil**, and **Miscellaneous**.
 
 ---
 
@@ -9,8 +9,12 @@ This guideline is designed to ensure consistency and accuracy when labeling fore
 - **Dominance**: Label each pixel based on the dominant feature visible in that pixel.
 - **Precision**: Annotate boundaries as accurately as possible. Use zoom-in tools in annotation software to ensure fine detail.
 - **Overlapping Features**: Prioritize the more prominent feature in the hierarchy:
-  - **Hierarchy**: Bark > Leaves > Grass/Shrubs > Soil > Miscellaneous.
+  - **Hierarchy**: Bark > Leaves > Miscellaneous > Soil.
 - **Occlusions**: Label visible portions of partially occluded objects. If fully obscured, label based on the covering object.
+### **Practical Tips**  
+- **Priority Hierarchy**: `Miscellaneous > Bark > Leaves > Soil` or `Miscellaneous > Leaves > Bark > Soil`.  
+- **Label Order**: Reverse the priority hierarchy: Soil > Leaves or Bark (whichever is dominant) > Miscellaneous. Be more lenient with earlier categories (tolerate more false positives).  
+- **Colorization**: Follow the priority hierarchy: Miscellaneous > Leaves or Bark > Soil.  
 
 ---
 
@@ -30,7 +34,7 @@ This guideline is designed to ensure consistency and accuracy when labeling fore
 
 ---
 
-### b. Bark (Trunk and Branch)
+### b. Bark
 - **Definition**: Pixels corresponding to woody parts of the tree, including trunks and branches.
 - **Inclusions**:
   - Main trunk and exposed branches.
@@ -44,25 +48,10 @@ This guideline is designed to ensure consistency and accuracy when labeling fore
 
 ---
 
-### c. Grass and Shrubs
-- **Definition**: Pixels corresponding to ground-level green vegetation, including grasses, shrubs, and any understory plants.
-- **Inclusions**:
-  - Grass patches, even if sparse.
-  - Low shrubs and small bushes.
-  - Ground-cover vegetation like moss or vines.
-- **Exclusions**:
-  - Trees or tree canopy (label as "Leaves" or "Bark").
-  - Fallen branches or deadwood (label as "Miscellaneous").
-- **Edge Cases**:
-  - For areas where grass and shrubs overlap with soil, prioritize "Grass and Shrubs" if vegetation is dominant.
-
----
-
-### d. Soil (Including Rocks)
+### c. Soil
 - **Definition**: Pixels corresponding to exposed ground, including soil, rocks, and areas without vegetation.
 - **Inclusions**:
   - Bare ground with or without vegetation debris.
-  - Rocks and boulders.
   - Dry or muddy soil.
 - **Exclusions**:
   - Grass or shrubs covering soil (label as "Grass and Shrubs").
@@ -77,35 +66,34 @@ This guideline is designed to ensure consistency and accuracy when labeling fore
 - **Inclusions**:
   - Human-made objects (e.g., targets, LiDAR stands, measurement tools).
   - People or animals in the scene.
+  - Rocks and boulders.
 - **Exclusions**:
-  - Rocks or natural terrain (label as "Soil").
   - Fallen branches or logs (label as "Miscellaneous" or exclude depending on context).
 - **Edge Cases**:
   - If objects are partially visible, label only the visible parts.
 
 ---
 
-## 3. Practical Annotation Tips
-- **Labeling Software**: Use tools like LabelImg, Labelbox, or CVAT for polygon-based or pixel-level annotations.
-- **Zooming**: Zoom in for detailed boundary labeling, especially around small objects like branches.
-- **Save Progress**: Frequently save your annotations to avoid losing work.
+
+
+## 3. Segmentation Map Preparation
+
+The segmentation map is provided in two formats:
+
+1. A **colorized RGB PNG file**, where each label is represented by a unique color.
+2. A **monochrome TIFF file**, where grayscale values correspond to specific labels derived from the RGB image.
+
+| Label Name    | Segmentation Label | RGB Color        | Color Patch | Grayscale Value |
+|---------------|--------------------|------------------|-------------|-----------------|
+| Void          | 0                  | [0, 0, 0]        | ⬛          | 0               |
+| Leaves        | 1                  | [0, 166, 81]     | 🟩          | 122             |
+| Bark          | 2                  | [0, 174, 239]    | 🟦          | 141             |
+| Soil          | 3                  | [255, 242, 0]    | 🟨          | 233             |
+| Miscellaneous | 4                  | [237, 28, 36]    | 🟥          | 100             |
 
 ---
 
-## 4. Mask Encoding
-When exporting segmentation masks, assign unique pixel values to each label:
-
-| Label              | Pixel Value in Mask |
-|--------------------|---------------------|
-| Leaves             | 1                   |
-| Bark (trunk/branch)| 2                   |
-| Grass and Shrubs   | 3                   |
-| Soil (including rocks) | 4              |
-| Miscellaneous      | 5                   |
-
----
-
-## 5. Dataset Checklist
+## 4. Dataset Checklist
 Before completing annotation:
 - Review for missing or ambiguous labels.
 - Verify boundary consistency between adjacent categories.

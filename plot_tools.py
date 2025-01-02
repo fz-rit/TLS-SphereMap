@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
 from skimage import io
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 AZIMUTH_NORM_SCALE = 360
 ZENITH_NORM_SCALE = 135
@@ -91,7 +92,11 @@ def get_image_histogram(image_data: np.ndarray, output_dir:Path, title: str = ''
         print(f'Histogram saved to {output_dir} directory')
 
 
-def get_histogram(input_vec: np.ndarray, output_dir:Path, title: str = '', saveflag: bool = False) -> None:
+def get_histogram(input_vec: np.ndarray, 
+                  output_dir:Path, 
+                  title: str = '', 
+                  saveflag: bool = False,
+                  log_y: bool = False) -> None:
     """
     Generate and display a histogram of values in the input_vec data.
 
@@ -141,8 +146,13 @@ def get_histogram(input_vec: np.ndarray, output_dir:Path, title: str = '', savef
     ax2.set_ylabel('Normalized Portion', color='orange')
     ax2.tick_params(axis='y', labelcolor='orange')
 
+    if log_y:
+        ax1.set_yscale('log')
+        ax2.set_yscale('log')
+
     # Add grid, legend, and title
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
+    ax2.grid(axis='y', linestyle='--', alpha=0.7)
     plt.title(f'Histogram of {title}')
     fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
 
@@ -160,7 +170,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
                              output_dir: Path,
                              colormap: str = 'plasma', 
                              saveflag: bool = False,
-                             ) -> None:
+                             upside_down: bool = False) -> None:
     """
     Display images with titles and colorbars.
 
@@ -181,13 +191,13 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     colormap = colormap  # e.g.: 'jet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
 
     # Define custom ticks using np.linspace
-    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
+    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1) if upside_down else 135 - np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
     x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
-
+    y_label = 'Elevation Angle (degree)' if upside_down else 'Zenith Angle (degree)'
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
         ax.set_xlabel('Azimuth Angle (degrees)')
-        ax.set_ylabel('Elevation from Z (degree)')
+        ax.set_ylabel(y_label)
         ax.set_xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
         ax.set_yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Adjust colorbar size
@@ -198,21 +208,95 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 
     if saveflag:
         for i, title in enumerate(titles):
-            plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
+            if title == 'Intensity Map (adjusted)':
+                plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
         
         fig.savefig(output_dir / 'combined_unwrapped_images.png')
+        print(f'Images saved to {output_dir} directory')
+
+
+
+
+def display_single_band_img_wt_discrete_values(
+    image_data: np.ndarray,
+    output_dir: Path,
+    title: str = "Point Density Map",
+    saveflag: bool = False
+) -> None:
+    """
+    Displays a single-band image with discrete values using a custom colormap, and optionally saves the image.
+
+    Parameters
+    ----------
+    image_data : np.ndarray
+        The image data to display, expected to contain discrete integer values.
+    output_dir : Path
+        The directory where the image will be saved if `saveflag` is True.
+    title : str, optional
+        The title of the image, by default "Point Density Map".
+    saveflag : bool, optional
+        If True, saves the image to the output directory, by default False.
+
+    Returns
+    -------
+    None
+        This function does not return any value.
+    """
+    # Display the image with the discrete colormap
+    fig, ax = plt.subplots(figsize=(18, 5))
+    unique_values = np.unique(image_data)
+    num_unique_values = len(unique_values)
+
+    if num_unique_values < 50:
+        colors = plt.get_cmap('jet', num_unique_values)(np.arange(num_unique_values))
+    else:
+        # Sample the 'jet' colormap to get 50 colors
+        jet_colors = plt.get_cmap('jet', 50)(np.linspace(0, 1, 50))
+        # Repeat the colors to match the number of unique values
+        repeated_colors = np.tile(jet_colors, (int(np.ceil(num_unique_values / 50)), 1))[:num_unique_values]
+        # Shuffle the colors to make adjacent values more distinguishable
+        np.random.seed(1)  # For reproducibility
+        np.random.shuffle(repeated_colors)
+        colors = repeated_colors
+
+    colors[0] = [0, 0, 0, 1]  # Set the color for zero to black (RGBA)
+    cmap = ListedColormap(colors)
+
+    # Create a boundary norm with explicit bounds
+    boundaries = np.concatenate([[unique_values[0] - 0.5], unique_values + 0.5])
+    norm = BoundaryNorm(boundaries, num_unique_values)
+
+    im = ax.imshow(image_data, cmap=cmap, norm=norm)
+    cbar = fig.colorbar(im, ax=ax, ticks=unique_values)
+    cbar.set_ticklabels([str(int(i)) for i in unique_values])
+    cbar.set_label('Points per pixel')
+    ax.set_title(title)
+    plt.show()
+
+
+    if saveflag:
+        # Save the raw image without labels or colorbars
+        normalized_data = norm(image_data)
+        rgba_image = cmap(normalized_data)
+        plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
+
+        # # Save the displayed image with annotations
+        # fig.savefig(output_dir / f'{title}.png', dpi=600)
         print(f'Images saved to {output_dir} directory')
 
 
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
                             figure_title: str, 
                             output_dir: Path, 
-                            saveflag: bool = False) -> None:
+                            saveflag: bool = False,
+                            upside_down: bool = False,
+                            ) -> None:
     """
     Display the unwrapped RGB image with custom ticks.
     """
-    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
+    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1) if upside_down else 135 - np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
     x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
+    y_label = 'Elevation Angle (degree)' if upside_down else 'Zenith Angle (degree)'
     plt.figure(figsize=(12, 6))
     plt.imshow(rgb_image, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
     
@@ -220,7 +304,7 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     plt.xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
     plt.yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
     plt.xlabel('Azimuth Angle (degrees)')
-    plt.ylabel('Elevation from Z (degree)')
+    plt.ylabel(y_label)
     plt.show()
 
     if saveflag:

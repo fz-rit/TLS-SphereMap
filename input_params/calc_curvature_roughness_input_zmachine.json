@@ -1,0 +1,12 @@
+{
+    "filename": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_03/outputs/33_03_filtered_normaled.txt",
+    "output_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_03/outputs",
+    "curvature_radius": 0.06,
+    "roughness_radius": 0.06,
+    "max_neighbors": 20,
+    "histogram_saveflag": true,
+    "batch_num_zenith": 9,
+    "batch_num_azimuth": 4,
+    "interactive_visualize": true,
+    "export": true
+}
