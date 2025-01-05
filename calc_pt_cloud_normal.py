@@ -59,6 +59,9 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_
     print(f'Point cloud with normals calculated!')
 
     # Save the result to a text file
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+        print(f'Output directory does not exist! Now created at {output_dir}!')
     output_file_path = output_dir / f'{filename.stem}_filtered_normaled.txt'
     df_filtered.to_csv(output_file_path, sep=',', index=False, float_format='%.5f')
     print(f'Point cloud with normals saved to {output_file_path}!')
