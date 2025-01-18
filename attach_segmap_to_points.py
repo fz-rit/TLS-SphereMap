@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from skimage import io
 import json
-from preprocess_point_cloud import preprocess_point_cloud, read_point_cloud
+from preprocess_point_cloud import preprocess_point_cloud, read_raw_point_cloud
 from scipy.ndimage import distance_transform_edt
 from matplotlib import pyplot as plt
 import cv2
@@ -209,7 +209,7 @@ def attach_segmentation_color_label_to_points(pt_cloud_path: Path,
     if pt_cloud_path.suffix == '.las':
         pts_df = preprocess_point_cloud(pt_cloud_path, clean_pc=False, upside_down=False)
     elif pt_cloud_path.suffix == '.txt':
-        pts_df = read_point_cloud(pt_cloud_path)
+        pts_df = read_raw_point_cloud(pt_cloud_path)
     else:
         raise ValueError(f"Unsupported file extension: {pt_cloud_path.suffix}")
     pts_df = pts_df.reset_index(drop=True)

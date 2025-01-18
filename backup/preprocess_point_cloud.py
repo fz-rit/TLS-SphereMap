@@ -3,12 +3,11 @@ from pathlib import Path
 import laspy
 import numpy as np
 
-HORIZONTAL_FOV = 360.0
-VERTICAL_FOV = 135.0
-VERTICAL_ANGLE_RESOLUTION = 0.25
-HORIZONTAL_ANGLE_RESOLUTION = 0.25
-CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data
-CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data
+AZIMUTH_NORM_SCALE = 360
+ZENITH_NORM_SCALE = 135
+# Since degree resolution=0.25: 360/0.25=1440
+CANVAS_WIDTH = 1440 
+CANVAS_HEIGHT = 540
 
 def convert_SemanticKitti_bin_to_pcd(bin_file: Path, pcd_file: Path):
     """
@@ -71,37 +70,7 @@ def calculate_zenith_angles(las_x: np.ndarray, las_y: np.ndarray, las_z: np.ndar
 
     return zenith_angles # range from 0 to 180
 
-
-
-def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Map azimuth and elevation angles to pixel coordinates on the unwrapped image.
-    
-    Parameters:
-        azimuth (np.ndarray): Azimuth angles in degrees.
-        elevation (np.ndarray): Elevation angles in degrees.
-
-    Returns:
-        tuple[np.ndarray, np.ndarray]: x and y pixel coordinates
-
-    """
-
-    # Map azimuth (e.g., 0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
-    x_pix = (azimuth / HORIZONTAL_ANGLE_RESOLUTION).astype(int)
-
-    # Map elevation angle (e.g., -45 ~ 90 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), 
-    # flipping the y-axis since elevation increases from bottom to top while 
-    # pixel indices increase from top to bottom.
-    y_pix = CANVAS_HEIGHT - ((elevation - elevation.min()) / VERTICAL_ANGLE_RESOLUTION).astype(int)
-
-    # Ensure pixel indices are within bounds, in case x_pix or y_pix goes beyond 540 or 1440
-    x_pix = x_pix.clip(0, CANVAS_WIDTH - 1)
-    y_pix = y_pix.clip(0, CANVAS_HEIGHT - 1)
-
-    return x_pix, y_pix
-
-
-def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
+def read_point_cloud(filename: Path) -> pd.DataFrame:
     """
     Reads a point cloud from a file and returns it as a pandas DataFrame.
     Parameters:
@@ -120,24 +89,23 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
     ValueError: If the file extension is not supported.
     """
     if filename.suffix == '.txt':
-        print("Reading a text file - for Mongrove roots.")
+        # Define column names if there's no header
+        column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
+
+        # Try reading the file assuming there is a header
         try:
-            # Try reading the file assuming there is a header
             df = pd.read_csv(filename, sep=',')
             # Check if the first row looks like column names (e.g., by type or value checks)
-            if set(df.columns).intersection(column_names): # check if any of the predefined column names are in the dataframe
+            if set(df.columns).intersection(column_names):  # Adjust this condition as needed for your data
                 print("Header detected.")
             else:
-                print("No header detected. Now trying to read the file with predefined column names.")
-                column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
+                print("No header detected, re-reading with predefined column names.")
                 df = pd.read_csv(filename, sep=',', names=column_names)
-            df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
-            df['elevation'] = df['zenith'] - 90
         except Exception as e:
             print(f"Error reading file: {e}")
-            
+            df = pd.read_csv(filename, sep=',', names=column_names)
     elif filename.suffix == '.las':
-        print("Reading a .las file, for Harvard Forest data.")
+        # Read the LAS file with laspy and then convert to dataframe.
         with laspy.open(filename) as las_file:
             las = las_file.read()
             scale_factors = las.header.scales
@@ -161,7 +129,7 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
             df['zenith'] = zenith_angles
             df['range1metres'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
     elif filename.suffix == '.bin':
-        print("Reading a .bin file, for SemanticKitti data.")
+        # Read the SemanticKitti .bin file and convert to dataframe.
         points = np.fromfile(filename, dtype=np.float32)
         points = points.reshape((-1, 4))
         df = pd.DataFrame(points, columns=['X', 'Y', 'Z', 'Intensity'])
@@ -179,8 +147,14 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
     
     print(f"Read {len(df)} points from {filename}")
     print(f"Columns: {df.columns}")
-    for col in df.columns:
-        print(f"Range of {col}: {df[col].min()} to {df[col].max()}")
+    print(f"Range of azimuth: {df['azimuth'].min()} to {df['azimuth'].max()}")
+    print(f"Range of zenith: {df['zenith'].min()} to {df['zenith'].max()}")
+    print(f"Range of range1metres: {df['range1metres'].min()} to {df['range1metres'].max()}")
+    print(f"Range of Intensity: {df['Intensity'].min()} to {df['Intensity'].max()}")
+    print(f"Range of Return Number: {df['Return Number'].min()} to {df['Return Number'].max()}")
+    print(f"Range of X: {df['X'].min()} to {df['X'].max()}")
+    print(f"Range of Y: {df['Y'].min()} to {df['Y'].max()}")
+    print(f"Range of Z: {df['Z'].min()} to {df['Z'].max()}")
 
     return df
         
@@ -189,7 +163,8 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
 def preprocess_point_cloud(filename: Path, 
                            range1metres_min: float = 0.25, 
                            range1metres_max: float = 15.0,
-                           clean_pc: bool = True) -> pd.DataFrame:
+                           clean_pc: bool = True,
+                           upside_down: bool = False) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
     
@@ -197,7 +172,6 @@ def preprocess_point_cloud(filename: Path,
     filename (Path): The path to the point cloud data file in CSV format.
     range1metres_min (float): Minimum threshold for range1metres filtering, in meters.
     range1metres_max (float): Maximum threshold for range1metres filtering, in meters.
-    clean_pc (bool): Whether to filter the point cloud data based on range1metres_min and range1metres_max.
     
     Returns:
     pandas.DataFrame: A DataFrame containing the filtered and processed point cloud data with additional columns for pixel coordinates.
@@ -220,7 +194,7 @@ def preprocess_point_cloud(filename: Path,
     """
     
     # # Step 1: Read the file as a pandas DataFrame
-    df = read_raw_point_cloud(filename)
+    df = read_point_cloud(filename)
 
     # Step 2: Clean the dataset
     if clean_pc:
@@ -230,6 +204,20 @@ def preprocess_point_cloud(filename: Path,
         ]
     else:
         df_filtered = df
+
+    # Step 3: Extract scanning angles and map to pixel coordinates
+    # Map azimuth (e.g., 0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
+    df_filtered['x_pix'] = ((df_filtered['azimuth'] / AZIMUTH_NORM_SCALE) * (CANVAS_WIDTH - 1)).astype(int)
+
+    # Map zenith (e.g., 0-135 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), flipping the y-axis
+    if not upside_down: # for Harvard Forest datasets, y_pix = 0 is at the top, zenith ranges from 0 to 135, where 0 is the top and 135 is the bottom.
+        df_filtered['y_pix'] = ((df_filtered['zenith'] / ZENITH_NORM_SCALE) * (CANVAS_HEIGHT - 1)).astype(int)
+    else: # for Mangrove datasets, y_pix = 0 is at the bottom, zenith ranges from 0 to 135, where 0 is the bottom and 135 is the top.
+        df_filtered['y_pix'] = (((ZENITH_NORM_SCALE - df_filtered['zenith']) / ZENITH_NORM_SCALE) * (CANVAS_HEIGHT - 1)).astype(int)
+
+    # Ensure pixel indices are within bounds
+    df_filtered['x_pix'] = df_filtered['x_pix'].clip(0, CANVAS_WIDTH - 1)
+    df_filtered['y_pix'] = df_filtered['y_pix'].clip(0, CANVAS_HEIGHT - 1)
 
     return df_filtered
 

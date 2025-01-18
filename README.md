@@ -27,6 +27,19 @@ pip install torch-geometric
 ```
 
 # Usage
+1) Prepare input files, current supported input formats:
+    - ".txt" - from Palau Mongrove scans, derived from .gbl files using, scalar fields apart from x/y/z: 
+        1. zenith angle (0-135) 
+            - Explanation: zenith angle is defined as the angle between the vertical line (directly above the observer) and an observed object in the sky. A zenith angle of 0° means the object is directly overhead. However, notice that LiDAR was set upside down for scanning the roots, so 0 degree means the point is right under the LiDAR, and 135 degree means the point that was 45 degree above the lidar.
+        2. azimuth angle (0-360)
+        3. range1meter (0-R; usually R<100)
+        4. intensity (aka remission; 0-4000)
+        5. return number (1 or 2)
+    - ".las" - from Harvard Forest scans, scalar fields apart from x/y/z:
+        1. intensity (aka remission; 0-4000)
+        2. return number (1 or 2)
+    - ".bin" - from SemanticKitti dataset, scalar fields apart from x/y/z:
+        1. intensity (aka remission; 0.00 - 0.99)
 1) Calculate the normals of the point cloud.
     - Make a copy of the `calc_pt_cloud_normal_inputs.json` file and adjust the input output paths in the json file
     - Adjust the path pointing to the new json file in `calc_pt_cloud_normal.py`

@@ -58,7 +58,7 @@ import psutil
 from pathlib import Path
 from tqdm import tqdm
 from preprocess_point_cloud import preprocess_point_cloud
-from plot_tools import get_histogram
+from plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 import threading
 from contextlib import contextmanager
@@ -424,19 +424,19 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
 
     if histogram_saveflag:
-        get_histogram(all_curvatures, output_dir, 
+        get_vector_histogram(all_curvatures, output_dir, 
                     title="Curvature", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(all_roughness, output_dir, 
+        get_vector_histogram(all_roughness, output_dir, 
                     title="Roughness", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(normalized_curvatures, output_dir, 
+        get_vector_histogram(normalized_curvatures, output_dir, 
                     title="Normalized Curvature", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(normalized_roughness, output_dir, 
+        get_vector_histogram(normalized_roughness, output_dir, 
                     title="Normalized Roughness", 
                     saveflag=True, 
                     log_y=True)

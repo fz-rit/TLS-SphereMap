@@ -57,8 +57,8 @@ import torch
 import psutil
 from pathlib import Path
 from tqdm import tqdm
-from preprocess_point_cloud import read_point_cloud
-from plot_tools import get_histogram
+from preprocess_point_cloud import read_raw_point_cloud
+from plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 import threading
 from contextlib import contextmanager
@@ -351,8 +351,7 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     visualize = config.get("visualize", True)
     export = config.get("export", True)
 
-    # df_filtered = preprocess_point_cloud(filename, range1metres_min, range1metres_max, clean_pc=False, upside_down=False)
-    df_filtered = read_point_cloud(filename)
+    df_filtered = pd.read_csv(filename, sep=',')
     print(f"Filtered point cloud shape: {df_filtered.shape}")
 
     num_points = df_filtered.shape[0]
@@ -382,19 +381,19 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
 
     if histogram_saveflag:
-        get_histogram(all_curvatures, output_dir, 
+        get_vector_histogram(all_curvatures, output_dir, 
                     title="Curvature", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(all_roughness, output_dir, 
+        get_vector_histogram(all_roughness, output_dir, 
                     title="Roughness", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(normalized_curvatures, output_dir, 
+        get_vector_histogram(normalized_curvatures, output_dir, 
                     title="Normalized Curvature", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(normalized_roughness, output_dir, 
+        get_vector_histogram(normalized_roughness, output_dir, 
                     title="Normalized Roughness", 
                     saveflag=True, 
                     log_y=True)

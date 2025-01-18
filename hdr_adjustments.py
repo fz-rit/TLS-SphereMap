@@ -1,7 +1,22 @@
 import numpy as np
 from skimage import exposure
 
-def hdr_adjustment(image, method='clahe', **kwargs):
+def percentile_stretching(image: np.ndarray, percent: int=1) -> np.ndarray:
+    """
+    Perform percentile stretching on the given image.
+
+    Args:
+        image: Image to stretch.
+        low: Lower percentile.
+        high: Higher percentile.
+
+    Returns: Stretched image.
+    """
+    assert 0 <= percent <= 10, f"Percentile must be between 0 and 10, but got {percent}"
+    p_low, p_high = np.percentile(image, (percent, 100-percent))
+    return exposure.rescale_intensity(image, in_range=(p_low, p_high))
+
+def contrast_enhancement(image, method='clahe', **kwargs):
     """
     Apply HDR dynamic range adjustment to an image using a specified method.
 
@@ -20,12 +35,15 @@ def hdr_adjustment(image, method='clahe', **kwargs):
     """
     # Normalize the image by dividing by the maximum value and ensure values are in range [0, 1]
     image = image.astype(np.float32)
-    image = image / np.max(image)
-    image = np.clip(image, 0, 1)
+    # image = image / np.max(image)
+    # image = np.clip(image, 0, 1)
+    stretch_percent = kwargs.get('stretch_percent', 2)
+    image = percentile_stretching(image, stretch_percent)
+    print(f"Stretching image by {stretch_percent} percent.")
 
     if method == 'clahe':
-        clip_limit = kwargs.get('clip_limit', 0.03)
-        adjusted_image = exposure.equalize_adapthist(image, clip_limit=clip_limit)
+        adjusted_image = exposure.equalize_adapthist(image)
+        print("CLAHE applied.")
 
     elif method == 'log':
         c = kwargs.get('scale_factor', 1)

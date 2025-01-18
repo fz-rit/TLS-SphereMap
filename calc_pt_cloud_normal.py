@@ -25,7 +25,7 @@ def load_config(json_path):
 def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_down, visualize=False):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
-    df_filtered = preprocess_point_cloud(filename, range1metres_max=range_max, range1metres_min=range_min, upside_down=upside_down)
+    df_filtered = preprocess_point_cloud(filename, range1metres_max=range_max, range1metres_min=range_min)
 
     # Load point cloud data and create PointCloud object
     points = df_filtered[['X', 'Y', 'Z']].to_numpy()
@@ -47,9 +47,10 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_
                                     'Return Number': 'uint8',
                                     'azimuth': 'float32',
                                     'zenith': 'float32',
+                                    'elevation': 'float32',
                                     'range1metres': 'float32',
-                                    'x_pix': 'uint16',
-                                    'y_pix': 'uint16',
+                                    # 'x_pix': 'uint16',
+                                    # 'y_pix': 'uint16',
                                     'nx': 'float32',
                                     'ny': 'float32',
                                     'nz': 'float32'
