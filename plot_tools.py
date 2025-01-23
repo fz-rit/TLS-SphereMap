@@ -21,17 +21,19 @@ import numpy as np
 from skimage import io
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
-# AZIMUTH_NORM_SCALE = 360
-# ZENITH_NORM_SCALE = 135
-# # Since degree resolution=0.25: 360/0.25=1440
-# CANVAS_WIDTH = 1440 
-# CANVAS_HEIGHT = 540
+
 HORIZONTAL_FOV = 360.0
-VERTICAL_FOV = 135.0
-VERTICAL_ANGLE_RESOLUTION = 0.25
-HORIZONTAL_ANGLE_RESOLUTION = 0.25
-CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data
-CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data
+# ======For TLS data======
+# VERTICAL_FOV = 135.0
+# VERTICAL_ANGLE_RESOLUTION = 0.25
+# HORIZONTAL_ANGLE_RESOLUTION = 0.25
+
+# ===For SemanticKitti data (Velodyne-HDL-64)===
+VERTICAL_FOV = 30.0
+VERTICAL_ANGLE_RESOLUTION = 0.4
+HORIZONTAL_ANGLE_RESOLUTION = 0.08
+CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data; 4500 for SemanticKitti data
+CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data; 75 for SemanticKitti data
 
 
 
@@ -159,14 +161,13 @@ def get_vector_histogram(input_vec: np.ndarray,
 
     normalized_counts = hist_values / hist_values.sum()  # Normalize counts
 
-    # Plot
     fig, ax1 = plt.subplots()
 
     # Handle X-ticks dynamically
     x_ticks = bin_centers
     plt.xticks(
         ticks=x_ticks,
-        labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in x_ticks],
+        # labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in x_ticks],
         rotation=45
     )
 

@@ -4,11 +4,16 @@ import laspy
 import numpy as np
 
 HORIZONTAL_FOV = 360.0
+# ======For TLS data======
 VERTICAL_FOV = 135.0
 VERTICAL_ANGLE_RESOLUTION = 0.25
 HORIZONTAL_ANGLE_RESOLUTION = 0.25
-CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data
-CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data
+
+# ===For SemanticKitti data (Velodyne-HDL-64)===
+# VERTICAL_FOV = 26.8
+# VERTICAL_ANGLE_RESOLUTION = 0.4188
+# HORIZONTAL_ANGLE_RESOLUTION = 0.08
+
 
 def convert_SemanticKitti_bin_to_pcd(bin_file: Path, pcd_file: Path):
     """
@@ -85,6 +90,9 @@ def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.n
         tuple[np.ndarray, np.ndarray]: x and y pixel coordinates
 
     """
+
+    CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data (360 azimuth range)
+    CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data (135 elevation range)
 
     # Map azimuth (e.g., 0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
     x_pix = (azimuth / HORIZONTAL_ANGLE_RESOLUTION).astype(int)
@@ -164,16 +172,18 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
         print("Reading a .bin file, for SemanticKitti data.")
         points = np.fromfile(filename, dtype=np.float32)
         points = points.reshape((-1, 4))
+
         df = pd.DataFrame(points, columns=['X', 'Y', 'Z', 'Intensity'])
-        # Calculate azimuth in degrees
-        df['azimuth'] = np.arctan2(df['Y'], df['X']) * 180 / np.pi
-        # Remap azimuth values: [0, 180] stays the same, [-1, -180] becomes [181, 360]
+        pc_x = df['X'].values
+        pc_y = df['Y'].values
+        pc_z = df['Z'].values
+        df['Return Number'] = 1
+        df['azimuth'] = np.arctan2(pc_y, pc_x) * 180 / np.pi
         df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-        # Calculate zenith in degrees range: (0 to 180)
-        zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
-        df['elevation'] = 90 - zenith_angles
+        zenith_angles = calculate_zenith_angles(pc_x, pc_y, pc_z)
+        df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
         df['zenith'] = zenith_angles
-        df['range1metres'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+        df['range1metres'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
     else:
         raise ValueError(f"Unsupported file extension: {filename.suffix}")
     
@@ -182,6 +192,9 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
     for col in df.columns:
         print(f"Range of {col}: {df[col].min()} to {df[col].max()}")
 
+    # Normalize the intensity values: first, convert to float32, then normalize
+    df['Intensity'] = df['Intensity'].astype('float32')
+    df['Intensity'] = (df['Intensity'] - df['Intensity'].min()) / (df['Intensity'].max() - df['Intensity'].min())
     return df
         
 
