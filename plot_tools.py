@@ -24,14 +24,14 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 
 HORIZONTAL_FOV = 360.0
 # ======For TLS data======
-# VERTICAL_FOV = 135.0
-# VERTICAL_ANGLE_RESOLUTION = 0.25
-# HORIZONTAL_ANGLE_RESOLUTION = 0.25
+VERTICAL_FOV = 135.0
+VERTICAL_ANGLE_RESOLUTION = 0.25
+HORIZONTAL_ANGLE_RESOLUTION = 0.25
 
-# ===For SemanticKitti data (Velodyne-HDL-64)===
-VERTICAL_FOV = 30.0
-VERTICAL_ANGLE_RESOLUTION = 0.4
-HORIZONTAL_ANGLE_RESOLUTION = 0.08
+# # ===For SemanticKitti data (Velodyne-HDL-64)===
+# VERTICAL_FOV = 30.0
+# VERTICAL_ANGLE_RESOLUTION = 0.4
+# HORIZONTAL_ANGLE_RESOLUTION = 0.08
 CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data; 4500 for SemanticKitti data
 CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data; 75 for SemanticKitti data
 
@@ -291,6 +291,7 @@ def smart_image_pie_chart(image: np.ndarray) -> None:
 
 def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
+                             key_str: str,
                              output_dir: Path,
                              colormap: str = 'plasma', 
                              saveflag: bool = False) -> None:
@@ -330,10 +331,9 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 
     if saveflag:
         for i, title in enumerate(titles):
-            if title == 'Intensity Map (adjusted)':
-                plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
+            plt.imsave(output_dir / f'{title}_{key_str}.png', subplot_images[i], cmap=colormap)
         
-        fig.savefig(output_dir / 'combined_unwrapped_images.png')
+        fig.savefig(output_dir / f'combined_unwrapped_images_{key_str}.png')
         print(f'Images saved to {output_dir} directory')
 
 

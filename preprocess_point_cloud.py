@@ -132,12 +132,12 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
         try:
             # Try reading the file assuming there is a header
             df = pd.read_csv(filename, sep=',')
+            column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
             # Check if the first row looks like column names (e.g., by type or value checks)
             if set(df.columns).intersection(column_names): # check if any of the predefined column names are in the dataframe
                 print("Header detected.")
             else:
                 print("No header detected. Now trying to read the file with predefined column names.")
-                column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
                 df = pd.read_csv(filename, sep=',', names=column_names)
             df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
             df['elevation'] = df['zenith'] - 90
@@ -195,6 +195,7 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
     # Normalize the intensity values: first, convert to float32, then normalize
     df['Intensity'] = df['Intensity'].astype('float32')
     df['Intensity'] = (df['Intensity'] - df['Intensity'].min()) / (df['Intensity'].max() - df['Intensity'].min())
+    print(f"!!Intensity normalized to range: {df['Intensity'].min()} to {df['Intensity'].max()}!!")
     return df
         
 
@@ -202,7 +203,7 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
 def preprocess_point_cloud(filename: Path, 
                            range1metres_min: float = 0.25, 
                            range1metres_max: float = 15.0,
-                           clean_pc: bool = True) -> pd.DataFrame:
+                           clean_pc: bool = False) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
     
@@ -241,6 +242,7 @@ def preprocess_point_cloud(filename: Path,
             (df['range1metres'] >= range1metres_min)
             & (df['range1metres'] <= range1metres_max) 
         ]
+        print(f"Filtered {len(df) - len(df_filtered)} / {len(df)} points based on range1metres.")
     else:
         df_filtered = df
 

@@ -22,10 +22,13 @@ def load_config(json_path):
         config = json.load(file)
     return config
 
-def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, visualize=False):
+def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, clean_pc, visualize=False):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
-    df_filtered = preprocess_point_cloud(filename, range1metres_max=range_max, range1metres_min=range_min)
+    df_filtered = preprocess_point_cloud(filename, 
+                                         range1metres_max=range_max, 
+                                         range1metres_min=range_min,
+                                         clean_pc=clean_pc)
 
     # Load point cloud data and create PointCloud object
     points = df_filtered[['X', 'Y', 'Z']].to_numpy()
@@ -71,16 +74,18 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, visuali
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine.json')
+    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine_roots.json')
     config_dic = load_config(config_path)
     filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
     range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]
+    clean_pc = config_dic["clean_pc"]
     visualize = config_dic["visualize"]
 
     # Process the point cloud
     calc_normals_of_pt_cloud(filename, output_dir, 
                              range_min=range_min, 
                              range_max=range_max,
+                             clean_pc=clean_pc,
                              visualize=visualize)
 
 if __name__ == "__main__":
