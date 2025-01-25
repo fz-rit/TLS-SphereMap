@@ -75,15 +75,16 @@ This guideline is designed to ensure consistency and accuracy when labeling **Ha
 
 ### **Harvard Forest Segmentation Table**
 
-| Label Name                   | Segmentation Label | RGB Color        | Color Patch | Grayscale Value |
-|------------------------------|--------------------|------------------|-------------|-----------------|
-| Void                         | 0                  | [0, 0, 0]        | ⚫          | 0               |
-| Trunk                        | 1                  | [0, 128, 0]      | 🟢          | 43              |
-| Ground/Terrain               | 2                  | [139, 69, 19]    | 🟤          | 76              |
-| Miscellaneous                | 3                  | [128, 0, 128]    | 🟣          | 85              |
-| Large Branches               | 4                  | [255, 165, 0]    | 🟠          | 140             |
-| Leaves/Small Branches (Canopy)| 5                 | [255, 255, 0]    | 🟡          | 170             |
-| Deadwood/Logs                | 6                  | [255, 255, 255]  | ⚪          | 255             |
+| Label Name                   | Segmentation Label | Color            |
+|------------------------------|--------------------|------------------|
+| Void                         | 0                  | Black ⚫ |
+| Ground/Terrain               | 1                  | Purple 🟣 |
+| Trunk                        | 2                  | Brown 🟤  |
+| Large Branches               | 3                  | Orange 🟠 |
+| Leaves/Small Branches (Canopy)| 4                 | Green 🟢 |
+| Deadwood/Logs                | 5                  | Yellow 🟡 |
+|Bushes/Undergrowth/Other Vegetation| 6             | Light blue 🔵 |
+| Miscellaneous                | 7                  | white ⚪ |
 
 ---
 
@@ -138,16 +139,15 @@ This guideline is designed to ensure consistency and accuracy when labeling **Ha
 
 ### **Mangrove Roots Segmentation Table**
 
-| Label Name                   | Segmentation Label | RGB Color        | Color Patch | Grayscale Value |
-|------------------------------|--------------------|------------------|-------------|-----------------|
-| Void                         | 0                  | [0, 0, 0]        | ⚫          | 0               |
-| Roots                        | 1                  | [0, 128, 0]      | 🟢          | 43              |
-| Ground                       | 2                  | [139, 69, 19]    | 🟤          | 76              |
-| Miscellaneous                | 3                  | [128, 0, 128]    | 🟣          | 85              |
-| Trunk                        | 4                  | [255, 165, 0]    | 🟠          | 140             |
-| Canopy                       | 5                  | [255, 255, 0]    | 🟡          | 170             |
-| Water                        | 6                  | [255, 255, 255]  | ⚪          | 255             |
-
+| Label Name                   | Segmentation Label | Color            |
+|------------------------------|--------------------|------------------|
+| Void                         | 0                  | Black ⚫ |
+| Roots                        | 1                  | Yellow 🟡|
+| Ground                       | 2                  | Purple 🟣|
+| Trunk                        | 4                  | Brown 🟤 |
+| Canopy                       | 5                  | Green 🟢 |
+| Water                        | 6                  | Orange 🟠|
+| Miscellaneous                | 3                  | White ⚪ |
 ---
 
 
@@ -160,4 +160,20 @@ Before finalizing annotation:
 
 ---
 
-Extra Note: [emoji-keys](https://1000logos.net/emoji-copy-and-paste/) # (Emoji Key: 🟢 🟤 🟣 🟠 🟡 ⚫ ⚪)
+Extra Note: [emoji-keys](https://1000logos.net/emoji-copy-and-paste/) # (Emoji Key: 🔵🟢 🟤 🟣 🟠 🟡 ⚫ ⚪)
+
+
+# Color Swatches
+
+Here are the color swatches displayed in a Markdown file:
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #ADD8E6; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">🔵</div> <!-- Light Blue -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #00FF00; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">🟢</div> <!-- Green -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #A52A2A; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">🟤</div> <!-- Brown -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #800080; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">🟣</div> <!-- Purple -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #FFA500; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">🟠</div> <!-- Orange -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #FFFF00; display: flex; align-items: center; justify-content: center; font-size: 24px; color: black; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">🟡</div> <!-- Yellow -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #000000; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">⚫</div> <!-- Black -->
+    <div style="width: 100px; height: 100px; border-radius: 50%; background-color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 24px; color: black; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);">⚪</div> <!-- White -->
+</div>
