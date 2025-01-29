@@ -192,10 +192,7 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
     for col in df.columns:
         print(f"Range of {col}: {df[col].min()} to {df[col].max()}")
 
-    # Normalize the intensity values: first, convert to float32, then normalize
-    df['Intensity'] = df['Intensity'].astype('float32')
-    df['Intensity'] = (df['Intensity'] - df['Intensity'].min()) / (df['Intensity'].max() - df['Intensity'].min())
-    print(f"!!Intensity normalized to range: {df['Intensity'].min()} to {df['Intensity'].max()}!!")
+    
     return df
         
 
@@ -241,11 +238,18 @@ def preprocess_point_cloud(filename: Path,
         df_filtered = df[
             (df['range1metres'] >= range1metres_min)
             & (df['range1metres'] <= range1metres_max) 
+            & (df['Intensity'] <= 2000)
         ]
-        print(f"Filtered {len(df) - len(df_filtered)} / {len(df)} points based on range1metres.")
+        print("Filtered based on range1metres and Intensity. (range1metres_min, range1metres_max, Intensity_max):", range1metres_min, range1metres_max, 2000)
     else:
         df_filtered = df
 
+    # Normalize the intensity values: first, convert to float32, then normalize to (0.1, 1.0)
+    df_filtered['Intensity'] = df_filtered['Intensity'].astype('float32')
+    df_filtered['Intensity'] = (df_filtered['Intensity'] - df_filtered['Intensity'].min()) / (df_filtered['Intensity'].max() - df_filtered['Intensity'].min())
+    print(f"!!Intensity normalized to range: {df_filtered['Intensity'].min()} to {df_filtered['Intensity'].max()}!!")
+    
+    print(f"Filtered {len(df) - len(df_filtered)} / {len(df)} points based on range1metres.")
     return df_filtered
 
 # Example usage

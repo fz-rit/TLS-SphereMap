@@ -18,7 +18,7 @@ def percentile_stretching(image: np.ndarray, percent: int=1) -> np.ndarray:
     p_low, p_high = np.percentile(image, (percent, 100-percent))
     return exposure.rescale_intensity(image, in_range=(p_low, p_high))
 
-def contrast_enhancement(image, method='clahe', **kwargs):
+def contrast_enhancement(image, method='hist_equal', **kwargs):
     """
     Apply HDR dynamic range adjustment to an image using a specified method.
 
@@ -37,44 +37,42 @@ def contrast_enhancement(image, method='clahe', **kwargs):
     """
     # Assuming image has been normalized to [0, 1]
     image = image.astype(np.float32)
-    print(f"Image value range before adjustment: [{image.min()}, {image.max()}]")
-    image = exposure.rescale_intensity(image, out_range=(0, 1))
-    print("Image rescaled to [0, 1].")
 
-    stretch_percent = kwargs.get('stretch_percent', 2)
-    image = percentile_stretching(image, stretch_percent)
-    print(f"Stretching image by {stretch_percent} percent.")
+    # Create a mask for the void pixels, with value 0
+    zero_mask = image == 0
+
+    # print(f"Image value range before adjustment: [{image.min()}, {image.max()}]")
+    # image = exposure.rescale_intensity(image[~zero_mask], out_range=(0, 1))
+    # print("Image rescaled to [0, 1].")
+
+    stretch_percent = kwargs.get('stretch_percentile', 1)
+    if stretch_percent > 0:
+        image[~zero_mask] = percentile_stretching(image[~zero_mask], stretch_percent)
+        print(f"Stretching image by {stretch_percent} percent. (Void pixels excluded)")
 
     if method == 'clahe':
         adjusted_image = exposure.equalize_adapthist(image)
         print("CLAHE applied.")
 
+    elif method == 'hist_equal':
+        adjusted_image = exposure.equalize_hist(image, mask=~zero_mask)
+        print("Global Histogram Equalization applied. (Void pixels excluded)")
+
     elif method == 'log':
         c = kwargs.get('scale_factor', 1)
-        adjusted_image = c * np.log(1 + image)
-
-    elif method == 'piecewise':
-        breakpoints = kwargs.get('breakpoints', [(0, 0.7, 5), (0.7, 0.8, 2), (0.8, 1.0, 0.5)])
-        adjusted_image = np.zeros_like(image)
-        for start, end, slope in breakpoints:
-            mask = (image >= start) & (image <= end)
-            adjusted_image[mask] = slope * (image[mask] - start)
-
-    elif method == 'sigmoid':
-        cutoff = kwargs.get('cutoff', 0.05)
-        gain = kwargs.get('gain', 2)
-        adjusted_image = exposure.adjust_sigmoid(image, cutoff=cutoff, gain=gain)
-
-    elif method == 'weighting':
-        alpha = kwargs.get('alpha', 0.02)
-        adjusted_image = np.exp(-alpha * image) * image
+        adjusted_image = image.copy()
+        adjusted_image[~zero_mask] = c * np.log(1 + image[~zero_mask])
+        print("Logarithmic Transformation applied. (Void pixels excluded)")
 
 
-    # contrast enhancement from opencv package
-    # elif method == 'contrast_stretching':
-    #     p_low, p_high = np.percentile(image, (2, 98))
-    #     adjusted_image = exposure.rescale_intensity(image, in_range=(p_low, p_high))
+    # elif method == 'sigmoid':
+    #     cutoff = kwargs.get('cutoff', 0.05)
+    #     gain = kwargs.get('gain', 2)
+    #     adjusted_image = exposure.adjust_sigmoid(image, cutoff=cutoff, gain=gain)
 
+    # elif method == 'weighting':
+    #     alpha = kwargs.get('alpha', 0.02)
+    #     adjusted_image = np.exp(-alpha * image) * image
 
     else:
         raise ValueError("Invalid method specified. Choose from 'clahe', 'log', 'piecewise', 'sigmoid', 'weighting'.")

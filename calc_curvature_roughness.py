@@ -462,7 +462,7 @@ def main() -> None:
     
     with cpu_memory_monitoring() as peak_memory:
         with gpu_memory_monitoring():
-            config_path = Path('./input_params/calc_curvature_roughness_input_zmachine_roots.json')
+            config_path = Path('./input_params/calc_curvature_roughness_input_zmachine_harvard.json')
             config = load_config(config_path)
             calculate_curvature_and_roughness(config)
     

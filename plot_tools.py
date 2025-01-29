@@ -318,6 +318,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     y_ticks = np.linspace(0, VERTICAL_FOV, CANVAS_HEIGHT + 1)
     x_ticks = np.linspace(0, HORIZONTAL_FOV, CANVAS_WIDTH + 1)
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
+        print(f"Displaying {title} image...")
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
         ax.set_xlabel('Azimuth Angle (degrees)')
         ax.set_ylabel('Elevation Angle (degree)')

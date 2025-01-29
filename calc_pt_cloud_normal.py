@@ -74,7 +74,7 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, clean_p
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine_roots.json')
+    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine_harvard.json')
     config_dic = load_config(config_path)
     filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
     range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]
