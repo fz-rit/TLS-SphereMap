@@ -170,5 +170,16 @@ Before finalizing annotation:
 
 ---
 
-Extra Note: [emoji-keys](https://1000logos.net/emoji-copy-and-paste/) \# (Emoji Key: 🟢 🟤 🟣 🟠 🟡 ⚫ ⚪)
+Extra Note: [emoji-keys](https://1000logos.net/emoji-copy-and-paste/) \# (Emoji Key: 🟢 🟤 🟣 🟠 🟡 ⚫ )
 
+
+## Example Segmentation Maps
+The segmentation maps should be saved in PNG format with the same resolution as the original images. 
+
+| Mangrove Segmentation Map | Mangrove Grayscale Segmentation Map |
+|---------------------------|-------------------------------------|
+| ![Mangrove Segmentation Map](seg_map_ALRSET1_7489.png) | ![Mangrove Grayscale Segmentation Map](seg_map_ALRSET1_7489_gray.png) |
+
+| Harvard Forest Segmentation Map | Harvard Forest Grayscale Segmentation Map |
+|---------------------------------|-------------------------------------------|
+| ![Harvard Forest Segmentation Map](seg_map_harvard_33_02.png) | ![Harvard Forest Grayscale Segmentation Map](seg_map_harvard_33_02_gray.png) |
