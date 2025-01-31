@@ -16,6 +16,7 @@ pip install laspy
 
 # To solve the open3d Segmentation fault issue.
 pip install numpy==1.26.4
+pip install plyfile
 
 # Install torch-geometric related dependencies, suppose you have PyTorch CUDA version: 12.1 and PyTorch version: 2.4.1
 pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu121.html

@@ -1,0 +1,7 @@
+{
+    "root_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_04/outputs",
+    "pt_cloud_filename": "33_04_filtered_normaled_curvature_roughness.txt",
+    "seg_map_rgb_filename": "seg_map_manual_33_04.png",
+    "seg_map_mono_filename": "seg_map_manual_33_04.tif",
+    "output_dir": ""
+}
