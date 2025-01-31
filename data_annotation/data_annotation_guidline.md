@@ -179,3 +179,7 @@ The segmentation maps should be saved in PNG format with the same resolution as 
 | Harvard Forest Segmentation Map | Harvard Forest Grayscale Segmentation Map |
 |---------------------------------|-------------------------------------------|
 | ![Harvard Forest Segmentation Map](seg_map_harvard_33_02.png) | ![Harvard Forest Grayscale Segmentation Map](seg_map_harvard_33_02_gray.png) |
+
+
+## External Resources
+- [Dataset Annotation notes](https://docs.google.com/document/d/1rY5QwgnY9a9bpdKZva34wDO-1YfdVtlOItZD6KlZcZQ/edit?usp=sharing)
