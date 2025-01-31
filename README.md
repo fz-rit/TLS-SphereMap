@@ -55,8 +55,6 @@ pip install torch-geometric
             - 'azimuth': 'float32',
             - 'zenith': 'float32',
             - 'range1metres': 'float32',
-            - 'x_pix': 'uint16',
-            - 'y_pix': 'uint16',
             - 'nx': 'float32',
             - 'ny': 'float32',
             - 'nz': 'float32'
@@ -76,8 +74,6 @@ pip install torch-geometric
             - 'azimuth': 'float32',
             - 'zenith': 'float32',
             - 'range1metres': 'float32',
-            - 'x_pix': 'uint16',
-            - 'y_pix': 'uint16',
             - 'nx': 'float32',
             - 'ny': 'float32',
             - 'nz': 'float32'
@@ -85,6 +81,7 @@ pip install torch-geometric
             - 'roughness': 'float32'
 3) Generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.7.ipynb` and then run the whole notebook.
 4) Manually label the 2D unwrapped images to get segmentation maps in RGB, e.g., `seg_map_33_01.png`.
+    - refer to the [`data_annotation_guidline.md`](data_annotation/data_annotation_guidline.md) for more details.
 5) Generate class ID based segmentaion map and then attach the class id and color to the point cloud:
     - refer to the [`seg_map_tools_readme.md`](data_annotation/seg_map_tools/seg_map_tools_readme.md) for more details.
 6) Co-register multiple scans of point clouds:
