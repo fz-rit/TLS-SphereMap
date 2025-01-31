@@ -21,126 +21,164 @@ import numpy as np
 from skimage import io
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
-AZIMUTH_NORM_SCALE = 360
-ZENITH_NORM_SCALE = 135
-# Since degree resolution=0.25: 360/0.25=1440
-CANVAS_WIDTH = 1440 
-CANVAS_HEIGHT = 540
 
-def get_image_histogram(image_data: np.ndarray, output_dir:Path, title: str = '', saveflag: bool = False) -> None:
+HORIZONTAL_FOV = 360.0
+# ======For TLS data======
+VERTICAL_FOV = 135.0
+VERTICAL_ANGLE_RESOLUTION = 0.25
+HORIZONTAL_ANGLE_RESOLUTION = 0.25
+
+# # ===For SemanticKitti data (Velodyne-HDL-64)===
+# VERTICAL_FOV = 30.0
+# VERTICAL_ANGLE_RESOLUTION = 0.4
+# HORIZONTAL_ANGLE_RESOLUTION = 0.08
+CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data; 4500 for SemanticKitti data
+CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data; 75 for SemanticKitti data
+
+
+
+def get_image_histogram(image_data: np.ndarray, 
+                        output_dir: Path, 
+                        title: str = '', 
+                        saveflag: bool = False) -> None:
     """
-    Generate and display a histogram of pixel values in the image data.
+    Generate and display a histogram of pixel values in the image data,
+    distributing bars evenly along the x-axis based on unique pixel values.
 
     Parameters:
     -----------
     image_data : np.ndarray
         A 2D array representing the density of points per pixel.
+    output_dir : Path
+        Path to the output directory for saving the histogram (if saveflag=True).
     title : str
         Title of the histogram plot.
     saveflag : bool, optional
-        If True, the function will save the histogram plot to the output_dir directory (default is False).
+        If True, the function saves the histogram plot to the output_dir directory (default is False).
 
     Returns:
     --------
     None
     """
+    # Input validation
+    if not isinstance(image_data, np.ndarray):
+        raise TypeError("image_data must be a numpy array.")
+    if image_data.ndim != 2:
+        raise ValueError("image_data must be a 2D array.")
+    if saveflag and not output_dir.is_dir():
+        raise FileNotFoundError(f"The output directory {output_dir} does not exist.")
+
     # Flatten the data to get a 1D array of values
     flattened_data = image_data.flatten()
 
     # Get unique values and their counts
-    unique_values = np.unique(flattened_data)
-    
-    # Determine the number of bins
-    if len(unique_values) > 20:
-        bins = 20  # Limit bins to 20 if there are more than 20 unique values
-        hist_values, bin_edges = np.histogram(flattened_data, bins=bins)
-        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-        normalized_counts = hist_values / hist_values.sum()  # Normalize counts
-    else:
-        values, counts = np.unique(flattened_data, return_counts=True)
-        hist_values = counts
-        bin_centers = values
-        normalized_counts = hist_values / hist_values.sum()  # Normalize counts
+    values, counts = np.unique(flattened_data, return_counts=True)
+    normalized_counts = counts / counts.sum()  # Normalize counts
+
+    # Map values to evenly spaced indices for plotting
+    x_indices = np.arange(len(values))
 
     # Create the bar plot
-    fig, ax1 = plt.subplots()
+    fig, ax1 = plt.subplots(figsize=(12, 6))
 
     # Absolute count bars
-    ax1.bar(bin_centers, hist_values, width=0.8 * (bin_centers[1] - bin_centers[0]) if len(bin_centers) > 1 else 1,
-            color='blue', alpha=0.7, label='Absolute Count')
+    ax1.bar(x_indices, counts, color='blue', alpha=0.7, label='Absolute Count')
     ax1.set_xlabel('Pixel Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
 
     # Add a second y-axis for normalized portion
     ax2 = ax1.twinx()
-    ax2.plot(bin_centers, normalized_counts, color='orange', marker='o', linestyle='-', label='Normalized Portion')
+    ax2.plot(x_indices, normalized_counts, color='orange', marker='o', linestyle='-', label='Normalized Portion')
     ax2.set_ylabel('Normalized Portion', color='orange')
     ax2.tick_params(axis='y', labelcolor='orange')
+
+    # Replace x-ticks with the actual pixel values
+    plt.xticks(x_indices, labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values], rotation=45)
 
     # Add grid, legend, and title
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
     plt.title(f'Histogram of {title}')
     fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
 
+    # Adjust layout for better spacing
     fig.tight_layout()
     plt.show()
-    print(f'Histogram:\nValues: {bin_centers}\nCounts: {hist_values}\nNormalized Counts: {normalized_counts.round(3)}')
-    
+
+    # Print histogram data
+    print(f'Histogram:\nValues: {values}\nCounts: {counts}\nNormalized Counts: {normalized_counts.round(3)}')
+
+    # Save the figure if saveflag is True
     if saveflag:
-        fig.savefig(f'{output_dir}/Histogram_{title}.png', dpi=300)
-        print(f'Histogram saved to {output_dir} directory')
+        save_path = output_dir / f'Histogram_{title}.png'
+        fig.savefig(save_path, dpi=300)
+        print(f'Histogram saved to {save_path}')
 
 
-def get_histogram(input_vec: np.ndarray, 
-                  output_dir:Path, 
-                  title: str = '', 
-                  saveflag: bool = False,
-                  log_y: bool = False) -> None:
+def get_vector_histogram(input_vec: np.ndarray, 
+                         output_dir: Path, 
+                         title: str = '', 
+                         saveflag: bool = False,
+                         log_y: bool = False) -> None:
     """
     Generate and display a histogram of values in the input_vec data.
 
     Parameters:
     -----------
-    image_data : np.ndarray
-        A 1D array.
+    input_vec : np.ndarray
+        A 1D array of numerical data for generating the histogram.
     output_dir : Path
-        Path to the output directory.
+        Path to the output directory for saving the histogram (if saveflag=True).
     title : str
         Title of the histogram plot.
     saveflag : bool, optional
-        If True, the function will save the histogram plot to the output_dir directory (default is False).
+        If True, the function saves the histogram plot to the output_dir directory (default is False).
+    log_y : bool, optional
+        If True, the Y-axes (absolute and normalized) will use logarithmic scaling (default is False).
 
     Returns:
     --------
     None
     """
-    # Get unique values and their counts
+    # Input validation
+    if not isinstance(input_vec, np.ndarray):
+        raise TypeError("input_vec must be a numpy array.")
+    if input_vec.ndim != 1:
+        raise ValueError("input_vec must be a 1D array.")
+    if saveflag and not output_dir.is_dir():
+        raise FileNotFoundError(f"The output directory {output_dir} does not exist.")
+
+    # Determine binning
     unique_values = np.unique(input_vec)
-    
-    # Determine the number of bins
     if len(unique_values) > 20:
-        bins = 20  # Limit bins to 20 if there are more than 20 unique values
+        bins = 20
         hist_values, bin_edges = np.histogram(input_vec, bins=bins)
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-        normalized_counts = hist_values / hist_values.sum()  # Normalize counts
     else:
         values, counts = np.unique(input_vec, return_counts=True)
         hist_values = counts
         bin_centers = values
-        normalized_counts = hist_values / hist_values.sum()  # Normalize counts
 
-    # Create the bar plot
+    normalized_counts = hist_values / hist_values.sum()  # Normalize counts
+
     fig, ax1 = plt.subplots()
 
+    # Handle X-ticks dynamically
+    x_ticks = bin_centers
+    plt.xticks(
+        ticks=x_ticks,
+        # labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in x_ticks],
+        rotation=45
+    )
+
     # Absolute count bars
-    ax1.bar(bin_centers, hist_values, width=0.8 * (bin_centers[1] - bin_centers[0]) if len(bin_centers) > 1 else 1,
-            color='blue', alpha=0.7, label='Absolute Count')
+    bin_width = 1 if len(bin_centers) <= 1 else 0.8 * (bin_centers[1] - bin_centers[0])
+    ax1.bar(bin_centers, hist_values, width=bin_width, color='blue', alpha=0.7, label='Absolute Count')
     ax1.set_xlabel('Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
 
-    # Add a second y-axis for normalized portion
+    # Normalized counts
     ax2 = ax1.twinx()
     ax2.plot(bin_centers, normalized_counts, color='orange', marker='o', linestyle='-', label='Normalized Portion')
     ax2.set_ylabel('Normalized Portion', color='orange')
@@ -149,28 +187,114 @@ def get_histogram(input_vec: np.ndarray,
     if log_y:
         ax1.set_yscale('log')
         ax2.set_yscale('log')
+        hist_values = np.maximum(hist_values, 1e-10)
+        normalized_counts = np.maximum(normalized_counts, 1e-10)
 
-    # Add grid, legend, and title
+    # Grid, legend, and title
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
-    ax2.grid(axis='y', linestyle='--', alpha=0.7)
     plt.title(f'Histogram of {title}')
-    fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
+    fig.legend(loc="upper right", bbox_to_anchor=(1, 0.9 if title else 1), bbox_transform=ax1.transAxes)
 
-    fig.tight_layout()
+    plt.tight_layout()
     plt.show()
     print(f'Histogram:\nValues: {bin_centers}\nCounts: {hist_values}\nNormalized Counts: {normalized_counts.round(3)}')
-    
-    if saveflag:
-        fig.savefig(f'{output_dir}/Histogram_{title}.png', dpi=300)
-        print(f'Histogram saved to {output_dir} directory')
 
+    if saveflag:
+        save_path = output_dir / f'Histogram_{title}.png'
+        fig.savefig(save_path, dpi=300)
+        print(f'Histogram saved to {save_path}')
+
+
+def smart_image_pie_chart(image: np.ndarray) -> None:
+    """
+    Generate "smart" pie charts from an input image by dynamically handling bins 
+    based on the number of unique values and normalizing data for clarity.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        The input image as a NumPy array.
+        - Single-channel (grayscale) image: 2D array of shape (H, W).
+        - RGB image: 3D array of shape (H, W, 3).
+
+    Returns
+    -------
+    None
+        Displays the generated pie chart(s) directly via matplotlib.
+    """
+
+    def generate_pie_chart(data: np.ndarray, title: str) -> None:
+        """
+        Generate a single pie chart for the given 1D pixel data, dynamically determining 
+        bins based on the number of unique values.
+        
+        Parameters
+        ----------
+        data : np.ndarray
+            1D array of values (e.g., flattened pixels).
+        title : str
+            Title to display on the pie chart.
+        """
+        unique_values = np.unique(data)
+        
+        # Determine binning strategy
+        if len(unique_values) > 20:
+            # Use 20 bins for continuous data
+            bins = 20
+            hist_values, bin_edges = np.histogram(data, bins=bins)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Midpoints of bins
+            normalized_counts = hist_values / hist_values.sum()  # Normalize counts
+            bin_labels = [f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}" for i in range(len(bin_edges) - 1)]
+        else:
+            # Use unique values for discrete data
+            values, counts = np.unique(data, return_counts=True)
+            hist_values = counts
+            bin_centers = values
+            normalized_counts = hist_values / hist_values.sum()  # Normalize counts
+            bin_labels = [str(value) for value in values]
+
+        # Handle small bins with an "Other" category
+        significant_indices = normalized_counts >= 0.01  # Threshold: 1%
+        grouped_counts = hist_values[significant_indices]
+        grouped_labels = np.array(bin_labels)[significant_indices].tolist()
+        
+        # Group bins below threshold into "Other"
+        if not np.all(significant_indices):  # Only add "Other" if there are insignificant bins
+            other_count = np.sum(hist_values[~significant_indices])
+            grouped_counts = np.append(grouped_counts, other_count)
+            grouped_labels.append("Other")
+
+        # Plot pie chart
+        wedges, texts, autotexts = plt.pie(grouped_counts, autopct='%1.1f%%')
+
+        # Add legend with labels
+        plt.legend(wedges, grouped_labels, title="Bins", loc="center left", bbox_to_anchor=(1, 0.5))
+        plt.title(f"Pie Chart for {title}")
+        plt.tight_layout()
+        plt.show()
+
+    # Main logic: Check image dimensions
+    if len(image.shape) == 2:
+        # Single-channel (grayscale)
+        data = image.flatten()
+        generate_pie_chart(data, "Single-Channel Image")
+    elif len(image.shape) == 3 and image.shape[2] == 3:
+        # 3-channel RGB
+        channel_names = ["Red", "Green", "Blue"]
+        for i, ch_name in enumerate(channel_names):
+            data = image[..., i].flatten()
+            generate_pie_chart(data, f"{ch_name} Channel")
+    else:
+        raise ValueError(
+            "Unsupported image format. Must be single-channel (H, W) or 3-channel (H, W, 3)."
+        )
 
 def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
+                             key_str: str,
                              output_dir: Path,
                              colormap: str = 'plasma', 
-                             saveflag: bool = False,
-                             upside_down: bool = False) -> None:
+                             saveflag: bool = False) -> None:
     """
     Display images with titles and colorbars.
 
@@ -191,13 +315,13 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     colormap = colormap  # e.g.: 'jet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
 
     # Define custom ticks using np.linspace
-    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1) if upside_down else 135 - np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
-    x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
-    y_label = 'Elevation Angle (degree)' if upside_down else 'Zenith Angle (degree)'
+    y_ticks = np.linspace(0, VERTICAL_FOV, CANVAS_HEIGHT + 1)
+    x_ticks = np.linspace(0, HORIZONTAL_FOV, CANVAS_WIDTH + 1)
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
+        print(f"Displaying {title} image...")
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
         ax.set_xlabel('Azimuth Angle (degrees)')
-        ax.set_ylabel(y_label)
+        ax.set_ylabel('Elevation Angle (degree)')
         ax.set_xticks(x_ticks[::int(len(x_ticks) / 10)])  # Reduce the number of x-ticks to avoid overlap
         ax.set_yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Adjust colorbar size
@@ -208,10 +332,9 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 
     if saveflag:
         for i, title in enumerate(titles):
-            if title == 'Intensity Map (adjusted)':
-                plt.imsave(output_dir / f'{title}.png', subplot_images[i], cmap=colormap)
+            plt.imsave(output_dir / f'{title}_{key_str}.png', subplot_images[i], cmap=colormap)
         
-        fig.savefig(output_dir / 'combined_unwrapped_images.png')
+        fig.savefig(output_dir / f'combined_unwrapped_images_{key_str}.png')
         print(f'Images saved to {output_dir} directory')
 
 
@@ -271,6 +394,8 @@ def display_single_band_img_wt_discrete_values(
     cbar.set_ticklabels([str(int(i)) for i in unique_values])
     cbar.set_label('Points per pixel')
     ax.set_title(title)
+    ax.set_xlabel('Azimuth Angle (degrees)')
+    ax.set_ylabel('Elevation Angle (degree)')
     plt.show()
 
 
@@ -284,19 +409,24 @@ def display_single_band_img_wt_discrete_values(
         # fig.savefig(output_dir / f'{title}.png', dpi=600)
         print(f'Images saved to {output_dir} directory')
 
+    get_image_histogram(image_data=image_data, 
+                        title=title, 
+                        saveflag=saveflag, 
+                        output_dir=output_dir)
+    smart_image_pie_chart(image_data)
+
 
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
                             figure_title: str, 
                             output_dir: Path, 
-                            saveflag: bool = False,
-                            upside_down: bool = False,
+                            saveflag: bool = False
                             ) -> None:
     """
     Display the unwrapped RGB image with custom ticks.
     """
-    y_ticks = np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1) if upside_down else 135 - np.linspace(0, ZENITH_NORM_SCALE, CANVAS_HEIGHT + 1)
-    x_ticks = np.linspace(0, AZIMUTH_NORM_SCALE, CANVAS_WIDTH + 1)
-    y_label = 'Elevation Angle (degree)' if upside_down else 'Zenith Angle (degree)'
+    y_ticks = np.linspace(0, VERTICAL_FOV, CANVAS_HEIGHT + 1)
+    x_ticks = np.linspace(0, HORIZONTAL_FOV, CANVAS_WIDTH + 1)
+    y_label = 'Elevation Angle (degree)'
     plt.figure(figsize=(12, 6))
     plt.imshow(rgb_image, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
     
@@ -310,3 +440,5 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     if saveflag:
         rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
         io.imsave(f'{output_dir}/{figure_title}.tif', rgb_image_uint8)
+
+    smart_image_pie_chart(rgb_image)

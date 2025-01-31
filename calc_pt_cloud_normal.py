@@ -22,10 +22,13 @@ def load_config(json_path):
         config = json.load(file)
     return config
 
-def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_down, visualize=False):
+def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, clean_pc, visualize=False):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
-    df_filtered = preprocess_point_cloud(filename, range1metres_max=range_max, range1metres_min=range_min, upside_down=upside_down)
+    df_filtered = preprocess_point_cloud(filename, 
+                                         range1metres_max=range_max, 
+                                         range1metres_min=range_min,
+                                         clean_pc=clean_pc)
 
     # Load point cloud data and create PointCloud object
     points = df_filtered[['X', 'Y', 'Z']].to_numpy()
@@ -43,13 +46,12 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_
                                     'X': 'float32',
                                     'Y': 'float32',
                                     'Z': 'float32',
-                                    'Intensity': 'uint16',
+                                    'Intensity': 'float32',
                                     'Return Number': 'uint8',
                                     'azimuth': 'float32',
                                     'zenith': 'float32',
+                                    'elevation': 'float32',
                                     'range1metres': 'float32',
-                                    'x_pix': 'uint16',
-                                    'y_pix': 'uint16',
                                     'nx': 'float32',
                                     'ny': 'float32',
                                     'nz': 'float32'
@@ -59,6 +61,9 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_
     print(f'Point cloud with normals calculated!')
 
     # Save the result to a text file
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+        print(f'Output directory does not exist! Now created at {output_dir}!')
     output_file_path = output_dir / f'{filename.stem}_filtered_normaled.txt'
     df_filtered.to_csv(output_file_path, sep=',', index=False, float_format='%.5f')
     print(f'Point cloud with normals saved to {output_file_path}!')
@@ -69,18 +74,18 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, upside_
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine.json')
+    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine_harvard.json')
     config_dic = load_config(config_path)
     filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
     range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]
+    clean_pc = config_dic["clean_pc"]
     visualize = config_dic["visualize"]
-    upside_down = config_dic["upside_down"]
 
     # Process the point cloud
     calc_normals_of_pt_cloud(filename, output_dir, 
                              range_min=range_min, 
                              range_max=range_max,
-                             upside_down=upside_down,
+                             clean_pc=clean_pc,
                              visualize=visualize)
 
 if __name__ == "__main__":

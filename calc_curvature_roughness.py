@@ -25,7 +25,7 @@ Functions:
         Visualizes curvature and roughness with Open3D.
     pcd_snapshot_renderer(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, curvature_radius: float, roughness_radius: float, output_dir: Path) -> None
         Renders point cloud snapshots with curvature and roughness.
-    export_results(all_points_allinone: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, output_dir: Path, filename: Path) -> None
+    export_results(all_points_allinone: np.ndarray, output_dir: Path, filename: Path) -> None
         Exports computed curvature and roughness values by appending them to the original data
         and writing out a CSV-formatted text file.
     check_and_clean_for_nans(all_curvatures: np.ndarray) -> np.ndarray
@@ -57,8 +57,8 @@ import torch
 import psutil
 from pathlib import Path
 from tqdm import tqdm
-from preprocess_point_cloud import read_point_cloud
-from plot_tools import get_histogram
+from preprocess_point_cloud import read_raw_point_cloud
+from plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 import threading
 from contextlib import contextmanager
@@ -94,7 +94,7 @@ def pad_neighbors(points_xyz: torch.Tensor,
         Tuple[torch.Tensor, torch.Tensor]: Padded neighbors and mask tensors.
     """
     padded_neighbors = []
-    mask = []
+    mask = [] # Mask to keep track of valid neighbors
     
     for idx in neighbors_list:
         neighbors = points_xyz[idx]
@@ -295,23 +295,19 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
 
 
 def export_results(all_points_allinone: pd.DataFrame, 
-                   all_curvatures: np.ndarray, 
-                   all_roughness: np.ndarray, 
+                   curvature_radius, 
+                   roughness_radius, 
                    output_dir: Path, 
                    filename: Path) -> None:
     """Append curvature and roughness to points and export.
 
     Args:
-        all_points_allinone (pd.DataFrame): DataFrame containing all point cloud data.
-        all_curvatures (np.ndarray): Array of curvature values.
-        all_roughness (np.ndarray): Array of roughness values.
+        all_points_allinone (pd.DataFrame): Point cloud DataFrame with curvature and roughness.
         output_dir (Path): Output directory.
         filename (Path): Filename for the exported file.
     """
 
-    all_points_allinone['curvature'] = all_curvatures
-    all_points_allinone['roughness'] = all_roughness
-    export_path = output_dir / f"{filename.stem}_curvature_roughness.txt"
+    export_path = output_dir / f"{filename.stem}_curvature_{curvature_radius:.2f}_roughness_{roughness_radius:.2f}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 
@@ -345,24 +341,29 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     curvature_radius = config["curvature_radius"]
     roughness_radius = config["roughness_radius"]
     max_neighbors = config["max_neighbors"]
-    batch_num_zenith = config.get("batch_num_zenith", 10)
+    batch_num_elevation = config.get("batch_num_elevation", 10)
     batch_num_azimuth = config.get("batch_num_azimuth", 10)
     histogram_saveflag = config.get("histogram_saveflag", True)
-    visualize = config.get("visualize", True)
+    visualize = config.get("interactive_visualize", True)
     export = config.get("export", True)
 
-    # df_filtered = preprocess_point_cloud(filename, range1metres_min, range1metres_max, clean_pc=False, upside_down=False)
-    df_filtered = read_point_cloud(filename)
+    df_filtered = pd.read_csv(filename, sep=',')
     print(f"Filtered point cloud shape: {df_filtered.shape}")
 
     num_points = df_filtered.shape[0]
     if num_points > 30_000:
         print("*********Large dataset detected. Processing in batches...*********")
         df_grouped = df_filtered.groupby([pd.cut(df_filtered['azimuth'], batch_num_azimuth), 
-                                          pd.cut(df_filtered['zenith'], batch_num_zenith)])
+                                          pd.cut(df_filtered['elevation'], batch_num_elevation)], 
+                                          observed=False,
+                                          sort=False)
         dfs = [group for _, group in df_grouped]
-        all_points_allinone = pd.concat(dfs)
+        all_points_allinone = pd.concat(dfs, ignore_index=True)  # Ignore the index when concatenating
+
         all_points_xyz, all_curvatures, all_roughness = process_batches(dfs, curvature_radius, roughness_radius, max_neighbors)
+
+        # Check if points in all_points_xyz are in the same order as in all_points_allinone
+        assert np.all(all_points_xyz == all_points_allinone[['X', 'Y', 'Z']].to_numpy()), "Error: Point order mismatch between batches."
     else:
         print("*********Small dataset detected. Processing all at once...*********")
         all_points_allinone = df_filtered.copy()
@@ -371,47 +372,50 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
 
     valid_mask_curv = check_and_clean_for_nans(all_curvatures)
     valid_mask_rough = check_and_clean_for_nans(all_roughness)
-    valid_mask = valid_mask_curv & valid_mask_rough
-    valid_mask = valid_mask_curv
 
-    print(f"Number of valid points: {valid_mask.sum()}")
-    all_curvatures[~valid_mask] = 0
-    all_roughness[~valid_mask] = 0
+    min_curvature = all_curvatures[valid_mask_curv].min() + 1e-4
+    min_roughness = all_roughness[valid_mask_rough].min()
+    # print(f"Number of valid points for curvature: {valid_mask_curv.sum()}/{len(valid_mask_curv)}")
+    # print(f"Number of valid points for roughness: {valid_mask_rough.sum()}/{len(valid_mask_rough)}")
+    # print(f"------------Curvature range: [{all_curvatures[valid_mask_curv].min()}, {all_curvatures[valid_mask_curv].max()}]--------------")
+    # print(f"Minimum Curvature: {min_curvature}")
+    # print(f'Num of min curvatures: {np.sum(all_curvatures[valid_mask_curv] == min_curvature)}')
+    # print(f'Num of zeros in curvature: {np.sum(all_curvatures[valid_mask_curv] == 0)}')
+    # print(f"------------Roughness range: [{all_roughness.min()}, {all_roughness.max()}]--------------")
+    # print(f"Minimum Roughness: {min_roughness}")
 
-    normalized_curvatures = (all_curvatures - all_curvatures.min()) / (all_curvatures.max() - all_curvatures.min())
-    normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
+    # Assign min values (instead of 0) to invalid points, so that they are not lost in visualization
+    all_curvatures[~valid_mask_curv] = max(min_curvature, 0) 
+    all_roughness[~valid_mask_rough] = max(min_roughness, 0)
+    all_curvatures[all_curvatures<0] = min_curvature # Assign min values to negative curvatures
 
+    all_points_allinone['curvature'] = all_curvatures
+    all_points_allinone['roughness'] = all_roughness
     if histogram_saveflag:
-        get_histogram(all_curvatures, output_dir, 
+        get_vector_histogram(all_curvatures, output_dir, 
                     title="Curvature", 
                     saveflag=True, 
                     log_y=True)
-        get_histogram(all_roughness, output_dir, 
+        get_vector_histogram(all_roughness, output_dir, 
                     title="Roughness", 
-                    saveflag=True, 
-                    log_y=True)
-        get_histogram(normalized_curvatures, output_dir, 
-                    title="Normalized Curvature", 
-                    saveflag=True, 
-                    log_y=True)
-        get_histogram(normalized_roughness, output_dir, 
-                    title="Normalized Roughness", 
                     saveflag=True, 
                     log_y=True)
 
     if visualize:
+        normalized_curvatures = (all_curvatures - all_curvatures.min()) / (all_curvatures.max() - all_curvatures.min())
+        normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
         interactive_visualize_pcd(all_points_xyz, normalized_curvatures, normalized_roughness, curvature_radius, roughness_radius)
         
     if export:    
         pcd_snapshot_renderer(all_points_xyz, 
-                              normalized_curvatures, 
-                              normalized_roughness, 
+                              all_curvatures, 
+                              all_roughness, 
                               curvature_radius, 
                               roughness_radius, 
                               output_dir)
         export_results(all_points_allinone, 
-                       normalized_curvatures, 
-                       normalized_roughness, 
+                       curvature_radius, 
+                       roughness_radius, 
                        output_dir, 
                        filename)
 
@@ -458,7 +462,7 @@ def main() -> None:
     
     with cpu_memory_monitoring() as peak_memory:
         with gpu_memory_monitoring():
-            config_path = Path('./input_params/calc_curvature_roughness_input_zmachine.json')
+            config_path = Path('./input_params/calc_curvature_roughness_input_zmachine_harvard.json')
             config = load_config(config_path)
             calculate_curvature_and_roughness(config)
     
