@@ -8,10 +8,6 @@ This guideline is designed to ensure consistency and accuracy when labeling **Ha
 
 * **Dominance**: Label each point based on the dominant feature within its spatial neighborhood.  
 * **Precision**: Annotate boundaries as accurately as possible. Use zoom tools in annotation software for detailed labeling.  
-* **Overlapping Features**: Assign labels based on the visible feature, considering occlusions and structural prominence:  
-  * For forests: **Hierarchy**: Trunk \> Large Branches \> Leaves \> Deadwood \> Ground/Terrain \> Bushes/Undergrowth \> Miscellaneous.  
-  * For mangroves: **Hierarchy**: Roots \> Trunk \> Ground \> Canopy \> Water \> Miscellaneous.  
-* **Occlusions**: For partially visible objects, label only the visible portions. For fully obscured areas, rely on the category of the covering object.
 
 ---
 
