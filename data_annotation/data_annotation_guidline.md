@@ -174,11 +174,11 @@ The segmentation maps should be saved in PNG format with the same resolution as 
 
 | Mangrove Segmentation Map | Mangrove Grayscale Segmentation Map |
 |---------------------------|-------------------------------------|
-| ![Mangrove Segmentation Map](seg_map_ALRSET1_7489.png) | ![Mangrove Grayscale Segmentation Map](seg_map_ALRSET1_7489_gray.png) |
+| ![Mangrove Segmentation Map](examples/seg_map_ALRSET1_7489.png) | ![Mangrove Grayscale Segmentation Map](examples/seg_map_ALRSET1_7489_mask_visualized.png) |
 
 | Harvard Forest Segmentation Map | Harvard Forest Grayscale Segmentation Map |
 |---------------------------------|-------------------------------------------|
-| ![Harvard Forest Segmentation Map](seg_map_harvard_33_02.png) | ![Harvard Forest Grayscale Segmentation Map](seg_map_harvard_33_02_gray.png) |
+| ![Harvard Forest Segmentation Map](examples/seg_map_harvard_33_02.png) | ![Harvard Forest Grayscale Segmentation Map](examples/seg_map_harvard_33_02_mask_visualized.png) |
 
 
 ## External Resources
