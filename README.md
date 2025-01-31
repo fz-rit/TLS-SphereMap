@@ -3,7 +3,7 @@
 
 
 # Installation
-```
+```bash
 # create a new conda environment
 conda create -n tls_env python=3.9
 conda activate tls_env
@@ -13,10 +13,11 @@ pip install open3d
 pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
 pip install scikit-image
 pip install laspy
-
-# To solve the open3d Segmentation fault issue.
-pip install numpy==1.26.4
 pip install plyfile
+
+# To solve the open3d `Segmentation fault` issue.
+pip install numpy==1.26.4
+
 
 # Install torch-geometric related dependencies, suppose you have PyTorch CUDA version: 12.1 and PyTorch version: 2.4.1
 pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
@@ -82,11 +83,10 @@ pip install torch-geometric
             - 'nz': 'float32'
             - 'curvature': 'float32'
             - 'roughness': 'float32'
-3) Generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.5.ipynb` and then run the whole notebook.
-4) Manually label the 2D unwrapped images to get segmentation maps in RGB and in grayscale, e.g., `seg_map_manual_33_01.png` and `seg_map_manual_33_01.tif`.
-5) Attach the color and label of the segmentation map to the point cloud:
-    - Make a copy of the `attach_color_to_points_inputs.json` file and then modify the paths
-    - run: `python attach_segmap_to_points.py`
+3) Generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.7.ipynb` and then run the whole notebook.
+4) Manually label the 2D unwrapped images to get segmentation maps in RGB, e.g., `seg_map_33_01.png`.
+5) Generate class ID based segmentaion map and then attach the class id and color to the point cloud:
+    - refer to the [`seg_map_tools_readme.md`](data_annotation/seg_map_tools/seg_map_tools_readme.md) for more details.
 6) Co-register multiple scans of point clouds:
-    - Use GlobalMatch to get the rigit transformation matrices.
+    - Use GlobalMatch to get the rigit transformation matrices (use original point clouds as inputs).
     - Load the point clouds and apply the transformation matrices.
