@@ -104,7 +104,7 @@ def attach_segmentation_to_points(params):
         vertex = PlyElement.describe(data_np, 'vertex')
 
         # Write to file
-        ply_data = PlyData([vertex], text=True)
+        ply_data = PlyData([vertex], text=False)
         ply_data.write(output_file)
 
     print(f"✅ Class IDs and colors attached to point cloud successfully. \nOutput file saved to: {output_file}")
