@@ -40,7 +40,9 @@ CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data
 def get_image_histogram(image_data: np.ndarray, 
                         output_dir: Path, 
                         title: str = '', 
-                        saveflag: bool = False) -> None:
+                        saveflag: bool = False,
+                        visualize: bool = True
+                        ) -> None:
     """
     Generate and display a histogram of pixel values in the image data,
     distributing bars evenly along the x-axis based on unique pixel values.
@@ -103,7 +105,7 @@ def get_image_histogram(image_data: np.ndarray,
 
     # Adjust layout for better spacing
     fig.tight_layout()
-    plt.show()
+    
 
     # Print histogram data
     print(f'Histogram:\nValues: {values}\nCounts: {counts}\nNormalized Counts: {normalized_counts.round(3)}')
@@ -113,13 +115,18 @@ def get_image_histogram(image_data: np.ndarray,
         save_path = output_dir / f'Histogram_{title}.png'
         fig.savefig(save_path, dpi=300)
         print(f'Histogram saved to {save_path}')
+    
+    if visualize:
+        plt.show()
 
 
 def get_vector_histogram(input_vec: np.ndarray, 
                          output_dir: Path, 
                          title: str = '', 
                          saveflag: bool = False,
-                         log_y: bool = False) -> None:
+                         log_y: bool = False,
+                         visualize: bool = True
+                         ) -> None:
     """
     Generate and display a histogram of values in the input_vec data.
 
@@ -196,7 +203,6 @@ def get_vector_histogram(input_vec: np.ndarray,
     fig.legend(loc="upper right", bbox_to_anchor=(1, 0.9 if title else 1), bbox_transform=ax1.transAxes)
 
     plt.tight_layout()
-    plt.show()
     print(f'Histogram:\nValues: {bin_centers}\nCounts: {hist_values}\nNormalized Counts: {normalized_counts.round(3)}')
 
     if saveflag:
@@ -204,8 +210,11 @@ def get_vector_histogram(input_vec: np.ndarray,
         fig.savefig(save_path, dpi=300)
         print(f'Histogram saved to {save_path}')
 
+    if visualize:
+        plt.show()
 
-def smart_image_pie_chart(image: np.ndarray) -> None:
+
+def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
     """
     Generate "smart" pie charts from an input image by dynamically handling bins 
     based on the number of unique values and normalizing data for clarity.
@@ -271,7 +280,7 @@ def smart_image_pie_chart(image: np.ndarray) -> None:
         plt.legend(wedges, grouped_labels, title="Bins", loc="center left", bbox_to_anchor=(1, 0.5))
         plt.title(f"Pie Chart for {title}")
         plt.tight_layout()
-        plt.show()
+
 
     # Main logic: Check image dimensions
     if len(image.shape) == 2:
@@ -288,13 +297,16 @@ def smart_image_pie_chart(image: np.ndarray) -> None:
         raise ValueError(
             "Unsupported image format. Must be single-channel (H, W) or 3-channel (H, W, 3)."
         )
+    if visualize:
+        plt.show()
 
 def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
                              key_str: str,
                              output_dir: Path,
                              colormap: str = 'plasma', 
-                             saveflag: bool = False) -> None:
+                             saveflag: bool = False,
+                             visualize: bool = True) -> None:
     """
     Display images with titles and colorbars.
 
@@ -328,7 +340,6 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
         ax.set_title(title)
     
     plt.tight_layout()
-    plt.show()
 
     if saveflag:
         for i, title in enumerate(titles):
@@ -337,6 +348,9 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
         fig.savefig(output_dir / f'combined_unwrapped_images_{key_str}.png')
         print(f'Images saved to {output_dir} directory')
 
+    if visualize:
+        plt.show()
+
 
 
 
@@ -344,7 +358,8 @@ def display_single_band_img_wt_discrete_values(
     image_data: np.ndarray,
     output_dir: Path,
     title: str = "Point Density Map",
-    saveflag: bool = False
+    saveflag: bool = False,
+    visualize: bool = True,
 ) -> None:
     """
     Displays a single-band image with discrete values using a custom colormap, and optionally saves the image.
@@ -396,7 +411,6 @@ def display_single_band_img_wt_discrete_values(
     ax.set_title(title)
     ax.set_xlabel('Azimuth Angle (degrees)')
     ax.set_ylabel('Elevation Angle (degree)')
-    plt.show()
 
 
     if saveflag:
@@ -412,14 +426,19 @@ def display_single_band_img_wt_discrete_values(
     get_image_histogram(image_data=image_data, 
                         title=title, 
                         saveflag=saveflag, 
-                        output_dir=output_dir)
-    smart_image_pie_chart(image_data)
+                        output_dir=output_dir,
+                        visualize=visualize
+                        )
+    if visualize:
+        smart_image_pie_chart(image_data)
+        plt.show()
 
 
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
                             figure_title: str, 
                             output_dir: Path, 
-                            saveflag: bool = False
+                            saveflag: bool = False,
+                            visualize: bool = True
                             ) -> None:
     """
     Display the unwrapped RGB image with custom ticks.
@@ -435,10 +454,11 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     plt.yticks(y_ticks[::int(len(y_ticks) / 10)])  # Reduce the number of y-ticks for readability
     plt.xlabel('Azimuth Angle (degrees)')
     plt.ylabel(y_label)
-    plt.show()
 
     if saveflag:
         rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
         io.imsave(f'{output_dir}/{figure_title}.tif', rgb_image_uint8)
 
-    smart_image_pie_chart(rgb_image)
+    if visualize:
+        smart_image_pie_chart(rgb_image)
+        plt.show()

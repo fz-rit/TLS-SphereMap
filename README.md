@@ -42,30 +42,10 @@ pip install torch-geometric
         2. return number (1 or 2)
     - ".bin" - from SemanticKitti dataset, scalar fields apart from x/y/z:
         1. intensity (aka remission; 0.00 - 0.99)
-1) Calculate the normals of the point cloud.
-    - Make a copy of the `calc_pt_cloud_normal_inputs.json` file and adjust the input output paths in the json file
-    - Adjust the path pointing to the new json file in `calc_pt_cloud_normal.py`
-    - run:  `python calc_pt_cloud_normal.py`
-        - output a txt file with fields:
-            - 'X': 'float32',
-            - 'Y': 'float32',
-            - 'Z': 'float32',
-            - 'Intensity': 'uint16',
-            - 'Return Number': 'uint8',
-            - 'azimuth': 'float32',
-            - 'zenith': 'float32',
-            - 'range1metres': 'float32',
-            - 'nx': 'float32',
-            - 'ny': 'float32',
-            - 'nz': 'float32'
-2) [Optional] Generate treeiso single-tree segmentation labels, 
-    - Make a copy of the `isolate_trees_inputs_amiri.json` file and adjust the input output paths in the json file 
-    - Adjust the path to the new json file in `isolate_trees.py` and run it with  `python isolate_trees.py`
-3) Generate curvature and roughness at the points.
-    - Make a copy of the `calc_curvature_roughness_input_zmachine.json` file and adjust the input output paths in the json file
-    - Adjust the path pointing to the new json file in `calc_curvature_roughness.py`
-    - run:  `python calc_curvature_roughness.py`
-        - output a txt file with fields:
+2) Calculate the spherical projection images from the point cloud:
+    - Adjust the paths in the `3D_to_2D_config_mangrove_roots.json` file
+    - run:  `python run_3d_to_2d_pipeline.py`
+        - outputs include unwrapped 2D images and a point cloud .txt file with fields:
             - 'X': 'float32',
             - 'Y': 'float32',
             - 'Z': 'float32',
@@ -79,11 +59,10 @@ pip install torch-geometric
             - 'nz': 'float32'
             - 'curvature': 'float32'
             - 'roughness': 'float32'
-3) Generate the unwrapped images. Adjust input paths in the jupyter notebook `Unwrap_TLS_to_2d_v1.7.ipynb` and then run the whole notebook.
-4) Manually label the 2D unwrapped images to get segmentation maps in RGB, e.g., `seg_map_33_01.png`.
+3) Manually label the 2D unwrapped images to get segmentation maps in RGB, e.g., `seg_map_33_01.png`.
     - refer to the [`data_annotation_guidline.md`](data_annotation/data_annotation_guidline.md) for more details.
-5) Generate class ID based segmentaion map and then attach the class id and color to the point cloud:
+4) Generate class ID based segmentaion map and then attach the class id and color to the point cloud:
     - refer to the [`seg_map_tools_readme.md`](data_annotation/seg_map_tools/seg_map_tools_readme.md) for more details.
-6) Co-register multiple scans of point clouds:
+5) Co-register multiple scans of point clouds:
     - Use GlobalMatch to get the rigit transformation matrices (use original point clouds as inputs).
     - Load the point clouds and apply the transformation matrices.
