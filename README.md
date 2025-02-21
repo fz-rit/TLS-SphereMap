@@ -57,6 +57,7 @@ pip install torch-geometric
     - ".bin" - from SemanticKitti dataset, scalar fields apart from x/y/z:
         1. intensity (aka remission; 0.00 - 0.99)
 2) Calculate the spherical projection images from the point cloud:
+    - Change the `CONFIG_PATH` in the config_loader.py to the desired config file, e.g., `3D_to_2D_config_mangrove_roots.json`
     - Adjust the paths in the `3D_to_2D_config_mangrove_roots.json` file
     - run:  `python run_3d_to_2d_pipeline.py`
         - outputs include unwrapped 2D images and a point cloud .txt file with fields:
@@ -78,6 +79,22 @@ pip install torch-geometric
     - refer to the [`data_annotation_guidline.md`](data_annotation/data_annotation_guidline.md) for more details.
 4) Generate class ID based segmentaion map and then attach the class id and color to the point cloud:
     - refer to the [`seg_map_tools_readme.md`](data_annotation/seg_map_tools/seg_map_tools_readme.md) for more details.
-5) Co-register multiple scans of point clouds:
-    - Use GlobalMatch to get the rigit transformation matrices (use original point clouds as inputs).
+5) [Optional] Co-register multiple scans of point clouds:
+    - Use [`GlobalMatch`](https://github.com/zexinyang/GlobalMatch) to get the rigit transformation matrices (use original point clouds as inputs).
     - Load the point clouds and apply the transformation matrices.
+
+## Intermediary Results
+
+
+| Harvard Forest Intensity Map | Mangrove Roots Intensity Map |
+|---------------------------|-------------------------------------|
+| ![Harvard Forest Intensity Map](examples/Intensity%20Map%20%28adjusted%29_33_01.png) | ![Mangrove Roots Intensity Map](examples/Intensity%20Map%20%28adjusted%29_UMBCBL009_1830507489.png) |
+
+| Harvard Forest Segmentation Map | Harvard Forest Grayscale Segmentation Map |
+|---------------------------------|-------------------------------------------|
+| ![Harvard Forest Segmentation Map](examples/Pseudo-RGB_Roughness-Intensity-Range-33_01.png) | ![Harvard Forest Grayscale Segmentation Map](examples/Pseudo-RGB_Roughness-Intensity-Range-UMBCBL009_1830507489.png) |
+
+(Note: URL-encode spaces (%20) and parentheses (%28, %29))
+
+## To Do
+- [ ] Fix the obvious pattern cause by batch processing in Curvature map and Roughness map. (possibly by introducing the [`KDTree`](calc_curvature_roughness_kdtree.py))

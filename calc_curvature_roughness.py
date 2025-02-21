@@ -17,13 +17,13 @@ Functions:
         Performs GPU-accelerated search for neighbors within a specified radius for each point.
     calculate_neighbor_eigens(points_xyz: np.ndarray, nn_radius: float, max_neighbors: int) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
         Calculates eigenvalues and eigenvectors for each point's neighborhood.
-    estimate_curvature_roughness_batched(points_xyz: np.ndarray, curvature_radius: float, roughness_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray]
+    estimate_curvature_roughness_batched(points_xyz: np.ndarray, neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray]
         Estimates curvature and roughness for all points in a batched manner using GPU.
-    process_batches(dfs: List[pd.DataFrame], curvature_radius: float, roughness_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
+    process_batches(dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
         Handles large datasets by splitting them into batches for curvature and roughness estimation.
-    interactive_visualize_pcd(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, curvature_radius: float, roughness_radius: float) -> None
+    interactive_visualize_pcd(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, neighbor_radius: float) -> None
         Visualizes curvature and roughness with Open3D.
-    pcd_snapshot_renderer(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, curvature_radius: float, roughness_radius: float, output_dir: Path) -> None
+    pcd_snapshot_renderer(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, neighbor_radius: float, output_dir: Path) -> None
         Renders point cloud snapshots with curvature and roughness.
     export_results(all_points_allinone: np.ndarray, output_dir: Path, input_path: Path) -> None
         Exports computed curvature and roughness values by appending them to the original data
@@ -148,23 +148,17 @@ def calculate_neighbor_eigens(points_xyz: np.ndarray,
     centered_neighbors = padded_neighbors - centroids.unsqueeze(1)
     covariances = torch.matmul(centered_neighbors.transpose(1, 2), centered_neighbors * mask.unsqueeze(2)) / (mask.sum(dim=1) - 1).view(-1, 1, 1)
     eigenvalues, eigenvectors = torch.linalg.eigh(covariances)
-
-    print(f"Shape of eigenvalues: {eigenvalues.shape}")
-    print(f"Shape of eigenvectors: {eigenvectors.shape}")
-    print(f"Shape of covariances: {covariances.shape}")
     
     return eigenvalues, eigenvectors, (centered_neighbors, mask)
 
 def estimate_curvature_roughness_batched(points_xyz: np.ndarray, 
-                                         curvature_radius: float = 0.05, 
-                                         roughness_radius: float = 0.2, 
+                                         neighbor_radius: float = 0.05, 
                                          max_neighbors: int = 10) -> Tuple[np.ndarray, np.ndarray]:
     """Estimate curvature and roughness for a batch of points_xyz with GPU-based neighborhood search.
 
     Args:
         points_xyz (np.ndarray): Array of points_xyz.
-        curvature_radius (float, optional): Radius for curvature estimation. Defaults to 0.05.
-        roughness_radius (float, optional): Radius for roughness estimation. Defaults to 0.2.
+        neighbor_radius (float, optional): Radius for curvature & roughness estimation. Defaults to 0.05.
         max_neighbors (int, optional): Maximum number of neighbors to consider. Defaults to 10.
 
     Returns:
@@ -172,24 +166,22 @@ def estimate_curvature_roughness_batched(points_xyz: np.ndarray,
     """
 
     # Curvature estimation
-    curv_eigenval, _, _ = calculate_neighbor_eigens(points_xyz, curvature_radius, max_neighbors)
+    curv_eigenval, rough_eigenvec, neighbor_tuple = calculate_neighbor_eigens(points_xyz, neighbor_radius, max_neighbors)
     curvatures = curv_eigenval[:, 0] / curv_eigenval.sum(dim=1)
 
     # Roughness estimation
-    _, rough_eigenvec, neighbor_tuple = calculate_neighbor_eigens(points_xyz, roughness_radius, max_neighbors)
     centered_neighbors, mask = neighbor_tuple
     normal_vectors = rough_eigenvec[:, :, 0]
     roughness = torch.abs((centered_neighbors * mask.unsqueeze(2)).matmul(normal_vectors.unsqueeze(2)).squeeze()).mean(dim=1)
 
     return curvatures.cpu().numpy(), roughness.cpu().numpy()
 
-def process_batches(dfs: List[pd.DataFrame], curvature_radius: float, roughness_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def process_batches(dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Process point cloud batches to calculate curvature and roughness.
 
     Args:
         dfs (List[pd.DataFrame]): List of DataFrame batches.
-        curvature_radius (float): Radius for curvature estimation.
-        roughness_radius (float): Radius for roughness estimation.
+        neighbor_radius (float): Radius for curvature & roughness estimation.
         max_neighbors (int): Maximum number of neighbors to consider.
 
     Returns:
@@ -198,7 +190,7 @@ def process_batches(dfs: List[pd.DataFrame], curvature_radius: float, roughness_
     all_points_xyz, all_curvatures, all_roughness = [], [], []
     for df_batch in tqdm(dfs, desc="Processing Batches", unit="batch"):
         points_xyz = df_batch[['X', 'Y', 'Z']].to_numpy()
-        curvatures, roughness = estimate_curvature_roughness_batched(points_xyz, curvature_radius, roughness_radius, max_neighbors=max_neighbors)
+        curvatures, roughness = estimate_curvature_roughness_batched(points_xyz, neighbor_radius, max_neighbors=max_neighbors)
         all_points_xyz.append(points_xyz)
         all_curvatures.append(curvatures)
         all_roughness.append(roughness)
@@ -211,16 +203,15 @@ def process_batches(dfs: List[pd.DataFrame], curvature_radius: float, roughness_
 def interactive_visualize_pcd(all_points_xyz: np.ndarray, 
                       all_curvatures: np.ndarray, 
                       all_roughness: np.ndarray,
-                      curvature_radius: float,
-                      roughness_radius: float) -> None:
+                      neighbor_radius: float,
+                      ) -> None:
     """Visualize curvature and roughness with Open3D.
 
     Args:
         all_points_xyz (np.ndarray): Array of points_xyz.
         all_curvatures (np.ndarray): Array of curvature values.
         all_roughness (np.ndarray): Array of roughness values.
-        curvature_radius (float): Radius for curvature estimation.
-        roughness_radius (float): Radius for roughness estimation.
+        neighbor_radius (float): Radius for curvature & roughness estimation.
     """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(all_points_xyz)
@@ -230,17 +221,16 @@ def interactive_visualize_pcd(all_points_xyz: np.ndarray,
     
     pcd.colors = o3d.utility.Vector3dVector(all_curvatures_colors)
     print("Displaying curvature visualization...")
-    o3d.visualization.draw_geometries([pcd], window_name=f"Curvature Visualization (r={curvature_radius})")
+    o3d.visualization.draw_geometries([pcd], window_name=f"Curvature Visualization (r={neighbor_radius})")
 
     pcd.colors = o3d.utility.Vector3dVector(all_roughness_colors)
     print("Displaying roughness visualization...")
-    o3d.visualization.draw_geometries([pcd], window_name=f"Roughness Visualization (r={roughness_radius})")
+    o3d.visualization.draw_geometries([pcd], window_name=f"Roughness Visualization (r={neighbor_radius})")
 
 def pcd_snapshot_renderer(all_points_xyz: np.ndarray, 
                         all_curvatures: np.ndarray, 
                         all_roughness: np.ndarray,
-                        curvature_radius: float,
-                        roughness_radius: float,
+                        neighbor_radius: float,
                         output_dir: Path) -> None:
     """Render point cloud snapshots with curvature and roughness.
 
@@ -248,8 +238,7 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
         all_points_xyz (np.ndarray): Array of points.
         all_curvatures (np.ndarray): Array of curvature values.
         all_roughness (np.ndarray): Array of roughness values.
-        curvature_radius (float): Radius for curvature estimation.
-        roughness_radius (float): Radius for roughness estimation.
+        neighbor_radius (float): Radius for curvature & roughness estimation.
         output_dir (Path): Output directory.
 
     """
@@ -272,14 +261,14 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
     pcd.colors = o3d.utility.Vector3dVector(colormap(all_curvatures)[:, :3])
     renderer.scene.add_geometry("cloud", pcd, mat)
     snapshot = renderer.render_to_image()
-    o3d.io.write_image(str(output_dir / f"snapshot_curvature_{curvature_radius}.png"), snapshot)
+    o3d.io.write_image(str(output_dir / f"snapshot_curvature_{neighbor_radius}.png"), snapshot)
 
     # Roughness snapshot
     pcd.colors = o3d.utility.Vector3dVector(colormap(all_roughness)[:, :3])
     renderer.scene.clear_geometry()
     renderer.scene.add_geometry("cloud", pcd, mat)
     snapshot = renderer.render_to_image()
-    o3d.io.write_image(str(output_dir / f"snapshot_roughness_{roughness_radius}.png"), snapshot)
+    o3d.io.write_image(str(output_dir / f"snapshot_roughness_{neighbor_radius}.png"), snapshot)
 
     print("Snapshots saved to disk.")
 
@@ -287,8 +276,7 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
 
 
 def export_results(all_points_allinone: pd.DataFrame, 
-                   curvature_radius, 
-                   roughness_radius, 
+                   neighbor_radius, 
                    output_dir: Path, 
                    input_path: Path) -> None:
     """Append curvature and roughness to points and export.
@@ -299,7 +287,7 @@ def export_results(all_points_allinone: pd.DataFrame,
         input_path (Path): Filename for the exported file.
     """
 
-    export_path = output_dir / f"{input_path.stem}_curvature_{curvature_radius:.2f}_roughness_{roughness_radius:.2f}.txt"
+    export_path = output_dir / f"{input_path.stem}_curvature_{neighbor_radius:.2f}_roughness_{neighbor_radius:.2f}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 
@@ -333,8 +321,7 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     output_dir = Path(global_params["output_dir"])
     input_file_stem = global_params['input_file_stem']
     input_path = Path(output_dir / f"{input_file_stem}_filtered_normaled.txt")
-    curvature_radius = params["neighbor_radius"]
-    roughness_radius = params["neighbor_radius"]
+    neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for curvature and roughness
     max_neighbors = params["max_neighbors"]
     batch_num_elevation = params.get("batch_num_elevation", 2)
     batch_num_azimuth = params.get("batch_num_azimuth", 2)
@@ -356,7 +343,7 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
         dfs = [group for _, group in df_grouped]
         all_points_allinone = pd.concat(dfs, ignore_index=True)  # Ignore the index when concatenating
 
-        all_points_xyz, all_curvatures, all_roughness = process_batches(dfs, curvature_radius, roughness_radius, max_neighbors)
+        all_points_xyz, all_curvatures, all_roughness = process_batches(dfs, neighbor_radius, max_neighbors)
 
         # Check if points in all_points_xyz are in the same order as in all_points_allinone
         assert np.all(all_points_xyz == all_points_allinone[['X', 'Y', 'Z']].to_numpy()), "Error: Point order mismatch between batches."
@@ -364,7 +351,7 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
         print("*********Small dataset detected. Processing all at once...*********")
         all_points_allinone = df_filtered.copy()
         all_points_xyz = df_filtered[['X', 'Y', 'Z']].to_numpy()
-        all_curvatures, all_roughness = estimate_curvature_roughness_batched(all_points_xyz, curvature_radius, roughness_radius, max_neighbors)
+        all_curvatures, all_roughness = estimate_curvature_roughness_batched(all_points_xyz, neighbor_radius, max_neighbors)
 
     valid_mask_curv = check_and_clean_for_nans(all_curvatures)
     valid_mask_rough = check_and_clean_for_nans(all_roughness)
@@ -392,18 +379,16 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     if visualize:
         normalized_curvatures = (all_curvatures - all_curvatures.min()) / (all_curvatures.max() - all_curvatures.min())
         normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
-        interactive_visualize_pcd(all_points_xyz, normalized_curvatures, normalized_roughness, curvature_radius, roughness_radius)
+        interactive_visualize_pcd(all_points_xyz, normalized_curvatures, normalized_roughness, neighbor_radius)
         
     if export:    
         pcd_snapshot_renderer(all_points_xyz, 
                               all_curvatures, 
                               all_roughness, 
-                              curvature_radius, 
-                              roughness_radius, 
+                              neighbor_radius, 
                               output_dir)
         export_results(all_points_allinone, 
-                       curvature_radius, 
-                       roughness_radius, 
+                       neighbor_radius, 
                        output_dir, 
                        input_path)
         

@@ -80,7 +80,8 @@ def main():
     params = CONFIG["calc_pt_cloud_normal"]
     global_params = CONFIG["global"]
     output_dir = Path(global_params["output_dir"])
-    input_path = Path(f"{global_params['input_base_dir']}/{global_params['input_folder']}/{global_params['input_file_stem']}.txt")
+    input_path = Path(global_params["input_path"])
+    # input_path = Path(f"{global_params['input_base_dir']}/{global_params['input_folder']}/{global_params['input_file_stem']}.txt")
     range_min, range_max = params["range1metres_min"], params["range1metres_max"]
     clean_pc = params["clean_pc"]
     visualize = params["visualize"]
