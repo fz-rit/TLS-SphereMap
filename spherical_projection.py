@@ -470,14 +470,15 @@ def main():
     figure_title_2 = f'Pseudo-RGB_Intensity-Range-Roughness-{key_str}'
     figure_title_3 = f'Pseudo-RGB_Z-Roughness-Intensity-{key_str}'
     figure_title_4 = f'Pseudo-RGB_Roughness-Intensity-Z-{key_str}'
-    figure_title_5 = f'Pseudo-RGB_Intensity-Range-Z-{key_str}'
+    figure_title_5 = f'Pseudo-RGB_Roughness-Intensity-Range-{key_str}'
+    figure_title_6 = f'Pseudo-RGB_Intensity-Range-Z-{key_str}'
 
     intensity_image_adjusted = output_images_dict['Intensity Map (adjusted)']
     z_image_adjusted = output_images_dict['Z Map Inverse (adjusted)']
     range_image_adjusted = output_images_dict['Range Map (adjusted)']
     roughness_image_adjusted = output_images_dict['Roughness Map (adjusted)']
     shuffle_images = [intensity_image_adjusted, z_image_adjusted, range_image_adjusted, roughness_image_adjusted]
-    shuffle_orders = [[0, 1, 3], [0, 2, 3], [1, 3, 0], [3, 0, 1], [0, 2, 1]]
+    shuffle_orders = [[0, 1, 3], [0, 2, 3], [1, 3, 0], [3, 0, 1], [3, 0, 2], [0, 2, 1]]
     figure_titles = [figure_title_1, figure_title_2, figure_title_3, figure_title_4, figure_title_5]
     for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
         pseudo_rgb_image = create_pseudo_rgb_image(shuffle_images[shuffle_order[0]], 

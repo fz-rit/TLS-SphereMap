@@ -1,24 +1,25 @@
 {
     "global": {
-        "input_file_stem": "UMBCBL009_2024-03-28-02-24-40_ALRSET24_060180_000503.800_647619236",
-        "input_folder": "ALRSET2",
+        "input_file_stem": "UMBCBL009_2024-03-28-01-48-54_ALRSET3North_060180_000146.799_1402767046",
+        "input_folder": "ALRSET3",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/palau_2024"
     },
     "calc_pt_cloud_normal": {
         "range1metres_min": 0.05,
         "range1metres_max": 100.0,
         "clean_pc": false,
-        "visualize": false
+        "visualize": false,
+        "flip_mangrove": true
     },
     "calc_curvature_roughness": {
         "batch_num_elevation": 6,
-        "batch_num_azimuth": 5,
+        "batch_num_azimuth": 6,
         "neighbor_radius": 0.06,
         "max_neighbors": 20,
         "histogram_saveflag": false,
-        "interactive_visualize": true,
+        "interactive_visualize": false,
         "export": true,
-        "delete_intermediate_file": false
+        "delete_intermediate_file": true
     },
     "spherical_projection": {
         "saveflag" : true,

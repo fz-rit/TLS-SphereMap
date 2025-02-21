@@ -109,7 +109,7 @@ def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.n
     return x_pix, y_pix
 
 
-def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
+def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFrame:
     """
     Reads a point cloud from a file and returns it as a pandas DataFrame.
     Parameters:
@@ -139,8 +139,13 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
             else:
                 print("No header detected. Now trying to read the file with predefined column names.")
                 df = pd.read_csv(filename, sep=',', names=column_names)
-            df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
-            df['elevation'] = df['zenith'] - 90
+            
+            if flip_mangrove: # LIDAR upside down, Flip the Z axis to match the orientation of the point cloud
+                df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
+                df['elevation'] = df['zenith'] - 90
+            else: # For the single scan of the mangrove forest, lidar was not upsidedown.
+                print("------Not flipping of Z axis for mangrove dataset.-------------")
+                df['elevation'] = 90 - df['zenith']
         except Exception as e:
             print(f"Error reading file: {e}")
             
@@ -200,7 +205,8 @@ def read_raw_point_cloud(filename: Path) -> pd.DataFrame:
 def preprocess_point_cloud(filename: Path, 
                            range1metres_min: float = 0.25, 
                            range1metres_max: float = 15.0,
-                           clean_pc: bool = False) -> pd.DataFrame:
+                           clean_pc: bool = False,
+                           flip_mangrove: bool = True) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
     
@@ -231,7 +237,7 @@ def preprocess_point_cloud(filename: Path,
     """
     
     # # Step 1: Read the file as a pandas DataFrame
-    df = read_raw_point_cloud(filename)
+    df = read_raw_point_cloud(filename, flip_mangrove)
 
     # Step 2: Clean the dataset
     if clean_pc:

@@ -18,13 +18,20 @@ from config_loader import CONFIG
 pd.options.mode.chained_assignment = None  # Disable SettingWithCopyWarning
 
 
-def calc_normals_of_pt_cloud(input_path, output_dir, range_min, range_max, clean_pc, visualize=False):
+def calc_normals_of_pt_cloud(input_path: Path, 
+                             output_dir: Path, 
+                             range_min:float, 
+                             range_max:float, 
+                             clean_pc:bool, 
+                             visualize:bool=False,
+                             flip_mangrove:bool=True):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
     df_filtered = preprocess_point_cloud(input_path, 
                                          range1metres_max=range_max, 
                                          range1metres_min=range_min,
-                                         clean_pc=clean_pc)
+                                         clean_pc=clean_pc,
+                                         flip_mangrove=flip_mangrove)
 
     # Load point cloud data and create PointCloud object
     points = df_filtered[['X', 'Y', 'Z']].to_numpy()
@@ -77,13 +84,15 @@ def main():
     range_min, range_max = params["range1metres_min"], params["range1metres_max"]
     clean_pc = params["clean_pc"]
     visualize = params["visualize"]
+    flip_mangrove = params["flip_mangrove"]
 
     # Process the point cloud
     calc_normals_of_pt_cloud(input_path, output_dir, 
                              range_min=range_min, 
                              range_max=range_max,
                              clean_pc=clean_pc,
-                             visualize=visualize)
+                             visualize=visualize,
+                             flip_mangrove=flip_mangrove)
 
 if __name__ == "__main__":
     main()
