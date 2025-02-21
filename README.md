@@ -1,7 +1,21 @@
-# tls_point_segmentation
- TLS point cloud segmentation through 2D segmentation on angularly-unwrapped maps
+# **Spherical Projection for Simplifying 3D Point Cloud Annotation**  
+
+Labeling 3D point clouds can be time-consuming and challenging, especially in complex forest environments. This repository offers a way to make the process **more efficient and accessible** by converting terrestrial LiDAR data into **2D spherical projection images**, where each pixel represents scalar values like **intensity, range, curvature, and roughness**.  
+
+### **How It Works:**  
+1. **Convert 3D point clouds** into **spherical projection images** based on elevation and azimuth angles.  
+2. **Use familiar 2D annotation tools** to segment objects (e.g., roots, stems, and canopy in forest scenes), reducing the complexity of direct 3D labeling.  
+3. **Map the labeled masks back to the 3D point cloud**, maintaining structural accuracy while making annotation more manageable.  
+
+### **Why It Matters:**  
+- **A Practical Approach** – Adapts a 2D workflow to help with a common challenge in 3D annotation.  
+- **More Efficient Annotation** – Speeds up the labeling process, especially for large-scale datasets.  
+- **Supports 3D Scene Understanding** – Helps generate training data for deep learning in **natural, unstructured environments** where labeled datasets are still limited.  
 
 
+While the test datasets focus on forest scenes—Harvard Forest and Palau Mangrove Roots—this method is versatile and can be applied to a wide range of terrestrial LiDAR survey applications. If you're working with TLS point clouds and looking for a more efficient and intuitive way to annotate them, this tool might be a useful addition to your workflow! 🤞
+
+---
 # Installation
 ```bash
 # create a new conda environment
@@ -53,6 +67,7 @@ pip install torch-geometric
             - 'Return Number': 'uint8',
             - 'azimuth': 'float32',
             - 'zenith': 'float32',
+            - 'elevation': 'float32',
             - 'range1metres': 'float32',
             - 'nx': 'float32',
             - 'ny': 'float32',
