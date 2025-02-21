@@ -47,7 +47,8 @@ pip install torch-geometric
     - ".txt" - from Palau Mongrove scans, derived from .gbl files using 'CBL_GBL_Processing_UMB.py', scalar fields apart from x/y/z: 
         1. zenith angle (0-135) 
             - Definition: the angle between the vertical line (directly above the observer) and an observed object in the sky. A zenith angle of 0° means the object is directly overhead. However, notice that LiDAR was set upside down for scanning the roots, so 0° means the point is right under the LiDAR, and 135° means the point that was 45° above the lidar.
-            -  The scan pattern of the TLS for mangrove roots: ![tls_scan_angle_pattern](examples/tls_scan_angle_pattern.png)
+                - The scan pattern of the TLS for mangrove roots:
+                    - <img src="examples/tls_scan_angle_pattern.png" alt="tls_scan_angle_pattern" width="400"/>
             
         2. azimuth angle (0-360°)
         3. range1meter (0-R; usually R<100)
