@@ -12,23 +12,26 @@ import numpy as np
 import json
 from pathlib import Path
 from preprocess_point_cloud import preprocess_point_cloud
+from config_loader import CONFIG
 
 # Ignore warnings
 pd.options.mode.chained_assignment = None  # Disable SettingWithCopyWarning
 
-def load_config(json_path):
-    """Load configuration from a JSON file."""
-    with open(json_path, 'r') as file:
-        config = json.load(file)
-    return config
 
-def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, clean_pc, visualize=False):
+def calc_normals_of_pt_cloud(input_path: Path, 
+                             output_dir: Path, 
+                             range_min:float, 
+                             range_max:float, 
+                             clean_pc:bool, 
+                             visualize:bool=False,
+                             flip_mangrove:bool=True):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
-    df_filtered = preprocess_point_cloud(filename, 
+    df_filtered = preprocess_point_cloud(input_path, 
                                          range1metres_max=range_max, 
                                          range1metres_min=range_min,
-                                         clean_pc=clean_pc)
+                                         clean_pc=clean_pc,
+                                         flip_mangrove=flip_mangrove)
 
     # Load point cloud data and create PointCloud object
     points = df_filtered[['X', 'Y', 'Z']].to_numpy()
@@ -64,7 +67,7 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, clean_p
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
         print(f'Output directory does not exist! Now created at {output_dir}!')
-    output_file_path = output_dir / f'{filename.stem}_filtered_normaled.txt'
+    output_file_path = output_dir / f'{input_path.stem}_filtered_normaled.txt'
     df_filtered.to_csv(output_file_path, sep=',', index=False, float_format='%.5f')
     print(f'Point cloud with normals saved to {output_file_path}!')
 
@@ -74,19 +77,22 @@ def calc_normals_of_pt_cloud(filename, output_dir, range_min, range_max, clean_p
 
 def main():
     # Load the configuration file for input paths
-    config_path = Path('./input_params/calc_pt_cloud_normal_inputs_zmachine_harvard.json')
-    config_dic = load_config(config_path)
-    filename, output_dir = Path(config_dic["filename"]), Path(config_dic["output_dir"])
-    range_min, range_max = config_dic["range1metres_min"], config_dic["range1metres_max"]
-    clean_pc = config_dic["clean_pc"]
-    visualize = config_dic["visualize"]
+    params = CONFIG["calc_pt_cloud_normal"]
+    global_params = CONFIG["global"]
+    output_dir = Path(global_params["output_dir"])
+    input_path = Path(f"{global_params['input_base_dir']}/{global_params['input_folder']}/{global_params['input_file_stem']}.txt")
+    range_min, range_max = params["range1metres_min"], params["range1metres_max"]
+    clean_pc = params["clean_pc"]
+    visualize = params["visualize"]
+    flip_mangrove = params["flip_mangrove"]
 
     # Process the point cloud
-    calc_normals_of_pt_cloud(filename, output_dir, 
+    calc_normals_of_pt_cloud(input_path, output_dir, 
                              range_min=range_min, 
                              range_max=range_max,
                              clean_pc=clean_pc,
-                             visualize=visualize)
+                             visualize=visualize,
+                             flip_mangrove=flip_mangrove)
 
 if __name__ == "__main__":
     main()

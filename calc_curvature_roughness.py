@@ -25,7 +25,7 @@ Functions:
         Visualizes curvature and roughness with Open3D.
     pcd_snapshot_renderer(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, curvature_radius: float, roughness_radius: float, output_dir: Path) -> None
         Renders point cloud snapshots with curvature and roughness.
-    export_results(all_points_allinone: np.ndarray, output_dir: Path, filename: Path) -> None
+    export_results(all_points_allinone: np.ndarray, output_dir: Path, input_path: Path) -> None
         Exports computed curvature and roughness values by appending them to the original data
         and writing out a CSV-formatted text file.
     check_and_clean_for_nans(all_curvatures: np.ndarray) -> np.ndarray
@@ -64,20 +64,8 @@ import threading
 from contextlib import contextmanager
 from typing import List, Tuple, Dict, Any, Generator
 from open3d.visualization import rendering
+from config_loader import CONFIG
 
-
-def load_config(json_path: str) -> Dict[str, Any]:
-    """Load configuration from a JSON file.
-
-    Args:
-        json_path (str): Path to the JSON configuration file.
-
-    Returns:
-        Dict[str, Any]: Configuration dictionary.
-    """
-    with open(json_path, 'r') as file:
-        config = json.load(file)
-    return config
 
 def pad_neighbors(points_xyz: torch.Tensor, 
                   neighbors_list: List[torch.Tensor], 
@@ -160,6 +148,10 @@ def calculate_neighbor_eigens(points_xyz: np.ndarray,
     centered_neighbors = padded_neighbors - centroids.unsqueeze(1)
     covariances = torch.matmul(centered_neighbors.transpose(1, 2), centered_neighbors * mask.unsqueeze(2)) / (mask.sum(dim=1) - 1).view(-1, 1, 1)
     eigenvalues, eigenvectors = torch.linalg.eigh(covariances)
+
+    print(f"Shape of eigenvalues: {eigenvalues.shape}")
+    print(f"Shape of eigenvectors: {eigenvectors.shape}")
+    print(f"Shape of covariances: {covariances.shape}")
     
     return eigenvalues, eigenvectors, (centered_neighbors, mask)
 
@@ -298,16 +290,16 @@ def export_results(all_points_allinone: pd.DataFrame,
                    curvature_radius, 
                    roughness_radius, 
                    output_dir: Path, 
-                   filename: Path) -> None:
+                   input_path: Path) -> None:
     """Append curvature and roughness to points and export.
 
     Args:
         all_points_allinone (pd.DataFrame): Point cloud DataFrame with curvature and roughness.
         output_dir (Path): Output directory.
-        filename (Path): Filename for the exported file.
+        input_path (Path): Filename for the exported file.
     """
 
-    export_path = output_dir / f"{filename.stem}_curvature_{curvature_radius:.2f}_roughness_{roughness_radius:.2f}.txt"
+    export_path = output_dir / f"{input_path.stem}_curvature_{curvature_radius:.2f}_roughness_{roughness_radius:.2f}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 
@@ -336,18 +328,22 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     Args:
         config (Dict[str, Any]): Configuration dictionary.
     """
-    filename = Path(config["filename"])
-    output_dir = Path(config["output_dir"])
-    curvature_radius = config["curvature_radius"]
-    roughness_radius = config["roughness_radius"]
-    max_neighbors = config["max_neighbors"]
-    batch_num_elevation = config.get("batch_num_elevation", 10)
-    batch_num_azimuth = config.get("batch_num_azimuth", 10)
-    histogram_saveflag = config.get("histogram_saveflag", True)
-    visualize = config.get("interactive_visualize", True)
-    export = config.get("export", True)
+    global_params = config["global"]
+    params = config["calc_curvature_roughness"]
+    output_dir = Path(global_params["output_dir"])
+    input_file_stem = global_params['input_file_stem']
+    input_path = Path(output_dir / f"{input_file_stem}_filtered_normaled.txt")
+    curvature_radius = params["neighbor_radius"]
+    roughness_radius = params["neighbor_radius"]
+    max_neighbors = params["max_neighbors"]
+    batch_num_elevation = params.get("batch_num_elevation", 2)
+    batch_num_azimuth = params.get("batch_num_azimuth", 2)
+    histogram_saveflag = params.get("histogram_saveflag", True)
+    visualize = params.get("interactive_visualize", True)
+    export = params.get("export", True)
+    delete_intermediate_file = params.get("delete_intermediate_file", False)
 
-    df_filtered = pd.read_csv(filename, sep=',')
+    df_filtered = pd.read_csv(input_path, sep=',')
     print(f"Filtered point cloud shape: {df_filtered.shape}")
 
     num_points = df_filtered.shape[0]
@@ -375,14 +371,6 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
 
     min_curvature = all_curvatures[valid_mask_curv].min() + 1e-4
     min_roughness = all_roughness[valid_mask_rough].min()
-    # print(f"Number of valid points for curvature: {valid_mask_curv.sum()}/{len(valid_mask_curv)}")
-    # print(f"Number of valid points for roughness: {valid_mask_rough.sum()}/{len(valid_mask_rough)}")
-    # print(f"------------Curvature range: [{all_curvatures[valid_mask_curv].min()}, {all_curvatures[valid_mask_curv].max()}]--------------")
-    # print(f"Minimum Curvature: {min_curvature}")
-    # print(f'Num of min curvatures: {np.sum(all_curvatures[valid_mask_curv] == min_curvature)}')
-    # print(f'Num of zeros in curvature: {np.sum(all_curvatures[valid_mask_curv] == 0)}')
-    # print(f"------------Roughness range: [{all_roughness.min()}, {all_roughness.max()}]--------------")
-    # print(f"Minimum Roughness: {min_roughness}")
 
     # Assign min values (instead of 0) to invalid points, so that they are not lost in visualization
     all_curvatures[~valid_mask_curv] = max(min_curvature, 0) 
@@ -417,7 +405,12 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
                        curvature_radius, 
                        roughness_radius, 
                        output_dir, 
-                       filename)
+                       input_path)
+        
+    
+    if delete_intermediate_file:
+        input_path.unlink()
+        print(f"Deleted intermediate file: {input_path}")
 
 @contextmanager
 def cpu_memory_monitoring() -> Generator[List[int], None, None]:
@@ -462,9 +455,7 @@ def main() -> None:
     
     with cpu_memory_monitoring() as peak_memory:
         with gpu_memory_monitoring():
-            config_path = Path('./input_params/calc_curvature_roughness_input_zmachine_harvard.json')
-            config = load_config(config_path)
-            calculate_curvature_and_roughness(config)
+            calculate_curvature_and_roughness(CONFIG)
     
     elapsed_time = time.time() - start_time
     peak_cpu_memory_mb = peak_memory[0] / (1024 * 1024)
