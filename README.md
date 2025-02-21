@@ -44,10 +44,12 @@ pip install torch-geometric
 
 # Usage
 1) Prepare input files, current supported input formats:
-    - ".txt" - from Palau Mongrove scans, derived from .gbl files using, scalar fields apart from x/y/z: 
+    - ".txt" - from Palau Mongrove scans, derived from .gbl files using 'CBL_GBL_Processing_UMB.py', scalar fields apart from x/y/z: 
         1. zenith angle (0-135) 
-            - Explanation: zenith angle is defined as the angle between the vertical line (directly above the observer) and an observed object in the sky. A zenith angle of 0° means the object is directly overhead. However, notice that LiDAR was set upside down for scanning the roots, so 0 degree means the point is right under the LiDAR, and 135 degree means the point that was 45 degree above the lidar.
-        2. azimuth angle (0-360)
+            - Definition: the angle between the vertical line (directly above the observer) and an observed object in the sky. A zenith angle of 0° means the object is directly overhead. However, notice that LiDAR was set upside down for scanning the roots, so 0° means the point is right under the LiDAR, and 135° means the point that was 45° above the lidar.
+            -  The scan pattern of the TLS for mangrove roots: ![tls_scan_angle_pattern](examples/tls_scan_angle_pattern.png)
+            
+        2. azimuth angle (0-360°)
         3. range1meter (0-R; usually R<100)
         4. intensity (aka remission; 0-4000)
         5. return number (1 or 2)
