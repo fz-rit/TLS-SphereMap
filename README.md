@@ -110,14 +110,14 @@ pip install torch-geometric
 |---------------------------|-------------------------------------|
 | ![Harvard Forest Segmentation Map](examples/seg_map_harvard_33_02.png) | ![Mangrove Segmentation Map](examples/seg_map_ALRSET1_7489.png) |
 
-| Mangrove Grayscale Segmentation Map | Harvard Forest Grayscale Segmentation Map |
+| Harvard Forest Grayscale Segmentation Map | Mangrove Grayscale Segmentation Map | 
 |---------------------------------|-------------------------------------------|
 | ![Harvard Forest Grayscale Segmentation Map](examples/seg_map_harvard_33_02_mask_visualized.png) | ![Mangrove Grayscale Segmentation Map](examples/seg_map_ALRSET1_7489_mask_visualized.png) |
 
 ## Segmented Point Clouds
 | Harvard Forest Segmented Point Cloud | Mangrove Segmented Point Cloud | 
 |---------------------------------|-------------------------------------------|
-| ![Harvard Forest Segmented Point Cloud](examples/MangroveRootsSegmentPC.gif) | ![Mangrove Segmented Point Cloud](examples/HarvardForestSegmentPC.gif) | 
+| ![Harvard Forest Segmented Point Cloud](examples/HarvardForestSegmentPC.gif) | ![Mangrove Segmented Point Cloud](examples/MangroveRootsSegmentPC.gif) | 
 
 <!-- (Note: URL-encode spaces (%20) and parentheses (%28, %29)) -->
 
