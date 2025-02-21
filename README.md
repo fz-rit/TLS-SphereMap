@@ -15,6 +15,13 @@ Labeling 3D point clouds can be time-consuming and challenging, especially in co
 
 While the test datasets focus on forest scenes—Harvard Forest and Palau Mangrove Roots—this method is versatile and can be applied to a wide range of terrestrial LiDAR survey applications. If you're working with TLS point clouds and looking for a more efficient and intuitive way to annotate them, this tool might be a useful addition to your workflow! 🤞
 
+## Table of Contents
+- [Introduction](#spherical-projection-for-simplifying-3d-point-cloud-annotation)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Intermediary Results](#intermediary-results)
+- [Segmented Point Clouds](#segmented-point-clouds)
+- [To Do](#to-do)
 ---
 # Installation
 ```bash
@@ -88,7 +95,7 @@ pip install torch-geometric
 
 ## Intermediary Results
 
-
+### 2D Spherical Projection Images
 | Harvard Forest Intensity Map | Mangrove Roots Intensity Map |
 |---------------------------|-------------------------------------|
 | ![Harvard Forest Intensity Map](examples/Intensity%20Map%20%28adjusted%29_33_01.png) | ![Mangrove Roots Intensity Map](examples/Intensity%20Map%20%28adjusted%29_UMBCBL009_1830507489.png) |
@@ -97,7 +104,22 @@ pip install torch-geometric
 |---------------------------------|-------------------------------------------|
 | ![Harvard Forest Segmentation Map](examples/Pseudo-RGB_Roughness-Intensity-Range-33_01.png) | ![Harvard Forest Grayscale Segmentation Map](examples/Pseudo-RGB_Roughness-Intensity-Range-UMBCBL009_1830507489.png) |
 
-(Note: URL-encode spaces (%20) and parentheses (%28, %29))
+
+### 2D Segmentation Maps (Annotated in Photoshop)
+| Harvard Forest Segmentation Map | Mangrove Segmentation Map | 
+|---------------------------|-------------------------------------|
+| ![Harvard Forest Segmentation Map](examples/seg_map_harvard_33_02.png) | ![Mangrove Segmentation Map](examples/seg_map_ALRSET1_7489.png) |
+
+| Mangrove Grayscale Segmentation Map | Harvard Forest Grayscale Segmentation Map |
+|---------------------------------|-------------------------------------------|
+| ![Harvard Forest Grayscale Segmentation Map](examples/seg_map_harvard_33_02_mask_visualized.png) | ![Mangrove Grayscale Segmentation Map](examples/seg_map_ALRSET1_7489_mask_visualized.png) |
+
+## Segmented Point Clouds
+| Harvard Forest Segmented Point Cloud | Mangrove Segmented Point Cloud | 
+|---------------------------------|-------------------------------------------|
+| ![Harvard Forest Segmented Point Cloud](examples/MangroveRootsSegmentPC.gif) | ![Mangrove Segmented Point Cloud](examples/HarvardForestSegmentPC.gif) | 
+
+<!-- (Note: URL-encode spaces (%20) and parentheses (%28, %29)) -->
 
 ## To Do
 - [ ] Fix the obvious pattern cause by batch processing in Curvature map and Roughness map. (possibly by introducing the [`KDTree`](calc_curvature_roughness_kdtree.py))
