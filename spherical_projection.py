@@ -12,8 +12,7 @@ from norm_to_hsv import attach_normal_color_to_df
 from config_loader import CONFIG
 
 # Ignore warnings
-pd.options.mode.chained_assignment = None  # Disable the warning
-
+pd.options.mode.chained_assignment = None
 
 
 CANVAS_WIDTH = 1440 
@@ -41,17 +40,12 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
 
     # Grab HSV color from the normal and attach the color to the dataframe
     df_filtered_ncolored = attach_normal_color_to_df(df_filtered)
-
-    # reverse the range values and z values
-    # df_filtered_ncolored['range1metres'] = df_filtered_ncolored['range1metres'].max() - df_filtered_ncolored['range1metres']  
-
+    
     # shift the z values to start from 0
     z_min = df_filtered_ncolored['Z'].min()
     df_filtered_ncolored['Z'] = - (df_filtered_ncolored['Z'] - z_min)
     print("Z shifted to start from 0.")
-    # norm_z_max = df_filtered_ncolored['Z'].max()
-    # df_filtered_ncolored['Z'] = df_filtered_ncolored['Z'] / norm_z_max
-    # print("Z normalized to (0, 1).")
+
     # # Normalize range1metres and Z value to (0.1, 1.0)
     for col_name in ['Intensity', 'range1metres', 'Z', 'curvature', 'roughness']:
         df_filtered_ncolored[col_name] = 0.1 + 0.9 * (df_filtered_ncolored[col_name] - df_filtered_ncolored[col_name].min()) / (df_filtered_ncolored[col_name].max() - df_filtered_ncolored[col_name].min())
@@ -327,7 +321,6 @@ def normalize_and_stack_images(image_list: List[np.array], method="global"):
         image_list (list of np.ndarray): List of 2D arrays representing image channels (e.g., intensity, range).
         method (str): Normalization method, either "global" for global normalization after stacking
                       or "per_channel" for per-channel normalization before stacking.
-                      
 
     Returns:
         np.ndarray: Normalized and stacked 3D array with shape (H, W, C).
@@ -410,9 +403,6 @@ def main():
     params = CONFIG['spherical_projection']
     saveflag = params['saveflag']
     visualize = params['visualize']
-    
-
-
     output_dir = Path(global_params['output_dir'])
     filename = output_dir / f'{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt'
 
@@ -479,7 +469,7 @@ def main():
     roughness_image_adjusted = output_images_dict['Roughness Map (adjusted)']
     shuffle_images = [intensity_image_adjusted, z_image_adjusted, range_image_adjusted, roughness_image_adjusted]
     shuffle_orders = [[0, 1, 3], [0, 2, 3], [1, 3, 0], [3, 0, 1], [3, 0, 2], [0, 2, 1]]
-    figure_titles = [figure_title_1, figure_title_2, figure_title_3, figure_title_4, figure_title_5]
+    figure_titles = [figure_title_1, figure_title_2, figure_title_3, figure_title_4, figure_title_5, figure_title_6]
     for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
         pseudo_rgb_image = create_pseudo_rgb_image(shuffle_images[shuffle_order[0]], 
                                                     shuffle_images[shuffle_order[1]], 
@@ -488,11 +478,6 @@ def main():
                                                     output_dir=output_dir, 
                                                     saveflag=saveflag, 
                                                     visualize=visualize)
-    # pseudo_rgb_image_1 = create_pseudo_rgb_image(intensity_image_adjusted, z_image_adjusted, roughness_image_adjusted, figure_title_1, saveflag=saveflag, visualize=visualize)
-    # pseudo_rgb_image_2 = create_pseudo_rgb_image(intensity_image_adjusted, range_image_adjusted, roughness_image_adjusted, figure_title_2, saveflag=saveflag, visualize=visualize)
-    # pseudo_rgb_image_3 = create_pseudo_rgb_image(z_image_adjusted, roughness_image_adjusted, intensity_image_adjusted, figure_title_3, saveflag=saveflag, visualize=visualize)
-    # pseudo_rgb_image_4 = create_pseudo_rgb_image(roughness_image_adjusted, intensity_image_adjusted, z_image_adjusted, figure_title_4, saveflag=saveflag, visualize=visualize)
-    # pseudo_rgb_image_5 = create_pseudo_rgb_image(intensity_image_adjusted, range_image_adjusted, z_image_adjusted, figure_title_5, saveflag=saveflag, visualize=visualize)
 
 if __name__ == "__main__":
     main()

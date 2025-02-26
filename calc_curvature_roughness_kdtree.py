@@ -1,10 +1,10 @@
 """
-calc_curvature_roughness.py
+calc_curvature_roughness_kdtree.py
 This script processes a point cloud to estimate curvature and roughness using Open3D’s KD-Tree 
 (`KDTreeFlann`) for efficient neighborhood search on CPU, removing GPU acceleration.
 
 Contributor: fzhcis@rit.edu
-Version: 2.0 (Updated for Open3D KD-Tree)
+Version: 2.0
 Last Updated: 02/18/2025
 """
 

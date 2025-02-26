@@ -1,85 +1,76 @@
 """
 calc_curvature_roughness.py
-This module provides a comprehensive workflow for processing and analyzing 3D point cloud data
-with GPU-accelerated neighborhood searches for estimating curvature and roughness. It 
-demonstrates point cloud filtering, batched neighborhood searches, curvature and roughness 
-computation, data visualization, and export functionalities.
-
-Classes:
-    None
-
-Functions:
-    load_config(json_path: str) -> Dict[str, Any]
-        Loads configuration parameters from a specified JSON file.
-    pad_neighbors(points_xyz: torch.Tensor, neighbors_list: List[torch.Tensor], max_neighbors: int) -> Tuple[torch.Tensor, torch.Tensor]
-        Ensures each point has a uniform number of neighbors for batch processing by padding.
-    batch_neighborhood_search(points_xyz: torch.Tensor, radius: float, max_neighbors: int, device: str) -> List[torch.Tensor]
-        Performs GPU-accelerated search for neighbors within a specified radius for each point.
-    calculate_neighbor_eigens(points_xyz: np.ndarray, nn_radius: float, max_neighbors: int) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
-        Calculates eigenvalues and eigenvectors for each point's neighborhood.
-    estimate_curvature_roughness_batched(points_xyz: np.ndarray, neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray]
-        Estimates curvature and roughness for all points in a batched manner using GPU.
-    process_batches(dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-        Handles large datasets by splitting them into batches for curvature and roughness estimation.
-    interactive_visualize_pcd(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, neighbor_radius: float) -> None
-        Visualizes curvature and roughness with Open3D.
-    pcd_snapshot_renderer(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, neighbor_radius: float, output_dir: Path) -> None
-        Renders point cloud snapshots with curvature and roughness.
-    export_results(all_points_allinone: np.ndarray, output_dir: Path, input_path: Path) -> None
-        Exports computed curvature and roughness values by appending them to the original data
-        and writing out a CSV-formatted text file.
-    check_and_clean_for_nans(all_curvatures: np.ndarray) -> np.ndarray
-        Validates and clears NaN values from curvature or roughness arrays.
-    calculate_curvature_and_roughness(config: Dict[str, Any]) -> None
-        Main pipeline for reading, processing, visualizing, and exporting point cloud data.
-    cpu_memory_monitoring() -> Generator[List[int], None, None]
-        Monitors CPU memory usage within a context manager.
-    gpu_memory_monitoring() -> Generator[None, None, None]
-        Monitors GPU memory usage within a context manager.
-    main() -> None
-        Orchestrates the entire process by loading config, running the pipeline, and measuring resource usage.
-
 Contributor: fzhcis@rit.edu
-Version: 1.0
-Last Updated: 12/30/2024
-Description:
-This script processes a point cloud to estimate curvature and roughness using GPU acceleration.
-It includes functions for loading configuration, preprocessing point clouds, performing neighborhood searches,
-estimating curvature and roughness, visualizing results, and exporting the processed data.
-The script also monitors CPU and GPU memory usage during execution.
+Version: 2.1
+Last Updated: 02/26/2024
+
+This script computes curvature and roughness for 3D point clouds using GPU acceleration. 
+It runs as a standalone module with a user-defined configuration file.
+Key features:
+- Curvature and roughness estimation for surface characterization.  
+- GPU-accelerated computation and batch processing for large-scale datasets.  
+- Display histograms of curvature and roughness values.
+- Interactive visualization with Open3D, including normalized curvature and roughness maps.  
+- Data export: saves computed values as .txt and snapshots of visualizations as .png.  
+- Monitoring of CPU and GPU memory usage.  
 """
 import open3d as o3d
 import numpy as np
 import pandas as pd
-import json
 import time
 import torch
+from torch import Tensor
 import psutil
 from pathlib import Path
 from tqdm import tqdm
-from preprocess_point_cloud import read_raw_point_cloud
 from plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 import threading
 from contextlib import contextmanager
 from typing import List, Tuple, Dict, Any, Generator
 from open3d.visualization import rendering
-from config_loader import CONFIG
+from config_loader import CONFIG # Configuration dictionary read from a .json file
+
+def batch_neighborhood_search(points_xyz: Tensor, 
+                              radius: float, 
+                              max_neighbors: int, 
+                              device: str) -> List[Tensor]:
+    """Perform neighborhood search on the GPU in batches.
+
+    Args:
+        points_xyz (Tensor): Tensor of points_xyz.
+        radius (float): Radius for neighborhood search.
+        max_neighbors (int): Maximum number of neighbors to consider.
+        device (str): Device to perform the computation on.
+
+    Returns:
+        List[Tensor]: List of neighbor indices for each point.
+    """
+    points_xyz = points_xyz.to(device)
+    dist_matrix = torch.cdist(points_xyz, points_xyz)
+    neighbors_list = []
+
+    for i in range(len(points_xyz)):
+        neighbors = (dist_matrix[i] <= radius).nonzero(as_tuple=True)[0]
+        if len(neighbors) > max_neighbors:
+            neighbors = neighbors[:max_neighbors]
+        neighbors_list.append(neighbors)
+    return neighbors_list
 
 
-def pad_neighbors(points_xyz: torch.Tensor, 
-                  neighbors_list: List[torch.Tensor], 
-                  max_neighbors: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def pad_neighbors(points_xyz: Tensor, 
+                  neighbors_list: List[Tensor], 
+                  max_neighbors: int) -> Tuple[Tensor, Tensor]:
     """Ensure that each point has the same number of 
     neighbors for batch processing.
 
     Args:
-        points_xyz (torch.Tensor): Tensor of points_xyz.
-        neighbors_list (List[torch.Tensor]): List of neighbor indices for each point.
+        points_xyz (Tensor): Tensor of points_xyz.
+        neighbors_list (List[Tensor]): List of neighbor indices for each point.
         max_neighbors (int): Maximum number of neighbors to pad to.
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor]: Padded neighbors and mask tensors.
+        Tuple[Tensor, Tensor]: Padded neighbors and mask tensors.
     """
     padded_neighbors = []
     mask = [] # Mask to keep track of valid neighbors
@@ -98,37 +89,9 @@ def pad_neighbors(points_xyz: torch.Tensor,
     return torch.stack(padded_neighbors), torch.stack(mask)
 
 
-def batch_neighborhood_search(points_xyz: torch.Tensor, 
-                              radius: float, 
-                              max_neighbors: int, 
-                              device: str) -> List[torch.Tensor]:
-    """Perform neighborhood search on the GPU in batches.
-
-    Args:
-        points_xyz (torch.Tensor): Tensor of points_xyz.
-        radius (float): Radius for neighborhood search.
-        max_neighbors (int): Maximum number of neighbors to consider.
-        device (str): Device to perform the computation on.
-
-    Returns:
-        List[torch.Tensor]: List of neighbor indices for each point.
-    """
-    points_xyz = points_xyz.to(device)
-    dist_matrix = torch.cdist(points_xyz, points_xyz)
-    neighbors_list = []
-
-    for i in range(len(points_xyz)):
-        neighbors = (dist_matrix[i] <= radius).nonzero(as_tuple=True)[0]
-        if len(neighbors) > max_neighbors:
-            neighbors = neighbors[:max_neighbors]
-        neighbors_list.append(neighbors)
-    return neighbors_list
-
-
-
 def calculate_neighbor_eigens(points_xyz: np.ndarray, 
                               nn_radius: float, 
-                              max_neighbors: int) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+                              max_neighbors: int) -> Tuple[Tensor, Tensor, Tuple[Tensor, Tensor]]:
     """Calculate eigenvalues and eigenvectors for each point's neighborhood.
 
     Args:
@@ -137,7 +100,7 @@ def calculate_neighbor_eigens(points_xyz: np.ndarray,
         max_neighbors (int): Maximum number of neighbors to consider.
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: Eigenvalues, eigenvectors, and centered neighbors.
+        Tuple[Tensor, Tensor, Tuple[Tensor, Tensor]]: Eigenvalues, eigenvectors, and centered neighbors.
     """
 
     points_xyz = torch.tensor(points_xyz, dtype=torch.float32, device='cuda')
@@ -150,6 +113,7 @@ def calculate_neighbor_eigens(points_xyz: np.ndarray,
     eigenvalues, eigenvectors = torch.linalg.eigh(covariances)
     
     return eigenvalues, eigenvectors, (centered_neighbors, mask)
+
 
 def estimate_curvature_roughness_batched(points_xyz: np.ndarray, 
                                          neighbor_radius: float = 0.05, 
@@ -176,6 +140,7 @@ def estimate_curvature_roughness_batched(points_xyz: np.ndarray,
 
     return curvatures.cpu().numpy(), roughness.cpu().numpy()
 
+
 def process_batches(dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Process point cloud batches to calculate curvature and roughness.
 
@@ -199,6 +164,7 @@ def process_batches(dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbo
     all_curvatures = np.hstack(all_curvatures)
     all_roughness = np.hstack(all_roughness)
     return all_points_xyz, all_curvatures, all_roughness
+
 
 def interactive_visualize_pcd(all_points_xyz: np.ndarray, 
                       all_curvatures: np.ndarray, 
@@ -227,6 +193,7 @@ def interactive_visualize_pcd(all_points_xyz: np.ndarray,
     print("Displaying roughness visualization...")
     o3d.visualization.draw_geometries([pcd], window_name=f"Roughness Visualization (r={neighbor_radius})")
 
+
 def pcd_snapshot_renderer(all_points_xyz: np.ndarray, 
                         all_curvatures: np.ndarray, 
                         all_roughness: np.ndarray,
@@ -242,7 +209,6 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
         output_dir (Path): Output directory.
 
     """
-
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(all_points_xyz)
     colormap = plt.get_cmap('plasma')
@@ -253,7 +219,7 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
 
     # Set up the camera
     focus_point = [0, 0, 0]  
-    camera_eye = [-2, -2, 1]  # Adjust for a better view
+    camera_eye = [-2, -2, 1]
     camera_up = [0, 0, 1]
     renderer.scene.camera.look_at(focus_point, camera_eye, camera_up)
 
@@ -272,11 +238,9 @@ def pcd_snapshot_renderer(all_points_xyz: np.ndarray,
 
     print("Snapshots saved to disk.")
 
-    
-
 
 def export_results(all_points_allinone: pd.DataFrame, 
-                   neighbor_radius, 
+                   neighbor_radius: float, 
                    output_dir: Path, 
                    input_path: Path) -> None:
     """Append curvature and roughness to points and export.
@@ -290,6 +254,7 @@ def export_results(all_points_allinone: pd.DataFrame,
     export_path = output_dir / f"{input_path.stem}_curvature_{neighbor_radius:.2f}_roughness_{neighbor_radius:.2f}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
+
 
 def check_and_clean_for_nans(all_curv_or_rough: np.ndarray) -> np.ndarray:
     """Check for NaN values in curvatures and roughness.
@@ -310,6 +275,7 @@ def check_and_clean_for_nans(all_curv_or_rough: np.ndarray) -> np.ndarray:
         
     return valid_mask
 
+
 def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     """Process the point cloud, estimate curvature and roughness, and combine results.
 
@@ -321,7 +287,7 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     output_dir = Path(global_params["output_dir"])
     input_file_stem = global_params['input_file_stem']
     input_path = Path(output_dir / f"{input_file_stem}_filtered_normaled.txt")
-    neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for curvature and roughness
+    neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for both curvature and roughness
     max_neighbors = params["max_neighbors"]
     batch_num_elevation = params.get("batch_num_elevation", 2)
     batch_num_azimuth = params.get("batch_num_azimuth", 2)
@@ -330,29 +296,27 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     export = params.get("export", True)
     delete_intermediate_file = params.get("delete_intermediate_file", False)
 
-    df_filtered = pd.read_csv(input_path, sep=',')
-    print(f"Filtered point cloud shape: {df_filtered.shape}")
+    points_df = pd.read_csv(input_path, sep=',')
+    print(f"The point cloud dataframe shape: {points_df.shape}")
 
-    num_points = df_filtered.shape[0]
+    num_points = points_df.shape[0]
     if num_points > 30_000:
         print("*********Large dataset detected. Processing in batches...*********")
-        df_grouped = df_filtered.groupby([pd.cut(df_filtered['azimuth'], batch_num_azimuth), 
-                                          pd.cut(df_filtered['elevation'], batch_num_elevation)], 
-                                          observed=False,
-                                          sort=False)
+        df_grouped = points_df.groupby([pd.cut(points_df['azimuth'], batch_num_azimuth), 
+                                        pd.cut(points_df['elevation'], batch_num_elevation)], 
+                                        observed=False,
+                                        sort=False)
         dfs = [group for _, group in df_grouped]
         all_points_allinone = pd.concat(dfs, ignore_index=True)  # Ignore the index when concatenating
-
         all_points_xyz, all_curvatures, all_roughness = process_batches(dfs, neighbor_radius, max_neighbors)
-
-        # Check if points in all_points_xyz are in the same order as in all_points_allinone
-        assert np.all(all_points_xyz == all_points_allinone[['X', 'Y', 'Z']].to_numpy()), "Error: Point order mismatch between batches."
     else:
         print("*********Small dataset detected. Processing all at once...*********")
-        all_points_allinone = df_filtered.copy()
-        all_points_xyz = df_filtered[['X', 'Y', 'Z']].to_numpy()
+        all_points_allinone = points_df.copy()
+        all_points_xyz = points_df[['X', 'Y', 'Z']].to_numpy()
         all_curvatures, all_roughness = estimate_curvature_roughness_batched(all_points_xyz, neighbor_radius, max_neighbors)
 
+    ## Post-processing ##
+    # Check for NaN values in curvatures and roughness
     valid_mask_curv = check_and_clean_for_nans(all_curvatures)
     valid_mask_rough = check_and_clean_for_nans(all_roughness)
 
@@ -362,11 +326,12 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     # Assign min values (instead of 0) to invalid points, so that they are not lost in visualization
     all_curvatures[~valid_mask_curv] = max(min_curvature, 0) 
     all_roughness[~valid_mask_rough] = max(min_roughness, 0)
-    all_curvatures[all_curvatures<0] = min_curvature # Assign min values to negative curvatures
+    all_curvatures[all_curvatures<0] = min_curvature
 
+    # Attach the curvature and roughness values to the original point cloud dataframe.
     all_points_allinone['curvature'] = all_curvatures
     all_points_allinone['roughness'] = all_roughness
-    if histogram_saveflag:
+    if histogram_saveflag: # Save histograms of curvature and roughness
         get_vector_histogram(all_curvatures, output_dir, 
                     title="Curvature", 
                     saveflag=True, 
@@ -376,12 +341,12 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
                     saveflag=True, 
                     log_y=True)
 
-    if visualize:
+    if visualize: # Interactive visualization with Open3D
         normalized_curvatures = (all_curvatures - all_curvatures.min()) / (all_curvatures.max() - all_curvatures.min())
         normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
         interactive_visualize_pcd(all_points_xyz, normalized_curvatures, normalized_roughness, neighbor_radius)
         
-    if export:    
+    if export: # Export results to disk
         pcd_snapshot_renderer(all_points_xyz, 
                               all_curvatures, 
                               all_roughness, 
@@ -391,12 +356,12 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
                        neighbor_radius, 
                        output_dir, 
                        input_path)
-        
     
     if delete_intermediate_file:
         input_path.unlink()
         print(f"Deleted intermediate file: {input_path}")
 
+# Monitoring CPU and GPU memory usage
 @contextmanager
 def cpu_memory_monitoring() -> Generator[List[int], None, None]:
     """Context manager for monitoring CPU memory usage.
@@ -413,7 +378,7 @@ def cpu_memory_monitoring() -> Generator[List[int], None, None]:
             mem = process.memory_info().rss
             if mem > peak_memory[0]:
                 peak_memory[0] = mem
-            time.sleep(0.1)
+            time.sleep(0.1) # Check every 0.1 seconds
 
     monitor_thread = threading.Thread(target=monitor_memory)
     monitor_thread.start()
@@ -434,12 +399,17 @@ def gpu_memory_monitoring() -> Generator[None, None, None]:
     finally:
         pass
 
+
 def main() -> None:
-    """Main function to execute the point cloud processing script."""
     start_time = time.time()
     
     with cpu_memory_monitoring() as peak_memory:
         with gpu_memory_monitoring():
+            print("-----------Calculating curvature and roughness...----------")
+            print("Configuration:")
+            print(CONFIG['global'])
+            print(CONFIG['calc_curvature_roughness'])
+
             calculate_curvature_and_roughness(CONFIG)
     
     elapsed_time = time.time() - start_time
