@@ -13,6 +13,30 @@ Key features:
 - Interactive visualization with Open3D, including normalized curvature and roughness maps.  
 - Data export: saves computed values as .txt and snapshots of visualizations as .png.  
 - Monitoring of CPU and GPU memory usage.  
+
+
+Usage:
+1. Place the input point cloud file in the input directory.
+2. Update the configuration file (config.json) with the desired parameters.
+3. Run the script with the following command:
+   python calc_curvature_roughness.py
+
+
+Function list:
+- batch_neighborhood_search(points_xyz: Tensor, radius: float, max_neighbors: int, device: str) -> List[Tensor]
+- pad_neighbors(points_xyz: Tensor, neighbors_list: List[Tensor], max_neighbors: int) -> Tuple[Tensor, Tensor]
+- calculate_neighbor_eigens(points_xyz: np.ndarray, nn_radius: float, max_neighbors: int) -> Tuple[Tensor, Tensor, Tuple[Tensor, Tensor]]
+- estimate_curvature_roughness_batched(points_xyz: np.ndarray, neighbor_radius: float = 0.05, max_neighbors: int = 10) -> Tuple[np.ndarray, np.ndarray]
+- process_batches(dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
+- interactive_visualize_pcd(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, neighbor_radius: float) -> None
+- pcd_snapshot_renderer(all_points_xyz: np.ndarray, all_curvatures: np.ndarray, all_roughness: np.ndarray, neighbor_radius: float, output_dir: Path) -> None
+- export_results(all_points_allinone: pd.DataFrame, neighbor_radius: float, output_dir: Path, input_path: Path) -> None
+- check_and_clean_for_nans(all_curv_or_rough: np.ndarray) -> np.ndarray
+- calculate_curvature_and_roughness(config: Dict[str, Any]) -> None
+- cpu_memory_monitoring() -> Generator[List[int], None, None]
+- gpu_memory_monitoring() -> Generator[None, None, None]
+- main() -> None
+
 """
 import open3d as o3d
 import numpy as np
