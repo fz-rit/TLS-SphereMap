@@ -123,8 +123,8 @@ def get_image_histogram(image_data: np.ndarray,
 def get_vector_histogram(input_vec: np.ndarray, 
                          output_dir: Path, 
                          title: str = '', 
-                         saveflag: bool = False,
-                         log_y: bool = False,
+                         saveflag: bool = True,
+                         log_y: bool = True,
                          visualize: bool = True
                          ) -> None:
     """
