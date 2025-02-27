@@ -1,4 +1,22 @@
-import open3d as o3d
+"""
+Contributor: fzhcis@rit.edu
+Version: 2.1
+Last Updated: 02/27/2024
+
+Description:
+This script calculates the curvature and roughness of a point cloud using the eigenvalues 
+and eigenvectors of the covariance matrix of the neighborhood of each point.
+The curvature is calculated as the ratio of the smallest eigenvalue to the sum of all eigenvalues.
+The roughness is calculated as the absolute dot product of the centered neighbors with the normal vector of the neighborhood.
+The script uses PyTorch for GPU-accelerated computation.
+
+Usage:
+1. Place the input point cloud file in the input directory.
+2. Update the configuration file (e.g. 3D_to_2D_config_harvard_forest.json) with the desired parameters.
+3. Run the script with the following command:
+   python calc_curvature_roughness.py
+"""
+
 import numpy as np
 import pandas as pd
 import time
@@ -90,7 +108,6 @@ class CalcCurvatureRoughness:
         """Estimate curvature and roughness for a batch of points_xyz with GPU-based neighborhood search.
 
         Args:
-            points_xyz (np.ndarray): Array of points_xyz.
             neighbor_radius (float, optional): Radius for curvature & roughness estimation. Defaults to 0.05.
             max_neighbors (int, optional): Maximum number of neighbors to consider. Defaults to 10.
 
@@ -112,7 +129,7 @@ class CalcCurvatureRoughness:
         """Process point cloud batches to calculate curvature and roughness.
 
         Args:
-            dfs (List[pd.DataFrame]): List of DataFrame batches.
+            dfs (List[pd.DataFrame]): A list of DataFrame batches.
             neighbor_radius (float): Radius for curvature & roughness estimation.
             max_neighbors (int): Maximum number of neighbors to consider.
 
