@@ -11,8 +11,8 @@ The roughness is calculated as the absolute dot product of the centered neighbor
 The script uses PyTorch for GPU-accelerated computation.
 
 Usage:
-1. Place the input point cloud file in the input directory.
-2. Update the configuration file (e.g. 3D_to_2D_config_harvard_forest.json) with the desired parameters.
+1. Update the configuration file (e.g. 3D_to_2D_config_harvard_forest.json) with the desired paths and parameters.
+2. Double-check the config_loader.py file to ensure that the correct configuration file is being loaded.
 3. Run the script with the following command:
    python calc_curvature_roughness.py
 """
