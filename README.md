@@ -100,9 +100,9 @@ pip install torch-geometric
 |---------------------------|-------------------------------------|
 | ![Harvard Forest Intensity Map](examples/Intensity%20Map%20%28adjusted%29_33_01.png) | ![Mangrove Roots Intensity Map](examples/Intensity%20Map%20%28adjusted%29_UMBCBL009_1830507489.png) |
 
-| Harvard Forest Segmentation Map | Harvard Forest Grayscale Segmentation Map |
+| Harvard Forest Pseudo-RGB_Roughness-Intensity-Range | Mangrove Roots Pseudo-RGB_Roughness-Intensity-Range |
 |---------------------------------|-------------------------------------------|
-| ![Harvard Forest Segmentation Map](examples/Pseudo-RGB_Roughness-Intensity-Range-33_01.png) | ![Harvard Forest Grayscale Segmentation Map](examples/Pseudo-RGB_Roughness-Intensity-Range-UMBCBL009_1830507489.png) |
+| ![Harvard Forest Pseudo-RGB_Roughness-Intensity-Range-33_01](examples/Pseudo-RGB_Roughness-Intensity-Range-33_01.png) | ![Mangrove Roots Pseudo-RGB_Roughness-Intensity-Range-UMBCBL009_1830507489](examples/Pseudo-RGB_Roughness-Intensity-Range-UMBCBL009_1830507489.png) |
 
 
 ### 2D Segmentation Maps (Annotated in Photoshop)
