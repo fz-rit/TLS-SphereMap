@@ -51,7 +51,7 @@ python convert_color_to_mask.py -i path/to/colorful_map.png -o path/to/output_ma
 #### **Arguments:**
 - `-i` / `--input` → Path to the input **colorful segmentation map**.
 - `-o` / `--output` → Path to save the **output grayscale class index mask**.
-- `-d` / `--dataset` → Dataset name from `label_maps.json` (e.g., `MANGROVE_ROOTS` or `HARVARD_FOREST`).
+- `-d` / `--dataset` → Dataset name, either `MANGROVE_ROOTS` or `HARVARD_FOREST`.
 
 Example:
 ```bash
@@ -101,9 +101,9 @@ python attach_segmap_to_points.py -pf ../../input_params/attach_segmap_to_points
 {
     "root_dir": "D:/mylab/tls_point_segmentation",
     "pointcloud": "data/point_cloud.txt",
-    "segmap": "data/output_mask.png",
+    "segmap": "seg_map_ALRSET1_3583_mask.png",
     "dataset": "MANGROVE_ROOTS",
-    "output_format": ".ply"
+    "output_formats": [".ply", ".csv"]
 }
 ```
 
@@ -111,7 +111,7 @@ python attach_segmap_to_points.py -pf ../../input_params/attach_segmap_to_points
 1. **Reads the point cloud** (`pointcloud.txt`).
 2. **Maps each point to a segmentation label** using `output_mask.png`.
 3. **Attaches class labels (`class_id`) and colors (`RGB`)**.
-4. **Saves the new point cloud** as a `.csv` or a `ply` file.
+4. **Saves the new point cloud** as a `.csv` and a `.ply` file.
 
 ✔ **Output:**  
 - `**_segmap.csv` or `**_segmap.ply` → Contains the original point cloud fields + segmentation class labels + r/g/b.
