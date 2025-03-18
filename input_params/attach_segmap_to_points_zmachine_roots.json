@@ -1,7 +1,7 @@
 {
-    "root_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/palau_2024/ALRSET1/UMBCBL009_2024-03-28-02-55-21_ALRSET17_060180_000955.799_441453583/outputs",  
-    "pointcloud": "UMBCBL009_2024-03-28-02-55-21_ALRSET17_060180_000955.799_441453583_filtered_normaled_curvature_0.06_roughness_0.06.txt",
-    "segmap": "seg_map_ALRSET1_3583_mask.png",
+    "root_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/palau_2024/ALRSET2/UMBCBL009_2024-03-28-02-23-06_ALRSET22_060180_000329.800_1303851536/outputs",  
+    "pointcloud": "UMBCBL009_2024-03-28-02-23-06_ALRSET22_060180_000329.800_1303851536_filtered_normaled_curvature_0.06_roughness_0.06.txt",
+    "segmap": "seg_map_1536_mask.png",
     "dataset": "MANGROVE_ROOTS",
     "output_formats": [".ply", ".csv"]
 }
