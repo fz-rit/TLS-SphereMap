@@ -40,13 +40,14 @@ def attach_segmentation_to_points(params):
     point_cloud_file = root_dir / params["pointcloud"]
     segmap_file = root_dir / params["segmap"]
     dataset_name = params["dataset"]
-    output_file = root_dir / (f"{point_cloud_file.stem}_segmap" + params["output_format"])
+    output_formats = params["output_formats"]
 
     # Load point cloud
     pc_df = pd.read_csv(point_cloud_file, sep=',')
     
-    # Rename "Return Number" to "Return_Number" to avoid space issues
-    pc_df.rename(columns={"Return Number": "Return_Number"}, inplace=True)
+    # Rename "Return Number" to "return_number" to avoid space issues
+    pc_df.rename(columns={"Return Number": "return_number"}, inplace=True)
+    pc_df.rename(columns={"range1metres": "range"}, inplace=True)
 
     # Extract angles
     azimuth, elevation = pc_df['azimuth'], pc_df['elevation']
@@ -80,34 +81,48 @@ def attach_segmentation_to_points(params):
     pc_df['class_id'] = class_ids
     pc_df[['r', 'g', 'b']] = pd.DataFrame(colors, index=pc_df.index)
 
+    # Rescale Intensity values to 0-65535 to ensure compatibility with las format, astype uint16
+    if pc_df['Intensity'].max() <= 1.0:
+        pc_df['Intensity'] = (pc_df['Intensity'] * 65535).astype(np.uint16)
+
 
     # Drop extra columns used for processing
     pc_df.drop(columns=['x_pix', 'y_pix'], inplace=True)
 
-    # Save as CSV file
-    if output_file.suffix == ".csv":
-        pc_df.to_csv(output_file, index=False)
-    elif output_file.suffix == ".ply":
-        # Convert DataFrame to structured array
-        dtype_list = [
-            ('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
-            ('intensity', 'f4'), ('return_number', 'u1'),
-            ('azimuth', 'f4'), ('elevation', 'f4'), ('zenith', 'f4'),
-            ('range1metres', 'f4'), ('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4'),
-            ('curvature', 'f4'), ('roughness', 'f4'), ('class_id', 'u1'),
-            ('r', 'u1'), ('g', 'u1'), ('b', 'u1')
-        ]
+    # Reorder columns
+    pc_df = pc_df[['X', 'Y', 'Z', 'Intensity', 'return_number', 'azimuth', 'elevation', 'zenith',
+                   'range', 'nx', 'ny', 'nz', 'curvature', 'roughness', 'class_id', 'r', 'g', 'b']]
 
-        data_np = np.array([tuple(row) for row in pc_df.to_numpy()], dtype=dtype_list)
+    # Save as various output formats
+    for output_format in output_formats:
+        file_str = str(point_cloud_file.stem).split("_filtered")[0]
+        output_file = root_dir / (f"{file_str}_seg" + output_format)
+        if output_format == ".csv":
+            pc_df.to_csv(output_file, index=False)
+        elif output_format == ".ply":
+            # Convert DataFrame to structured array
+            dtype_list = [
+                ('X', 'f4'), ('Y', 'f4'), ('Z', 'f4'),
+                ('Intensity', 'u2'), # ensure las compatibility
+                ('return_number', 'u1'),
+                ('azimuth', 'f4'), ('elevation', 'f4'), ('zenith', 'f4'),
+                ('range', 'f4'), ('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4'),
+                ('curvature', 'f4'), ('roughness', 'f4'), ('class_id', 'u1'),
+                ('r', 'u1'), ('g', 'u1'), ('b', 'u1')
+            ]
 
-        # Create PLY element
-        vertex = PlyElement.describe(data_np, 'vertex')
+            data_np = np.array([tuple(row) for row in pc_df.to_numpy()], dtype=dtype_list)
 
-        # Write to file
-        ply_data = PlyData([vertex], text=False)
-        ply_data.write(output_file)
+            # Create PLY element
+            vertex = PlyElement.describe(data_np, 'vertex')
 
-    print(f"✅ Class IDs and colors attached to point cloud successfully. \nOutput file saved to: {output_file}")
+            # Write to file
+            ply_data = PlyData([vertex], text=False)
+            ply_data.write(output_file) 
+        else:
+            raise ValueError(f"!!Output format '{output_format}' not supported.") 
+
+        print(f"✅ Class IDs and colors attached to point cloud successfully. \nOutput file saved to: {output_file}")
     print("Class details:")
     for class_id, class_name in class_names.items():
         print(f"Class ID {class_id}: {class_name}")
