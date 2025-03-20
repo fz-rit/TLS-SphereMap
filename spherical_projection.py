@@ -7,9 +7,10 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 from preprocess_point_cloud import map_angle_to_pixel
 from typing import Union, List, Dict, Any
 from pathlib import Path
-from plot_tools import smart_image_pie_chart, get_image_histogram, display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values
+from plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values
 from norm_to_hsv import attach_normal_color_to_df
 from config_loader import CONFIG
+import json
 
 # Ignore warnings
 pd.options.mode.chained_assignment = None
@@ -261,8 +262,9 @@ def save_image_cube_and_metadata(
     }
 
     # Save the metadata
-    metadata_path = output_dir / f'{key_str}_image_cube_metadata.npy'
-    np.save(metadata_path, metadata)
+    metadata_path = output_dir / f'{key_str}_image_cube_metadata.json'
+    with open(metadata_path, 'w') as metadata_file:
+        json.dump(metadata, metadata_file, indent=4)
     print(f"Metadata saved to {metadata_path}")
     print(f"Metadata titles:\n{metadata['titles']}")
 
@@ -303,7 +305,8 @@ def load_image_cube_and_metadata(image_cube_path: Path, metadata_path: Path) -> 
     print(f"Image cube loaded from {image_cube_path}, shape: {image_cube.shape}")
     
     # Load the metadata
-    metadata = np.load(metadata_path, allow_pickle=True).item()  # use .item() to load it as a dictionary
+    with open(metadata_path, 'r') as metadata_file:
+        metadata = json.load(metadata_file)
     print(f"Metadata loaded from {metadata_path}")
 
     return {

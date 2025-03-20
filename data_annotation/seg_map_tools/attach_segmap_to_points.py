@@ -8,7 +8,7 @@ from pathlib import Path
 from plyfile import PlyData, PlyElement
 # Add parent directory to sys.path
 current_file = Path(__file__).resolve()
-parent_dir = current_file.parents[2]  # Go two levels up to tls_point_segmentation
+parent_dir = current_file.parents[2]  # Go two levels up to root directory
 sys.path.append(str(parent_dir))
 
 from preprocess_point_cloud import map_angle_to_pixel
@@ -49,7 +49,6 @@ def attach_segmentation_to_points(params):
     pc_df.rename(columns={"Return Number": "return_number"}, inplace=True)
     pc_df.rename(columns={"range1metres": "range"}, inplace=True)
 
-    # Extract angles
     azimuth, elevation = pc_df['azimuth'], pc_df['elevation']
 
     # Map angles to segmentation map pixels
@@ -132,8 +131,6 @@ if __name__ == "__main__":
     parser.add_argument("-pf", "--param_file", required=True, help="Path to the JSON parameter file.")
 
     args = parser.parse_args()
-
-    # Load parameters from JSON file
     with open(args.param_file, "r") as file:
         params = json.load(file)
 
