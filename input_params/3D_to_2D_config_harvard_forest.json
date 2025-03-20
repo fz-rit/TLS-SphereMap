@@ -8,9 +8,9 @@
 
     },
     "calc_pt_cloud_normal": {
-        "range1metres_min": 0.05,
-        "range1metres_max": 100.0,
-        "clean_pc": false,
+        "range1metres_min": 0.1,
+        "range1metres_max": 50.0,
+        "clean_pc": true,
         "visualize": false,
         "flip_mangrove": true
     },
@@ -27,5 +27,10 @@
     "spherical_projection": {
         "saveflag" : true,
         "visualize" : false
+    },
+    "attach_segmap_to_points": {
+        "segmap": "seg_map_33_01_mask.png",
+        "dataset": "HARVARD_FOREST",
+        "output_formats": [".ply", ".csv"]
     }
 }

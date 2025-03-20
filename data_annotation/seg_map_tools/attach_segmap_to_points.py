@@ -8,15 +8,18 @@ from pathlib import Path
 from plyfile import PlyData, PlyElement
 # Add parent directory to sys.path
 current_file = Path(__file__).resolve()
+current_file_dir = current_file.parent
 parent_dir = current_file.parents[2]  # Go two levels up to root directory
 sys.path.append(str(parent_dir))
+sys.path.append(str(current_file_dir))
 
 from preprocess_point_cloud import map_angle_to_pixel
+from config_loader import CONFIG
 
 
 def load_label_maps(dataset_name):
     """Load dataset-specific colormap and class names from label_maps.json."""
-    with open("label_maps.json", "r") as file:
+    with open(current_file_dir / "label_maps.json", "r") as file:
         label_maps = json.load(file)["DATASETS"]
 
     if dataset_name not in label_maps:
@@ -34,10 +37,12 @@ def load_label_maps(dataset_name):
     return color_to_index, class_names, index_to_color
 
 
-def attach_segmentation_to_points(params):
+def attach_segmentation_to_points():
     """Attach segmentation map class IDs and colors to the point cloud using parameters from JSON."""
-    root_dir = Path(params["root_dir"])
-    point_cloud_file = root_dir / params["pointcloud"]
+    params = CONFIG["attach_segmap_to_points"]
+    root_dir = CONFIG["global"]["output_dir"]
+    input_file_stem = CONFIG["global"]["input_file_stem"]
+    point_cloud_file = root_dir / f"{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt"
     segmap_file = root_dir / params["segmap"]
     dataset_name = params["dataset"]
     output_formats = params["output_formats"]
@@ -127,11 +132,4 @@ def attach_segmentation_to_points(params):
         print(f"Class ID {class_id}: {class_name}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Attach segmentation map class IDs and colors to a point cloud using parameters from a JSON file.")
-    parser.add_argument("-pf", "--param_file", required=True, help="Path to the JSON parameter file.")
-
-    args = parser.parse_args()
-    with open(args.param_file, "r") as file:
-        params = json.load(file)
-
-    attach_segmentation_to_points(params)
+    attach_segmentation_to_points()

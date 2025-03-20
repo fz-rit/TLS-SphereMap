@@ -47,10 +47,12 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
     df_filtered_ncolored['Z'] = - (df_filtered_ncolored['Z'] - z_min)
     print("Z shifted to start from 0.")
 
-    # # Normalize range1metres and Z value to (0.1, 1.0)
-    for col_name in ['Intensity', 'range1metres', 'Z', 'curvature', 'roughness']:
-        df_filtered_ncolored[col_name] = 0.1 + 0.9 * (df_filtered_ncolored[col_name] - df_filtered_ncolored[col_name].min()) / (df_filtered_ncolored[col_name].max() - df_filtered_ncolored[col_name].min())
-        print(f"{col_name} normalized to (0.1, 1.0).")
+    # # Normalize columns to (0.01, 1.0): Intensity, Z, curvature, roughness
+    for col_name in ['Intensity', 'Z', 'curvature', 'roughness']:
+        col_min = df_filtered_ncolored[col_name].min()
+        col_max = df_filtered_ncolored[col_name].max()
+        df_filtered_ncolored[col_name] = 0.01 + 0.99 * (df_filtered_ncolored[col_name] - col_min) / (col_max - col_min)
+        print(f"{col_name} normalized to (0.01, 1.0).")
 
     
     # Check if there are NaN values or negative values in the columns of interest
@@ -112,8 +114,6 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
 
     # Apply HDR adjustment to intensity and range images
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
-
-    # Range and Z Map Inverses should not be adjusted by contrast as they should only be globally adjusted.
     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0.1)
     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
     curvature_image_adjusted = contrast_enhancement(curvature_image)
@@ -264,7 +264,7 @@ def save_image_cube_and_metadata(
     # Save the metadata
     metadata_path = output_dir / f'{key_str}_image_cube_metadata.json'
     with open(metadata_path, 'w') as metadata_file:
-        json.dump(metadata, metadata_file, indent=4)
+        json.dump(metadata, metadata_file, indent=4, default=str)
     print(f"Metadata saved to {metadata_path}")
     print(f"Metadata titles:\n{metadata['titles']}")
 
@@ -305,8 +305,7 @@ def load_image_cube_and_metadata(image_cube_path: Path, metadata_path: Path) -> 
     print(f"Image cube loaded from {image_cube_path}, shape: {image_cube.shape}")
     
     # Load the metadata
-    with open(metadata_path, 'r') as metadata_file:
-        metadata = json.load(metadata_file)
+    metadata = np.load(metadata_path, allow_pickle=True).item()
     print(f"Metadata loaded from {metadata_path}")
 
     return {

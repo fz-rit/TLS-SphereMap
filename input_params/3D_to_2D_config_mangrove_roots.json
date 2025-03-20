@@ -1,21 +1,21 @@
 {
     "global": {
-        "input_file_stem": "UMBCBL009_2024-03-28-01-56-37_ALRSET38_060180_000929.799_1795923312",
-        "input_folder": "ALRSET3",
+        "input_file_stem": "UMBCBL009_2024-03-28-02-25-59_ALRSET25_060180_000623.800_1016596443",
+        "input_folder": "ALRSET2",
         "input_folder_parent": "palau_2024",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
         "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs"
     },
     "calc_pt_cloud_normal": {
-        "range1metres_min": 0.05,
+        "range1metres_min": 0.1,
         "range1metres_max": 100.0,
-        "clean_pc": false,
+        "clean_pc": true,
         "visualize": false,
         "flip_mangrove": true
     },
     "calc_curvature_roughness": {
-        "batch_num_elevation": 6,
-        "batch_num_azimuth": 6,
+        "batch_num_elevation": 5,
+        "batch_num_azimuth": 5,
         "neighbor_radius": 0.06,
         "max_neighbors": 20,
         "histogram_saveflag": false,
@@ -26,5 +26,14 @@
     "spherical_projection": {
         "saveflag" : true,
         "visualize" : false
+    },
+    "convert_color_to_mask": {
+        "color_seg_map": "seg_map_6443.png",
+        "dataset": "MANGROVE_ROOTS"
+    },
+    "attach_segmap_to_points": {
+        "segmap": "seg_map_6443_mask.png",
+        "dataset": "MANGROVE_ROOTS",
+        "output_formats": [".ply", ".csv"]
     }
 }

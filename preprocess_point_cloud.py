@@ -97,10 +97,13 @@ def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.n
     # Map azimuth (e.g., 0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
     x_pix = (azimuth / HORIZONTAL_ANGLE_RESOLUTION).astype(int)
 
-    # Map elevation angle (e.g., -45 ~ 90 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), 
+    # Map elevation angle (e.g., -90 ~ 45 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), 
     # flipping the y-axis since elevation increases from bottom to top while 
     # pixel indices increase from top to bottom.
-    y_pix = CANVAS_HEIGHT - ((elevation - elevation.min()) / VERTICAL_ANGLE_RESOLUTION).astype(int)
+    if elevation.min() < -45: # Mangrove root
+        y_pix = CANVAS_HEIGHT - ((elevation + 90) / VERTICAL_ANGLE_RESOLUTION).astype(int)
+    else: # Harvard Forest
+        y_pix = CANVAS_HEIGHT - ((elevation + 45) / VERTICAL_ANGLE_RESOLUTION).astype(int)
 
     # Ensure pixel indices are within bounds, in case x_pix or y_pix goes beyond 540 or 1440
     x_pix = x_pix.clip(0, CANVAS_WIDTH - 1)
@@ -193,7 +196,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
         raise ValueError(f"Unsupported file extension: {filename.suffix}")
     
     print(f"Read {len(df)} points from {filename}")
-    print(f"Columns: {df.columns}")
+    print("---------Before preprocessing:----------")
     for col in df.columns:
         print(f"Range of {col}: {df[col].min()} to {df[col].max()}")
 
@@ -203,8 +206,8 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
 
 
 def preprocess_point_cloud(filename: Path, 
-                           range1metres_min: float = 0.25, 
-                           range1metres_max: float = 15.0,
+                           range1metres_min: float = 0.1, 
+                           range1metres_max: float = 50.0,
                            clean_pc: bool = False,
                            flip_mangrove: bool = True) -> pd.DataFrame:
     """
@@ -243,19 +246,22 @@ def preprocess_point_cloud(filename: Path,
     if clean_pc:
         df_filtered = df[
             (df['range1metres'] >= range1metres_min)
-            & (df['range1metres'] <= range1metres_max) 
-            & (df['Intensity'] <= 2000)
+            & (df['range1metres'] <= range1metres_max)
         ]
-        print("Filtered based on range1metres and Intensity. (range1metres_min, range1metres_max, Intensity_max):", range1metres_min, range1metres_max, 2000)
+        print("Filtered based on range1metres. (range1metres_min, range1metres_max):", range1metres_min, range1metres_max)
     else:
         df_filtered = df
 
     # Normalize the intensity values: first, convert to float32, then normalize to (0.1, 1.0)
-    df_filtered['Intensity'] = df_filtered['Intensity'].astype('float32')
-    df_filtered['Intensity'] = (df_filtered['Intensity'] - df_filtered['Intensity'].min()) / (df_filtered['Intensity'].max() - df_filtered['Intensity'].min())
-    print(f"!!Intensity normalized to range: {df_filtered['Intensity'].min()} to {df_filtered['Intensity'].max()}!!")
+    intensity = df_filtered['Intensity'].to_numpy().astype('float32')
+    intensity = (intensity - intensity.min()) / (intensity.max() - intensity.min())
+    df_filtered['Intensity'] = intensity
+    print(f"!!Intensity normalized to range: {intensity.min()} to {intensity.max()}!!")
     
-    print(f"Filtered {len(df) - len(df_filtered)} / {len(df)} points based on range1metres.")
+    print(f"Filtered out {len(df) - len(df_filtered)} / {len(df)} points based on range1metres.")
+    print("---------After preprocessing:----------")
+    for col in df_filtered.columns:
+        print(f"Range of {col}: {df_filtered[col].min()} to {df_filtered[col].max()}")
     return df_filtered
 
 # Example usage
