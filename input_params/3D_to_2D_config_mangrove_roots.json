@@ -1,6 +1,6 @@
 {
     "global": {
-        "input_file_stem": "UMBCBL009_2024-03-28-02-25-59_ALRSET25_060180_000623.800_1016596443",
+        "input_file_stem": "UMBCBL009_2024-03-28-02-24-40_ALRSET24_060180_000503.800_647619236",
         "input_folder": "ALRSET2",
         "input_folder_parent": "palau_2024",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
@@ -28,11 +28,11 @@
         "visualize" : false
     },
     "convert_color_to_mask": {
-        "color_seg_map": "seg_map_6443.png",
+        "color_seg_map": "seg_map_9236.png",
         "dataset": "MANGROVE_ROOTS"
     },
     "attach_segmap_to_points": {
-        "segmap": "seg_map_6443_mask.png",
+        "segmap": "seg_map_9236_mask.png",
         "dataset": "MANGROVE_ROOTS",
         "output_formats": [".ply", ".csv"]
     }
