@@ -102,7 +102,7 @@ def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.n
     # pixel indices increase from top to bottom.
     if elevation.min() < -45: # Mangrove root
         y_pix = CANVAS_HEIGHT - ((elevation + 90) / VERTICAL_ANGLE_RESOLUTION).astype(int)
-    else: # Harvard Forest
+    else: # Harvard Forest or an upward facing dataset in mangrove root
         y_pix = CANVAS_HEIGHT - ((elevation + 45) / VERTICAL_ANGLE_RESOLUTION).astype(int)
 
     # Ensure pixel indices are within bounds, in case x_pix or y_pix goes beyond 540 or 1440
