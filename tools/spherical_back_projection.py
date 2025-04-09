@@ -69,20 +69,22 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), inverse_z
     return df_ball
 
 
-ZENITH_RANGE = (75, 105)  # Zenith range for the ball
-OUTPUT_PREFIX = "VLP64"
+# ZENITH_RANGE = (75, 105)  # Zenith range for the ball
+# OUTPUT_PREFIX = "VLP64"
 
-# ZENITH_RANGE = (0, 135)  # Zenith range for the ball
+ZENITH_RANGE = (0, 135)  # Zenith range for the ball
 # OUTPUT_PREFIX = "palau_2024"
+OUTPUT_PREFIX = "harvard_forest"
 
 df_ball = generate_lidar_ball(radius=10.0, zenith_range=ZENITH_RANGE)
 # visualize_point_cloud(df_ball, add_cube=True)
-visualize_and_save_point_cloud(df_ball, zenith_range=ZENITH_RANGE, visualize=True, output_prefix=OUTPUT_PREFIX+"_ball")
+# visualize_and_save_point_cloud(df_ball, zenith_range=ZENITH_RANGE, visualize=True, output_prefix=OUTPUT_PREFIX+"_ball")
 # image_path = '/home/fzhcis/mylab/data/fall_at_harvard_forest.jpg'
 # image_path = '/home/fzhcis/mylab/data/point_cloud_segmentation/segmentation_on_unwrapped_image/palau_2024/pca_outputs/6962/UMBCBL009_868796962_image_cube_ICA_rgb_0_1_2.png'
 # image_path = '/home/fzhcis/mylab/data/point_cloud_segmentation/segmentation_on_unwrapped_image/palau_2024/pca_outputs/6962/UMBCBL009_868796962_image_cube_PCA_rgb_1_2_0.png'
 # image_path = '/home/fzhcis/mylab/data/street_panorama_south_north.png'
-image_path = '/home/fzhcis/mylab/data/AdobeStock_156245359.jpeg'
+# image_path = '/home/fzhcis/mylab/data/AdobeStock_156245359.jpeg'
+image_path = '/home/fzhcis/mylab/data/harvard_forest_snapshot.png'
 rgb_img = np.array(Image.open(image_path))  # shape (H, W, 3)
 
 # rgb_img, density_map = spherical_projection_with_density(df_ball, zenith_range=ZENITH_RANGE)
@@ -96,6 +98,6 @@ df_colored = back_project_color_to_ball(df_ball, rgb_img,
                                         zenith_range=ZENITH_RANGE,
                                         inverse_zenith=False)
 
-# df_cube = create_colored_cube_points(center=[0, 0, 0], size=0.5, samples_per_face=50)
-# df_combined = pd.concat([df_colored, df_cube], ignore_index=True)
-visualize_and_save_point_cloud(df_colored, zenith_range=ZENITH_RANGE, visualize=True, output_prefix=OUTPUT_PREFIX)
+df_cube = create_colored_cube_points(center=[0, 0, 0], size=0.5, samples_per_face=50)
+df_combined = pd.concat([df_colored, df_cube], ignore_index=True)
+visualize_and_save_point_cloud(df_combined, zenith_range=ZENITH_RANGE, visualize=True, output_prefix=OUTPUT_PREFIX+"_with_cube")
