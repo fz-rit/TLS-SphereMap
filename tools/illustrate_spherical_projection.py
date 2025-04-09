@@ -88,14 +88,14 @@ def create_colored_cube(center=[0, 0, 0], size=1.0):
     return mesh
 
 
-def generate_full_lidar_point_cloud(radius=20.0, res_deg=AZIMUTH_RES):
+def generate_lidar_ball(radius=20.0, zenith_range = (0, 135), res_deg=AZIMUTH_RES):
     """
     Generate a dense LiDAR-like point cloud with one point per angular bin.
     Output columns: x, y, z, azimuth_deg, zenith_deg, r, g, b
     Group color every 5° and add distinguishable lat/lon lines.
     """
     azimuths_deg = np.arange(0, 360, res_deg)
-    zeniths_deg = np.arange(0, 135 + res_deg, res_deg)
+    zeniths_deg = np.arange(zenith_range[0], zenith_range[1] + res_deg, res_deg)
 
     azimuth_grid, zenith_grid = np.meshgrid(azimuths_deg, zeniths_deg)
     azimuth_flat = azimuth_grid.flatten()
@@ -120,7 +120,7 @@ def generate_full_lidar_point_cloud(radius=20.0, res_deg=AZIMUTH_RES):
     rgb = hsv_to_rgb(hsv)
 
     # Highlight latitude lines
-    lat_lines = np.arange(GROUP_SIZE, 135+GROUP_SIZE, GROUP_SIZE)
+    lat_lines = np.arange(zenith_range[0]+GROUP_SIZE, zenith_range[1]+GROUP_SIZE, GROUP_SIZE)
     lat_mask = np.isclose(zenith_flat[:, None], lat_lines, atol=0.2).any(axis=1)
 
     # Highlight longitude lines
@@ -147,7 +147,7 @@ def generate_full_lidar_point_cloud(radius=20.0, res_deg=AZIMUTH_RES):
 
 
 
-def spherical_projection_with_density(df, zenith_res=ZENITH_RES, azimuth_res=AZIMUTH_RES):
+def spherical_projection_with_density(df, zenith_range = (0, 135), zenith_res=ZENITH_RES, azimuth_res=AZIMUTH_RES):
     """
     Efficiently compute RGB spherical projection and density map using groupby.
     
@@ -155,11 +155,17 @@ def spherical_projection_with_density(df, zenith_res=ZENITH_RES, azimuth_res=AZI
         rgb_img: (3, H, W) float32 image (RGB)
         density_map: (H, W) int32 image (point counts)
     """
-    H = int(135 / zenith_res) + 1
+    zenith_range_abs = zenith_range[1] - zenith_range[0]
+    H = int(zenith_range_abs / zenith_res) + 1
     W = int(360 / azimuth_res)
 
     # Compute pixel indices
-    df['zenith_idx'] = (df['zenith_deg'] / zenith_res).astype(int).clip(0, H - 1)
+    zenith_deg_shifted = df['zenith_deg'] - df['zenith_deg'].min()
+    print("Unique zenith degrees:", df['zenith_deg'].nunique())
+    print("Zenith degrees min:", df['zenith_deg'].min())
+    print("Zenith degrees max:", df['zenith_deg'].max())
+
+    df['zenith_idx'] = (zenith_deg_shifted / zenith_res).astype(int).clip(0, H - 1)
     df['azimuth_idx'] = (df['azimuth_deg'] / azimuth_res).astype(int) % W
 
     # Group by pixel indices
@@ -186,11 +192,11 @@ def spherical_projection_with_density(df, zenith_res=ZENITH_RES, azimuth_res=AZI
 
     return rgb_img, density_map
 
-def plot_and_save_results(rgb_img, density_map, output_prefix='spherical', res_deg=AZIMUTH_RES):
+def plot_and_save_results(rgb_img, density_map, zenith_range=(0, 135), output_prefix='spherical', res_deg=AZIMUTH_RES):
     # Convert and save RGB image
     rgb_display = np.transpose(rgb_img, (1, 2, 0))  # (H, W, 3)
     rgb_uint8 = (rgb_display * 255).astype(np.uint8)
-    Image.fromarray(rgb_uint8).save(f'{output_prefix}_rgb_image.png')
+    Image.fromarray(rgb_uint8).save(f'outputs/{output_prefix}_rgb_image.png')
 
     # Define discrete bins and colors
     flat_density = density_map.flatten()
@@ -198,11 +204,7 @@ def plot_and_save_results(rgb_img, density_map, output_prefix='spherical', res_d
     last_bin = max(4, int(max_val) + 1)
     bins = [0, 1, 2, 3, last_bin]
     labels = ['0', '1', '2', '>2']
-    # colors = ['#eeeeee', 
-    #           '#c6dbef', 
-    #           '#9ecae1', 
-    #           '#6baed6', 
-    #           ]
+
     colors = [
                 '#ffffcc',  # light yellow
                 '#a1dab4',  # greenish-teal
@@ -218,12 +220,12 @@ def plot_and_save_results(rgb_img, density_map, output_prefix='spherical', res_d
         rgb = tuple(int(hex_color.lstrip('#')[j:j+2], 16) for j in (0, 2, 4))
         density_colored[mask] = rgb
 
-    Image.fromarray(density_colored).save(f'{output_prefix}_density_map.png')
+    Image.fromarray(density_colored).save(f'outputs/{output_prefix}_density_map.png')
 
     # Create axis ticks for azimuth and zenith
     height, width = density_map.shape
     azimuth_ticks = np.linspace(0, 360, num=9)  # every 45°
-    zenith_ticks = np.linspace(0, 135, num=6)   # every ~27°
+    zenith_ticks = np.linspace(zenith_range[0], zenith_range[1], num=6)   # every ~27°
 
     azimuth_pos = (azimuth_ticks / res_deg).astype(int)
     zenith_pos = (zenith_ticks / res_deg).astype(int)
@@ -258,8 +260,8 @@ def plot_and_save_results(rgb_img, density_map, output_prefix='spherical', res_d
     axs[2].set_title("Pixel-wise Point Density Distribution")
 
     plt.tight_layout()
-    plt.savefig(f'{output_prefix}_combined_plot.png')
-    print(f"Saved: {output_prefix}_rgb_image.png, {output_prefix}_density_map.png, {output_prefix}_combined_plot.png")
+    plt.savefig(f'outputs/{output_prefix}_combined_plot.png')
+    print(f"Saved:outputs/{output_prefix}_rgb_image.png, {output_prefix}_density_map.png, {output_prefix}_combined_plot.png")
 
 def create_colored_cube_points(center=[0, 0, 0], size=1.0, samples_per_face=100):
     """
@@ -337,20 +339,25 @@ def visualize_point_cloud(df, add_cube = False):
         o3d.visualization.draw_geometries([pcd], window_name="Point Cloud Visualization")
 
 
-def visualize_and_save_point_cloud(df_in, visualize=True, output_prefix='spherical'):
+def visualize_and_save_point_cloud(df_in, zenith_range=(0, 135), visualize=True, output_prefix='spherical'):
     if visualize:
         visualize_point_cloud(df_in)
-    df_in.to_csv(f'{output_prefix}_pcd.csv', index=False)
-    print("Saved combined point cloud to 'combined_cube_lidar.csv'")
+    
+    output_path = f'outputs/{output_prefix}_pcd.csv'
+    df_in.to_csv(output_path, index=False)
+    print(f"Saved combined point cloud to {output_path}")
     # Perform spherical projection
-    rgb_img, density_map = spherical_projection_with_density(df_in)
-    plot_and_save_results(rgb_img, density_map, output_prefix=output_prefix, res_deg=AZIMUTH_RES)
+    rgb_img, density_map = spherical_projection_with_density(df_in, zenith_range=zenith_range)
+    plot_and_save_results(rgb_img, density_map, 
+                          zenith_range=zenith_range, 
+                          output_prefix=output_prefix, 
+                          res_deg=AZIMUTH_RES)
 
 
 def main():
     # Generate a dense LiDAR-like point cloud
     visualize = True
-    df_ball = generate_full_lidar_point_cloud(radius=10.0)
+    df_ball = generate_lidar_ball(radius=10.0)
     visualize_and_save_point_cloud(df_ball, visualize=visualize, output_prefix="ball")
 
     df_cube = create_colored_cube_points(center=[3, 3, 3], size=5.0, samples_per_face=50)
