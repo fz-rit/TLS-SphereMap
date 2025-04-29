@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from preprocess_point_cloud import preprocess_point_cloud
 from config_loader import CONFIG
+from pcd_utils import create_dir_if_not_exists
 
 # Ignore warnings
 pd.options.mode.chained_assignment = None  # Disable SettingWithCopyWarning
@@ -64,9 +65,11 @@ def calc_normals_of_pt_cloud(input_path: Path,
     print(f'Point cloud with normals calculated!')
 
     # Save the result to a text file
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
-        print(f'Output directory does not exist! Now created at {output_dir}!')
+    # if not output_dir.exists():
+    #     output_dir.mkdir(parents=True)
+    #     print(f'Output directory does not exist! Now created at {output_dir}!')
+
+    create_dir_if_not_exists(output_dir)
     output_file_path = output_dir / f'{input_path.stem}_filtered_normaled.txt'
     df_filtered.to_csv(output_file_path, sep=',', index=False, float_format='%.5f')
     print(f'Point cloud with normals saved to {output_file_path}!')
@@ -81,7 +84,6 @@ def main():
     global_params = CONFIG["global"]
     output_dir = Path(global_params["output_dir"])
     input_path = Path(global_params["input_path"])
-    # input_path = Path(f"{global_params['input_base_dir']}/{global_params['input_folder']}/{global_params['input_file_stem']}.txt")
     range_min, range_max = params["range1metres_min"], params["range1metres_max"]
     clean_pc = params["clean_pc"]
     visualize = params["visualize"]

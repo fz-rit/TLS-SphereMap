@@ -313,7 +313,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     Parameters:
     subplot_images (np.ndarray): A tuple of images to display.
     titles (str): Titles for the images.
-    colormap (str): Colormap to use for displaying the images. Default is 'plasma'.
+    colormap (str): Colormap to use for Generating the images. Default is 'plasma'.
     saveflag (bool): If True, save the images to the output_dir. Default is False.
 
     Returns:
@@ -330,7 +330,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     y_ticks = np.linspace(0, VERTICAL_FOV, CANVAS_HEIGHT + 1)
     x_ticks = np.linspace(0, HORIZONTAL_FOV, CANVAS_WIDTH + 1)
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
-        print(f"Displaying {title} image...")
+        print(f"Generating {title} image...")
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
         ax.set_xlabel('Azimuth Angle (degrees)')
         ax.set_ylabel('Elevation Angle (degree)')
@@ -462,3 +462,5 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     if visualize:
         smart_image_pie_chart(rgb_image)
         plt.show()
+
+

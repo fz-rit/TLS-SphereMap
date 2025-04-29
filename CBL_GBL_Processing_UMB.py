@@ -13,7 +13,7 @@ import sys,os
 import argparse
 import re
 import numpy as np
-
+from pathlib import Path
 try:
     import spdpy
     hasSpd = True
@@ -26,17 +26,36 @@ maxEncoderValue = int("3FFF",16)
 
 def getCmdargs():
     """
-    Get commandline arguments
+    Get command-line arguments.
     """
     p = argparse.ArgumentParser()
-    p.add_argument("--inFiles", nargs='*', type=str, help="Input GBL file (Required)")
-    p.add_argument("--cblVersion", type=int, default = 2, help="Options: 1 | 2")
-    p.add_argument("--agh", default=1.2, help='Above ground height of sensor optical centre')
+    p.add_argument("--inFolder", type=str, help="Input folder containing GBL files (Required)")
+    p.add_argument("--cblVersion", type=int, default=2, help="Options: 1 | 2")
+    p.add_argument("--agh", default=1.2, help="Above ground height of sensor optical centre")
     p.add_argument("--verbose", "-v", default=False, action="store_true", help="Verbose. Default False.")
+
     cmdargs = p.parse_args()
-    if (cmdargs.inFiles is None):
+
+    # Check if inFolder is provided
+    if cmdargs.inFolder is None:
         p.print_help()
         sys.exit()
+
+    # Convert folder path to Path object
+    in_folder_path = Path(cmdargs.inFolder)
+
+    # Check if folder exists
+    if not in_folder_path.exists() or not in_folder_path.is_dir():
+        print(f"Error: The folder '{in_folder_path}' does not exist or is not a directory.")
+        sys.exit()
+
+    # Collect all files inside the folder
+    cmdargs.inFiles = sorted([str(file) for file in in_folder_path.glob('*') if file.is_file()])
+
+    if not cmdargs.inFiles:
+        print(f"Error: No files found in '{in_folder_path}'.")
+        sys.exit()
+
     return cmdargs
     
     

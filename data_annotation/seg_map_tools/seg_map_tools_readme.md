@@ -22,13 +22,13 @@ This folder contains tools for managing **semantic segmentation datasets** in th
 ## 🔧 Example Workflow
 ```bash
 # Step 1: Convert a colorful segmentation map to grayscale class index mask
-python convert_color_to_mask.py -i ../examples/seg_map_harvard_33_02.png -o ../examples/seg_map_harvard_33_02_mask.png -d HARVARD_FOREST
+python convert_color_to_mask.py
 
 # [Optional] Step 2: Visualize the generated class index mask
 python visualize_mask.py -i ../examples/seg_map_harvard_33_02_mask.png
 
 # Step 3: Attach segmentation labels to a 3D point cloud
-python attach_segmap_to_points.py -pf ../../input_params/attach_segmap_to_points_zmachine.json
+python attach_segmap_to_points.py
 ```
 ✔ **Generated Files:**
 - `seg_map_harvard_33_02_mask.png` → Grayscale class index mask.
@@ -37,86 +37,6 @@ python attach_segmap_to_points.py -pf ../../input_params/attach_segmap_to_points
 
 ---
 
-## 📚 Detailed Documentation
-
-### 🔄 Converting a Colorful Segmentation Map to a Class Index Mask
-
-Use **`convert_color_to_mask.py`** to **convert a color-segmented `.png` file into a grayscale class index mask**.
-
-#### **Usage:**
-```bash
-python convert_color_to_mask.py -i path/to/colorful_map.png -o path/to/output_mask.png -d MANGROVE_ROOTS
-```
-
-#### **Arguments:**
-- `-i` / `--input` → Path to the input **colorful segmentation map**.
-- `-o` / `--output` → Path to save the **output grayscale class index mask**.
-- `-d` / `--dataset` → Dataset name, either `MANGROVE_ROOTS` or `HARVARD_FOREST`.
-
-Example:
-```bash
-python convert_color_to_mask.py -i sample_map.png -o sample_mask.png -d HARVARD_FOREST
-```
-✔ **Output:** A grayscale `.png` where pixel values correspond to class indices.
-
----
-
-### 🎨 Visualizing a Class Index Mask
-
-Use **`visualize_mask.py`** to **apply a colormap (`jet`)** and visualize a class index mask.
-
-#### **Usage:**
-```bash
-python visualize_mask.py -i path/to/class_index_mask.png
-```
-or save the visualization:
-```bash
-python visualize_mask.py -i path/to/class_index_mask.png -s
-```
-
-#### **Arguments:**
-- `-i` / `--input` → Path to the class index mask (`.png`).
-- `-s` / `--save` (optional) → Saves the visualization as `visualized_mask.png`.
-
-✔ **Output:** Displays the class index mask with colors for better visibility.
-
----
-
-### 📌 Attaching Segmentation Labels to a 3D Point Cloud
-
-Use **`attach_segmap_to_points.py`** to **attach class labels from a segmentation mask to a point cloud file**.
-
-#### **Usage:**
-```bash
-python attach_segmap_to_points.py -pf path/to/params.json
-```
-
-#### **Example Command:**
-```bash
-python attach_segmap_to_points.py -pf ../../input_params/attach_segmap_to_points_zmachine.json
-```
-
-#### **JSON Parameter File (`params.json`):**
-```json
-{
-    "root_dir": "D:/mylab/tls_point_segmentation",
-    "pointcloud": "data/point_cloud.txt",
-    "segmap": "seg_map_ALRSET1_3583_mask.png",
-    "dataset": "MANGROVE_ROOTS",
-    "output_formats": [".ply", ".csv"]
-}
-```
-
-#### **What It Does:**
-1. **Reads the point cloud** (`pointcloud.txt`).
-2. **Maps each point to a segmentation label** using `output_mask.png`.
-3. **Attaches class labels (`class_id`) and colors (`RGB`)**.
-4. **Saves the new point cloud** as a `.csv` and a `.ply` file.
-
-✔ **Output:**  
-- `**_segmap.csv` or `**_segmap.ply` → Contains the original point cloud fields + segmentation class labels + r/g/b.
-
----
 
 ### 📌 Label Maps JSON Explanation (`label_maps.json`)
 
@@ -170,7 +90,7 @@ python attach_segmap_to_points.py -pf ../../input_params/attach_segmap_to_points
 
 ---
 
-## **🚀 Summary**
+## **📔 Summary**
 ✔ **Convert** segmentation maps to grayscale masks.  
 ✔ **Visualize** class index masks with colors.  
 ✔ **Attach segmentation labels** to 3D point clouds.  
