@@ -462,3 +462,5 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     if visualize:
         smart_image_pie_chart(rgb_image)
         plt.show()
+
+

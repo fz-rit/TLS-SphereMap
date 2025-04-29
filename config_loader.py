@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
-CONFIG_PATH = './input_params/3D_to_2D_config_mangrove_roots.json'
+# CONFIG_PATH = './input_params/3D_to_2D_config_mangrove_roots.json'
 # CONFIG_PATH = './input_params/3D_to_2D_config_harvard_forest.json'
+CONFIG_PATH = './input_params/3D_to_2D_config_random_folder.json'
 
 def load_config():
     """Load the JSON config and dynamically generate paths."""
@@ -19,7 +20,7 @@ def load_config():
 
     # Compute dynamic paths
     output_dir = output_base_dir / input_folder_parent / input_folder / input_file_stem / "outputs"
-    input_suffix = ".txt" if "mangrove" in CONFIG_PATH else ".las"
+    input_suffix = global_params.get("input_suffix", ".txt")  # Default to .txt if not specified
     input_path = input_base_dir / input_folder_parent / input_folder / f"{input_file_stem}{input_suffix}"
 
     # Add computed paths to global config

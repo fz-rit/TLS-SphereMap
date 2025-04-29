@@ -1,10 +1,10 @@
 {
     "global": {
-        "input_file_stem": "UMBCBL009_2024-03-25-22-11-59_NGERURSET2NorthU_060180_002254.799_1634182943",
-        "input_folder": "NGERURSET2/forest",
-        "input_folder_parent": "palau_2024",
+        "input_file_stem": "SICK_2023-09-17-10-24-40_basement02_060180_002726.799_1642331006",
+        "input_folder": "txt_files",
+        "input_folder_parent": "tls_scans_4fei",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
-        "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs"
+        "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/tls_scans_4fei/outputs"
     },
     "calc_pt_cloud_normal": {
         "range1metres_min": 0.1,

@@ -170,3 +170,48 @@ class MemoryProfiler:
             yield
         finally:
             pass
+
+
+def create_dir_if_not_exists(directory: Path) -> None:
+    """
+    Ask the user whether to create a directory (and its parents) if it does not exist.
+    Also display the nearest existing parent directory.
+
+    Parameters
+    ----------
+    directory : Path
+        The directory to create.
+
+    Returns
+    -------
+    None
+    """
+    if directory.exists():
+        print(f"Directory {directory} already exists.")
+        return
+
+    # Find the nearest existing parent
+    existing_parent = directory
+    while not existing_parent.exists():
+        existing_parent = existing_parent.parent
+
+    print(f"Directory '{directory}' does not exist.")
+    print(f"The nearest existing parent is: '{existing_parent}'")
+
+    # Ask user whether to create
+    while True:
+        response = input("Do you want to create the missing directory (and any missing parents)? (y/n): ").strip().lower()
+        if response == 'y':
+            directory.mkdir(parents=True, exist_ok=True)
+            print(f"Directory {directory} created.")
+            break
+        elif response == 'n':
+            print(f"Program stopped due to lack of the path '{directory}'.")
+            break
+        else:
+            print("Please enter 'y' or 'n'.")
+
+
+if __name__ == "__main__":
+    test_dir = Path("/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/tls_scans_4fei/output")
+    create_dir_if_not_exists(test_dir)
