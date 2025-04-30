@@ -1,7 +1,7 @@
 """
 Contributor: fzhcis@rit.edu
 Version: 1.0
-Last Updated: 11/19/2024
+Last Updated: 04/29/2025
 Description:
 This module contains functions for generating and displaying histograms of image data and input vectors, 
 as well as displaying unwrapped images with titles and colorbars.
@@ -20,7 +20,8 @@ from pathlib import Path
 import numpy as np
 from skimage import io
 from matplotlib.colors import ListedColormap, BoundaryNorm
-
+import seaborn as sns
+from PIL import Image
 
 HORIZONTAL_FOV = 360.0
 # ======For TLS data======
@@ -464,3 +465,125 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
         plt.show()
 
 
+def plot_correlation_matrix(corr_matrix, 
+                            band_names=None, 
+                            title="Correlation Matrix of Feature Maps",
+                            output_dir:Path=None, 
+                            output_stem=None):
+    """
+    Plots the correlation matrix as a heatmap.
+
+    Parameters:
+    -----------
+    corr_matrix : np.ndarray
+        A (C, C) correlation matrix.
+
+    band_names : list of str, optional
+        A list of names for the spectral bands (length C). If None, band indices will be used.
+
+    title : str
+        Title of the heatmap.
+    """
+    C = corr_matrix.shape[0]
+    if band_names is None:
+        band_names = [f'Band {i}' for i in range(C)]
+
+    assert len(band_names) == C, f"Length of band names {len(band_names)} must match the number of bands {C}."
+    corr_fig = plt.figure(figsize=(8, 6))
+    sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm",
+                xticklabels=band_names, yticklabels=band_names,
+                square=True, cbar_kws={"shrink": 0.75})
+    plt.title(title)
+    plt.tight_layout()
+
+    if output_dir is None:
+        output_path = Path(f"outputs/correlation_matrix_{output_stem}.png")
+    else:
+        output_path = output_dir / f"correlation_matrix_{output_stem}.png"
+    corr_fig.savefig(output_path)
+    print(f"1️Correlation matrix saved to {output_path}")
+
+
+def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
+    """
+    Plots the PCA/ICA/MNF components as single channel images.
+
+    Parameters:
+    -----------
+    pcs : np.ndarray
+        Principal components of shape (n_components, H, W).
+    """
+    n_components = pcs.shape[0]
+    fig, axes = plt.subplots(n_components, 1, figsize=(6, 3 * n_components))
+    if n_components == 1:
+        axes = [axes]
+
+    for i in range(n_components):
+        axes[i].imshow(pcs[i], cmap='plasma') # cmaps: 'gray', 'hot', 'cool', 'viridis', 'plasma', 'inferno'
+        axes[i].set_title(f'Component {i+1}')
+        axes[i].axis('off')
+
+    if 'PCA' in output_stem:
+        plt.suptitle("PCA Components")
+    elif 'MNF' in output_stem:
+        plt.suptitle("MNF Components")
+    elif 'ICA' in output_stem:
+        plt.suptitle("ICA Components")
+    else:
+        plt.suptitle("Unknown Components")
+    plt.tight_layout()
+
+    if output_dir is None:
+        output_path = Path(f"outputs/pca_components_{output_stem}.png")
+    else:
+        output_path = output_dir / f"pca_components_{output_stem}.png"
+    fig.savefig(output_path)
+    print(f"2️PCA/MNF/ICA components saved to {output_path}")
+    
+
+def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None):
+    """
+    Plots RGB images from all permutations of the first 3 components.
+
+    Parameters:
+    -----------
+    components : np.ndarray
+        Component images of shape (3, H, W).
+    title : str
+        Title prefix for each subplot.
+    """
+    from itertools import permutations
+
+    permuts = list(permutations([0, 1, 2]))
+    H, W = components.shape[1:]
+    fig, axes = plt.subplots(len(permuts), 1, figsize=(6, 3 * len(permuts)))
+
+    for ax, perm in zip(axes, permuts):
+        rgb = np.stack([components[i] for i in perm], axis=-1)
+        # Normalize each channel
+        for i in range(3):
+            ch = rgb[:, :, i]
+            rgb[:, :, i] = (ch - ch.min()) / (ch.max() - ch.min() + 1e-8)
+
+        # save rgb image
+        rgb = (rgb * 255).astype(np.uint8)
+        rgb_img = Image.fromarray(rgb)
+        if output_dir is None:
+            output_path = Path(f"outputs/{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png")
+        else:
+            output_path = output_dir / f"{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png"   
+        rgb_img.save(output_path)
+        print(f"3️Saved RGB image to {output_path}")
+        ax.imshow(rgb)
+        ax.set_title(f"{output_stem} rgb permutations\nR:Comp{perm[0]+1} G:Comp{perm[1]+1} B:Comp{perm[2]+1}")
+        ax.axis('off')
+
+    plt.tight_layout()
+    
+    if output_stem:
+        if output_dir is None:
+            output_path = Path(f"outputs/{output_stem}_PCs_permutations.png")
+        else:
+            output_path = output_dir / f"{output_stem}_PCs_permutations.png"
+        fig.savefig(output_path)
+        print(f"3️Saved RGB permutations plot to {output_path}")

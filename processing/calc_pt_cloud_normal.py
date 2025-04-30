@@ -5,15 +5,18 @@ Last Updated: 11/19/2024
 Description:
 This script calculates the normals of a point cloud and saves the result to a text file.
 """
+# import os
+# import sys
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import open3d as o3d
 import pandas as pd
 import numpy as np
 import json
 from pathlib import Path
-from preprocess_point_cloud import preprocess_point_cloud
-from config_loader import CONFIG
-from pcd_utils import create_dir_if_not_exists
+from tools.preprocess_point_cloud import preprocess_point_cloud
+from tools.config_loader import CONFIG
+from tools.pcd_utils import create_dir_if_not_exists
 
 # Ignore warnings
 pd.options.mode.chained_assignment = None  # Disable SettingWithCopyWarning
@@ -68,15 +71,16 @@ def calc_normals_of_pt_cloud(input_path: Path,
     # if not output_dir.exists():
     #     output_dir.mkdir(parents=True)
     #     print(f'Output directory does not exist! Now created at {output_dir}!')
-
-    create_dir_if_not_exists(output_dir)
-    output_file_path = output_dir / f'{input_path.stem}_filtered_normaled.txt'
+    save_dir = output_dir / 'pcd'
+    create_dir_if_not_exists(save_dir)
+    output_file_path = save_dir / f'{input_path.stem}_filtered_normaled.txt'
     df_filtered.to_csv(output_file_path, sep=',', index=False, float_format='%.5f')
     print(f'Point cloud with normals saved to {output_file_path}!')
 
     # Visualize to check the normals
     if visualize:
         o3d.visualization.draw_geometries([pcd], point_show_normal=True)
+
 
 def main():
     # Load the configuration file for input paths

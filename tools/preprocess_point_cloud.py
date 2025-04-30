@@ -146,6 +146,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
             if flip_mangrove: # LIDAR upside down, Flip the Z axis to match the orientation of the point cloud
                 df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
                 df['elevation'] = df['zenith'] - 90
+                print("------Flipping of Z axis for mangrove dataset.-------------")
             else: # For the single scan of the mangrove forest, lidar was not upsidedown.
                 print("------Not flipping of Z axis for mangrove dataset.-------------")
                 df['elevation'] = 90 - df['zenith']

@@ -10,7 +10,7 @@ parent_dir = current_file.parents[2]  # Go two levels up to root directory
 sys.path.append(str(parent_dir))
 sys.path.append(str(current_file_dir))
 
-from config_loader import CONFIG
+from tools.config_loader import CONFIG
 
 # Load label maps from JSON file
 def load_dataset_info(dataset_name):

@@ -5,7 +5,7 @@ from matplotlib.colors import hsv_to_rgb
 from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-
+from pathlib import Path
 ZENITH_RES = 0.5
 AZIMUTH_RES = 0.5
 GROUP_SIZE = 10
@@ -339,11 +339,13 @@ def visualize_point_cloud(df, add_cube = False):
         o3d.visualization.draw_geometries([pcd], window_name="Point Cloud Visualization")
 
 
-def visualize_and_save_point_cloud(df_in, zenith_range=(0, 135), visualize=True, output_prefix='spherical'):
+def visualize_and_save_point_cloud(df_in, zenith_range=(0, 135), visualize=True, save_dir=None, output_prefix='spherical'):
     if visualize:
         visualize_point_cloud(df_in)
     
-    output_path = f'outputs/{output_prefix}_pcd.csv'
+    if save_dir is None:
+        save_dir = Path('outputs')
+    output_path = save_dir / f'{output_prefix}_sphere.csv'
     df_in.to_csv(output_path, index=False)
     print(f"Saved combined point cloud to {output_path}")
     # Perform spherical projection

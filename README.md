@@ -46,6 +46,7 @@ pip install torch-sparse -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-cluster -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-geometric
+pip install seaborn
 
 ```
 

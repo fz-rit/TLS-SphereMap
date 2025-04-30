@@ -1,16 +1,21 @@
+# import os
+# import sys
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 import numpy as np
-from hdr_adjustments import contrast_enhancement
+from tools.hdr_adjustments import contrast_enhancement
 import matplotlib.pyplot as plt
 from skimage import io
 from matplotlib.colors import ListedColormap, BoundaryNorm
-from preprocess_point_cloud import map_angle_to_pixel
+from tools.preprocess_point_cloud import map_angle_to_pixel
 from typing import Union, List, Dict, Any
 from pathlib import Path
-from plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values
-from norm_to_hsv import attach_normal_color_to_df
-from config_loader import CONFIG
+from tools.plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values
+from tools.norm_to_hsv import attach_normal_color_to_df
+from tools.config_loader import CONFIG
 import json
+from tools.pcd_utils import create_dir_if_not_exists
 
 # Ignore warnings
 pd.options.mode.chained_assignment = None
@@ -406,14 +411,20 @@ def main():
     saveflag = params['saveflag']
     visualize = params['visualize']
     output_dir = Path(global_params['output_dir'])
-    filename = output_dir / f'{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt'
+    pcd_dir = output_dir / 'pcd'
+    img_out_dir = output_dir / 'img'
+    create_dir_if_not_exists(img_out_dir)
+    filename = next(pcd_dir.glob("*_ncr_*"), None)
+    if filename is None:
+        raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
+
 
     key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
     df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename)
     density_image = output_images_dict['Density Map']
     display_single_band_img_wt_discrete_values(density_image, 
                                             title='Point Density Map', 
-                                            output_dir=output_dir, 
+                                            output_dir=img_out_dir, 
                                             saveflag=saveflag,
                                             visualize=visualize)
 
@@ -434,7 +445,7 @@ def main():
     display_unwrapped_single_band_images(display_images, 
                                         titles=titles,
                                         key_str=key_str,
-                                        output_dir=output_dir,
+                                        output_dir=img_out_dir,
                                         saveflag=saveflag,
                                         visualize=visualize
                                         )
@@ -444,7 +455,7 @@ def main():
     display_unwrapped_rgb_image(normals_rgb_image, 
                                 figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
                                 saveflag=saveflag, 
-                                output_dir=output_dir,
+                                output_dir=img_out_dir,
                                 visualize=visualize
                                 )
 
@@ -452,7 +463,7 @@ def main():
     save_image_cube_and_metadata(
                                 output_images_dict, 
                                 normals_rgb_image, 
-                                output_dir, 
+                                img_out_dir, 
                                 key_str, 
                                 input_folder
                                 )
@@ -477,7 +488,7 @@ def main():
                                                     shuffle_images[shuffle_order[1]], 
                                                     shuffle_images[shuffle_order[2]], 
                                                     figure_title=figure_title, 
-                                                    output_dir=output_dir, 
+                                                    output_dir=img_out_dir, 
                                                     saveflag=saveflag, 
                                                     visualize=visualize)
 

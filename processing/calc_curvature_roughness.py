@@ -16,7 +16,6 @@ Usage:
 3. Run the script with the following command:
    python calc_curvature_roughness.py
 """
-
 import numpy as np
 import pandas as pd
 import time
@@ -24,10 +23,11 @@ import torch
 from torch import Tensor
 from pathlib import Path
 from tqdm import tqdm
-from plot_tools import get_vector_histogram
+from tools.plot_tools import get_vector_histogram
 from typing import List, Tuple, Dict, Any
-from pcd_utils import check_and_clean_for_nans, interactive_visualize_pcd, pcd_snapshot_renderer, export_results, MemoryProfiler
-from config_loader import CONFIG # Configuration dictionary read from a .json file
+from tools.pcd_utils import check_and_clean_for_nans, interactive_visualize_pcd, export_results, MemoryProfiler
+from tools.config_loader import CONFIG # Configuration dictionary read from a .json file
+from tools.pcd_utils import create_dir_if_not_exists
 
 class CalcCurvatureRoughness:
     def __init__(self, device: str = 'cuda'):
@@ -162,7 +162,7 @@ def process_point_cloud_curvature_roughness(config: Dict[str, Any]) -> pd.DataFr
     params = config["calc_curvature_roughness"]
     output_dir = Path(global_params["output_dir"])
     input_file_stem = global_params['input_file_stem']
-    input_path = Path(output_dir / f"{input_file_stem}_filtered_normaled.txt")
+    input_path = Path(output_dir / 'pcd' / f"{input_file_stem}_filtered_normaled.txt")
     neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for both curvature and roughness
     max_neighbors = params["max_neighbors"]
     batch_num_elevation = params.get("batch_num_elevation", 2)
@@ -219,15 +219,12 @@ def process_point_cloud_curvature_roughness(config: Dict[str, Any]) -> pd.DataFr
         interactive_visualize_pcd(all_points_xyz, normalized_curvatures, normalized_roughness, neighbor_radius)
         
     if export: # Export results to disk
-        pcd_snapshot_renderer(all_points_xyz, 
-                              all_curvatures, 
-                              all_roughness, 
-                              neighbor_radius, 
-                              output_dir)
+        save_dir = output_dir / 'pcd'
+        create_dir_if_not_exists(save_dir)
         export_results(all_points_allinone, 
                        neighbor_radius, 
-                       output_dir, 
-                       input_path)
+                       save_dir, 
+                       input_file_stem)
     
     if delete_intermediate_file:
         input_path.unlink()

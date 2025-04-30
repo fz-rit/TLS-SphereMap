@@ -1,22 +1,22 @@
 {
     "global": {
-        "input_file_stem": "UMBCBL009_2024-03-25-22-11-59_NGERURSET2NorthU_060180_002254.799_1634182943",
-        "input_folder": "NGERURSET2/forest",
+        "input_file_stem": "UMBCBL009_2024-04-03-21-08-54_U1B375North_060180_000538.800_2095742865",
+        "input_folder": "U1B375",
         "input_folder_parent": "palau_2024",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
         "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs"
     },
     "calc_pt_cloud_normal": {
         "range1metres_min": 0.1,
-        "range1metres_max": 100.0,
+        "range1metres_max": 50.0,
         "clean_pc": true,
         "visualize": false,
-        "flip_mangrove": false
+        "flip_mangrove": true
     },
     "calc_curvature_roughness": {
         "batch_num_elevation": 5,
         "batch_num_azimuth": 6,
-        "neighbor_radius": 0.06,
+        "neighbor_radius": 0.10,
         "max_neighbors": 20,
         "histogram_saveflag": false,
         "interactive_visualize": false,
