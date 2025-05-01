@@ -38,7 +38,7 @@ band_names = ['Intensity',
 
 
 corr_matrix = compute_band_correlation(image_cube)
-save_dir = output_dir / 'pca_outputs'
+save_dir = output_dir / 'pca'
 create_dir_if_not_exists(save_dir)
 plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=save_dir, output_stem=output_stem)
 

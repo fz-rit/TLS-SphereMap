@@ -458,7 +458,7 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
 
     if saveflag:
         rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
-        io.imsave(f'{output_dir}/{figure_title}.tif', rgb_image_uint8)
+        io.imsave(f'{output_dir}/{figure_title}.png', rgb_image_uint8)
 
     if visualize:
         smart_image_pie_chart(rgb_image)

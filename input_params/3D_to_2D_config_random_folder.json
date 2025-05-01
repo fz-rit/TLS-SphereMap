@@ -1,6 +1,6 @@
 {
     "global": {
-        "input_file_stem": "SICK_2023-09-17-10-24-40_basement02_060180_002726.799_1642331006",
+        "input_file_stem": "SICK_2022-11-18-15-39-18_CarlsonBasement_060180_000227.800_337460866",
         "input_folder": "txt_files",
         "input_folder_parent": "tls_scans_4fei",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
@@ -16,7 +16,7 @@
     "calc_curvature_roughness": {
         "batch_num_elevation": 5,
         "batch_num_azimuth": 6,
-        "neighbor_radius": 0.06,
+        "neighbor_radius": 0.1,
         "max_neighbors": 20,
         "histogram_saveflag": false,
         "interactive_visualize": false,

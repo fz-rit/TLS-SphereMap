@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-CONFIG_PATH = './input_params/3D_to_2D_config_mangrove_roots.json'
+# CONFIG_PATH = './input_params/3D_to_2D_config_mangrove_roots.json'
 # CONFIG_PATH = './input_params/3D_to_2D_config_harvard_forest.json'
-# CONFIG_PATH = './input_params/3D_to_2D_config_random_folder.json'
+CONFIG_PATH = './input_params/3D_to_2D_config_random_folder.json'
 
 def load_config():
     """Load the JSON config and dynamically generate paths."""

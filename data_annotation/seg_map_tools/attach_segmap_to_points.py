@@ -9,9 +9,9 @@ from plyfile import PlyData, PlyElement
 # Add parent directory to sys.path
 current_file = Path(__file__).resolve()
 current_file_dir = current_file.parent
-parent_dir = current_file.parents[2]  # Go two levels up to root directory
-sys.path.append(str(parent_dir))
-sys.path.append(str(current_file_dir))
+# parent_dir = current_file.parents[2]  # Go two levels up to root directory
+# sys.path.append(str(parent_dir))
+# sys.path.append(str(current_file_dir))
 
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from tools.config_loader import CONFIG
@@ -40,9 +40,11 @@ def load_label_maps(dataset_name):
 def attach_segmentation_to_points():
     """Attach segmentation map class IDs and colors to the point cloud using parameters from JSON."""
     params = CONFIG["attach_segmap_to_points"]
-    root_dir = CONFIG["global"]["output_dir"]
-    input_file_stem = CONFIG["global"]["input_file_stem"]
-    point_cloud_file = root_dir / f"{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt"
+    root_dir = CONFIG["global"]["output_dir"] / 'pcd'
+    # input_file_stem = CONFIG["global"]["input_file_stem"]
+    # point_cloud_file = root_dir / f"{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt"
+    point_cloud_file = next(root_dir.glob(f"*_ncr_*"), None)
+
     segmap_file = root_dir / params["segmap"]
     dataset_name = params["dataset"]
     output_formats = params["output_formats"]
