@@ -57,7 +57,7 @@ import torch
 import psutil
 from pathlib import Path
 from tqdm import tqdm
-from tools.preprocess_point_cloud import preprocess_point_cloud
+from tools.preprocess_point_cloud import read_and_clean_pcd
 from tools.plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 import threading

@@ -199,26 +199,55 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
     print(f"Read {len(df)} points from {filename}")
     print("---------Before preprocessing:----------")
     for col in df.columns:
-        print(f"Range of {col}: {df[col].min()} to {df[col].max()}")
+        print(f"Range of {col}: {df[col].min():.3f} to {df[col].max():.3f}")
 
     
     return df
         
 
+def clean_pcd_df_based_on_ir(df: pd.DataFrame, cut_percent: float=0.006) -> pd.DataFrame:
+    """
+    Clean the point cloud data based on intensity and range1metres.
+    
+    Parameters:
+    df (pd.DataFrame): The point cloud data DataFrame.
+    cut_percent (float): The percentage of points to keep based on intensity and range1metres.
+    
+    Returns:
+    pd.DataFrame: The cleaned point cloud data DataFrame.
+    """
+    print(f"❗ Cleaning point cloud data based on {cut_percent * 100}% cut-off.")
+    col_names = ['range1metres', 'Intensity']
+    bottom_values = [0.1, 0.001]
+    # Calculate the cut-off values for each column
+    cut_off_values = {}
+    for col, bottom in zip(col_names, bottom_values):
+        top = np.percentile(df[col], 100 - cut_percent * 100)
+        cut_off_values[col] = (bottom, top)
+    
+    # Filter the DataFrame based on the cut-off values
+    df_cleaned = df.copy()
+    for col, (bottom, top) in cut_off_values.items():
+        df_cleaned = df_cleaned[(df_cleaned[col] >= bottom) & (df_cleaned[col] <= top)]
+        
+    print(f"Filtered {col}: {len(df) - len(df_cleaned)} points removed based on intensity and range limits:")
+    print(cut_off_values)
+    print(f"👉 After cleaning, {len(df_cleaned)} / {len(df)} points remain.")
+    return df_cleaned
 
-def preprocess_point_cloud(filename: Path, 
-                           range1metres_min: float = 0.1, 
-                           range1metres_max: float = 50.0,
+
+def read_and_clean_pcd(filename: Path, 
+                            cut_percent: float = 0.005,
                            clean_pc: bool = False,
                            flip_mangrove: bool = True) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
     
-    Parameters:
-    filename (Path): The path to the point cloud data file in CSV format.
-    range1metres_min (float): Minimum threshold for range1metres filtering, in meters.
-    range1metres_max (float): Maximum threshold for range1metres filtering, in meters.
-    clean_pc (bool): Whether to filter the point cloud data based on range1metres_min and range1metres_max.
+    Args:
+        filename (Path): The path to the point cloud file. Supported formats are .txt, .las, and .bin.
+        cut_percent (float): The percentage of points to keep based on intensity and range1metres.
+        clean_pc (bool): Whether to clean the point cloud data based on intensity and range1metres.
+        flip_mangrove (bool): Whether to flip the Z axis for mangrove datasets.
     
     Returns:
     pandas.DataFrame: A DataFrame containing the filtered and processed point cloud data with additional columns for pixel coordinates.
@@ -245,11 +274,7 @@ def preprocess_point_cloud(filename: Path,
 
     # Step 2: Clean the dataset
     if clean_pc:
-        df_filtered = df[
-            (df['range1metres'] >= range1metres_min)
-            & (df['range1metres'] <= range1metres_max)
-        ]
-        print("Filtered based on range1metres. (range1metres_min, range1metres_max):", range1metres_min, range1metres_max)
+        df_filtered = clean_pcd_df_based_on_ir(df, cut_percent=cut_percent)
     else:
         df_filtered = df
 
@@ -259,7 +284,6 @@ def preprocess_point_cloud(filename: Path,
     df_filtered['Intensity'] = intensity
     print(f"!!Intensity normalized to range: {intensity.min()} to {intensity.max()}!!")
     
-    print(f"Filtered out {len(df) - len(df_filtered)} / {len(df)} points based on range1metres.")
     print("---------After preprocessing:----------")
     for col in df_filtered.columns:
         print(f"Range of {col}: {df_filtered[col].min()} to {df_filtered[col].max()}")
@@ -268,5 +292,5 @@ def preprocess_point_cloud(filename: Path,
 # Example usage
 if __name__ == "__main__":
     filename = Path(r"/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_33/33_01/33_01.las")
-    df = preprocess_point_cloud(filename)
+    df = read_and_clean_pcd(filename)
     print(df.head())

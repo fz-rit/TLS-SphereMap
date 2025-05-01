@@ -9,8 +9,7 @@
 
     },
     "calc_pt_cloud_normal": {
-        "range1metres_min": 0.1,
-        "range1metres_max": 50.0,
+        "cut_percent": 0.005,
         "clean_pc": true,
         "visualize": false,
         "flip_mangrove": true

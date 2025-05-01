@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 import json
 from pathlib import Path
-from tools.preprocess_point_cloud import preprocess_point_cloud
+from tools.preprocess_point_cloud import read_and_clean_pcd
 from tools.config_loader import CONFIG
 from tools.pcd_utils import create_dir_if_not_exists
 
@@ -24,16 +24,14 @@ pd.options.mode.chained_assignment = None  # Disable SettingWithCopyWarning
 
 def calc_normals_of_pt_cloud(input_path: Path, 
                              output_dir: Path, 
-                             range_min:float, 
-                             range_max:float, 
+                            cut_percent:float,
                              clean_pc:bool, 
                              visualize:bool=False,
                              flip_mangrove:bool=True):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
-    df_filtered = preprocess_point_cloud(input_path, 
-                                         range1metres_max=range_max, 
-                                         range1metres_min=range_min,
+    df_filtered = read_and_clean_pcd(input_path, 
+                                         cut_percent=cut_percent,
                                          clean_pc=clean_pc,
                                          flip_mangrove=flip_mangrove)
 
@@ -88,18 +86,17 @@ def main():
     global_params = CONFIG["global"]
     output_dir = Path(global_params["output_dir"])
     input_path = Path(global_params["input_path"])
-    range_min, range_max = params["range1metres_min"], params["range1metres_max"]
+    cut_percent = params["cut_percent"]
     clean_pc = params["clean_pc"]
     visualize = params["visualize"]
     flip_mangrove = params["flip_mangrove"]
 
     # Process the point cloud
     calc_normals_of_pt_cloud(input_path, output_dir, 
-                             range_min=range_min, 
-                             range_max=range_max,
-                             clean_pc=clean_pc,
-                             visualize=visualize,
-                             flip_mangrove=flip_mangrove)
+                             cut_percent = cut_percent,
+                             clean_pc = clean_pc,
+                             visualize = visualize,
+                             flip_mangrove = flip_mangrove)
 
 if __name__ == "__main__":
     main()

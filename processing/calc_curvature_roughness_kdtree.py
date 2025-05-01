@@ -19,8 +19,6 @@ import json
 import time
 from pathlib import Path
 from tqdm import tqdm
-from tools.preprocess_point_cloud import read_raw_point_cloud
-from tools.plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 from typing import List, Tuple, Dict, Any
 from tools.config_loader import CONFIG
