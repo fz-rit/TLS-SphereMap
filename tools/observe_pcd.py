@@ -46,7 +46,7 @@ def observe_histogram(pcd_path: Path) -> None:
         ax.set_title(col_name)
         ax.grid(True)
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 if __name__ == '__main__':
     key_str1 = 'U1B375'
