@@ -19,13 +19,17 @@ def normals_to_color(normals: np.ndarray) -> np.ndarray:
               \nnz min={normals[:, 2].min()}, \
               \nnz max={normals[:, 2].max()}")
         raise ValueError("Normals should be in the range [-1, 1]")
+    
+    # Flip nz if most of them are negative
+    if np.mean(normals[:, 2]) < 0:
+        normals[:, 2] = -normals[:, 2]
     azimuth = np.arctan2(normals[:, 1], normals[:, 0])  # Angle in the XY plane
     elevation = np.arcsin(normals[:, 2])  # Angle relative to the Z-axis
 
     # Normalize azimuth and elevation to [0, 1] for HSV mapping
     hue = (azimuth + np.pi) / (2 * np.pi)  # Map azimuth from [-pi, pi] to [0, 1]
     value = (elevation + np.pi / 2) / np.pi  # Map elevation from [-pi/2, pi/2] to [0, 1]
-    saturation = np.ones_like(hue)  # Set full saturation (1)
+    saturation = np.ones_like(hue).astype(float) / 2  # 0.5 produces smoother, more balanced histograms than 1.0
 
     # Combine into HSV format
     hsv_colors = np.stack([hue, saturation, value], axis=1)
@@ -33,7 +37,6 @@ def normals_to_color(normals: np.ndarray) -> np.ndarray:
     # Convert HSV to RGB
     rgb_colors = hsv_to_rgb(hsv_colors)
 
-    # Step 3: Assign colors to the point cloud
     # Convert RGB to a format Open3D accepts
     colors = rgb_colors.astype(np.float64)
     return colors

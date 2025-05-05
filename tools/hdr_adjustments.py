@@ -41,9 +41,6 @@ def contrast_enhancement(image, method='hist_equal', **kwargs):
     # Create a mask for the void pixels, with value 0
     zero_mask = image == 0
 
-    # print(f"Image value range before adjustment: [{image.min()}, {image.max()}]")
-    # image = exposure.rescale_intensity(image[~zero_mask], out_range=(0, 1))
-    # print("Image rescaled to [0, 1].")
 
     stretch_percent = kwargs.get('stretch_percentile', 1)
     if stretch_percent > 0:

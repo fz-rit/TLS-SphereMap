@@ -49,10 +49,10 @@ def observe_histogram(pcd_path: Path) -> None:
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 if __name__ == '__main__':
-    key_str1 = 'U1B375'
-    key_str2 = 'UMBCBL009_2024-04-03-21-08-54_U1B375North_060180_000538.800_2095742865'
+    key_str1 = 'ALRSET1'
+    key_str2 = 'UMBCBL009_2024-03-28-02-47-26_ALRSET12_060180_000200.800_1830507489'
     file_dir = Path(f'/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/palau_2024/{key_str1}/{key_str2}/outputs/pcd')
-    input_path = file_dir / f'{key_str2}_color.csv'
+    input_path = file_dir / f'{key_str2}_filtered_normaled.txt'
     # observe_pcd_class_freq(input_path)
     observe_histogram(input_path)
     plt.show()

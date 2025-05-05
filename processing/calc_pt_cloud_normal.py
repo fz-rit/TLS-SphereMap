@@ -5,10 +5,6 @@ Last Updated: 11/19/2024
 Description:
 This script calculates the normals of a point cloud and saves the result to a text file.
 """
-# import os
-# import sys
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import open3d as o3d
 import pandas as pd
 import numpy as np
@@ -65,10 +61,6 @@ def calc_normals_of_pt_cloud(input_path: Path,
     print(f"Output dataframe shape: {df_filtered.shape}.")
     print(f'Point cloud with normals calculated!')
 
-    # Save the result to a text file
-    # if not output_dir.exists():
-    #     output_dir.mkdir(parents=True)
-    #     print(f'Output directory does not exist! Now created at {output_dir}!')
     save_dir = output_dir / 'pcd'
     create_dir_if_not_exists(save_dir)
     output_file_path = save_dir / f'{input_path.stem}_filtered_normaled.txt'

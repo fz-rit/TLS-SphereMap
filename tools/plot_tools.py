@@ -513,13 +513,13 @@ def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
     pcs : np.ndarray
         Principal components of shape (n_components, H, W).
     """
-    n_components = pcs.shape[0]
+    n_components = pcs.shape[-1]
     fig, axes = plt.subplots(n_components, 1, figsize=(6, 3 * n_components))
     if n_components == 1:
         axes = [axes]
 
     for i in range(n_components):
-        axes[i].imshow(pcs[i], cmap='plasma') # cmaps: 'gray', 'hot', 'cool', 'viridis', 'plasma', 'inferno'
+        axes[i].imshow(pcs[:,:, i], cmap='plasma') # cmaps: 'gray', 'hot', 'cool', 'viridis', 'plasma', 'inferno'
         axes[i].set_title(f'Component {i+1}')
         axes[i].axis('off')
 
@@ -555,11 +555,11 @@ def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None
     from itertools import permutations
 
     permuts = list(permutations([0, 1, 2]))
-    H, W = components.shape[1:]
+    H, W = components.shape[:2]
     fig, axes = plt.subplots(len(permuts), 1, figsize=(6, 3 * len(permuts)))
 
     for ax, perm in zip(axes, permuts):
-        rgb = np.stack([components[i] for i in perm], axis=-1)
+        rgb = np.stack([components[:,:,i] for i in perm], axis=-1)
         # Normalize each channel
         for i in range(3):
             ch = rgb[:, :, i]
@@ -587,3 +587,22 @@ def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None
             output_path = output_dir / f"{output_stem}_PCs_permutations.png"
         fig.savefig(output_path)
         print(f"3️Saved RGB permutations plot to {output_path}")
+
+
+def histogram_to_ascii(hist, width=30, style="blocks"):
+    if style == "blocks":
+        # Unicode blocks for smooth gradients
+        bars = "▁▂▃▄▅▆▇█"
+    else:
+        # ASCII fallback
+        bars = " .:-=+*#%@"
+
+    max_count = max(hist)
+    if max_count == 0:
+        return "".join([" " for _ in hist])
+
+    result = ""
+    for count in hist:
+        bar_index = int((count / max_count) * (len(bars) - 1))
+        result += bars[bar_index]
+    return result

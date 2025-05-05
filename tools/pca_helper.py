@@ -4,27 +4,6 @@ import json
 from pathlib import Path
 from sklearn.decomposition import PCA, FastICA
 
-def load_image_cube_and_metadata(image_cube_path: Path, metadata_path: Path) -> Dict[str, Any]:
-    """
-    Loads an image cube and its metadata from saved .npy files.
-
-    Parameters:
-    - image_cube_path: The path to the saved image cube file.
-    - metadata_path: The path to the saved metadata file.
-
-    Returns:
-    - A dictionary containing the image cube and metadata.
-    """
-    
-    # Load the image cube (8-channel data)
-    image_cube = np.load(image_cube_path, allow_pickle=True)
-    
-    # Load the metadata from .json file
-    with open(metadata_path, 'r') as file:
-        metadata = json.load(file)
-
-    return image_cube, metadata
-
 
 def compute_band_correlation(image):
     """
@@ -43,7 +22,7 @@ def compute_band_correlation(image):
     """
     if image.ndim != 3:
         raise ValueError("Input image must have 3 dimensions (C, H, W)")
-
+    image = image.transpose(2, 0, 1) # Change (H,W,C) to (C, H, W)
     C, H, W = image.shape
     reshaped = image.reshape(C, -1)  # Flatten spatial dimensions
     corr_matrix = np.corrcoef(reshaped)
@@ -52,12 +31,12 @@ def compute_band_correlation(image):
 
 def compute_pca_components(image, n_components=3):
     """
-    Applies PCA to a (C, H, W) image cube.
+    Applies PCA to a (H, W, C) image cube.
 
     Parameters:
     -----------
     image : np.ndarray
-        Input image of shape (C, H, W).
+        Input image of shape (H, W, C).
     n_components : int
         Number of principal components to compute.
 
@@ -69,14 +48,14 @@ def compute_pca_components(image, n_components=3):
         The fitted PCA object (contains explained variance, components, etc.).
     """
     if image.ndim != 3:
-        raise ValueError("Input image must be 3D (C, H, W)")
+        raise ValueError("Input image must be 3D (H, W, C)")
 
-    C, H, W = image.shape
-    reshaped = image.reshape(C, -1).T  # Shape: (H*W, C)
+    H, W, C = image.shape
+    reshaped = image.reshape(-1, image.shape[2])  # Shape: (H*W, C)
 
     pca = PCA(n_components=n_components)
     pca_result = pca.fit_transform(reshaped)  # Shape: (H*W, n_components)
-    pcs = pca_result.T.reshape(n_components, H, W)  # (n_components, H, W)
+    pcs = pca_result.reshape(H, W, n_components)
 
     return pcs, pca
 
@@ -98,25 +77,25 @@ def compute_mnf(image, noise_estimation=True, n_components=3):
     mnf_components : np.ndarray
         MNF components of shape (n_components, H, W).
     """
-    C, H, W = image.shape
-    X = image.reshape(C, -1).T  # Shape: (H*W, C)
+    H, W, C = image.shape
+    reshaped = image.reshape(-1, image.shape[2])  # Shape: (H*W, C)
 
     if noise_estimation:
-        noise = X[1:] - X[:-1]
+        noise = reshaped[1:] - reshaped[:-1]
     else:
-        noise = np.random.normal(0, 1, X.shape)
+        noise = np.random.normal(0, 1, reshaped.shape)
 
     noise_cov = np.cov(noise.T)
-    signal_cov = np.cov(X.T)
+    signal_cov = np.cov(reshaped.T)
 
     eigvals, eigvecs = np.linalg.eigh(np.linalg.inv(noise_cov) @ signal_cov)
     idx = np.argsort(eigvals)[::-1]
     eigvecs = eigvecs[:, idx]
 
-    mnf_data = X @ eigvecs[:, :n_components]
-    mnf_components = mnf_data.T.reshape(n_components, H, W)
+    mnf_data = reshaped @ eigvecs[:, :n_components]
+    mnf_components = mnf_data.reshape(H, W, n_components)
 
-    return mnf_components
+    return mnf_components # shape (H, W, n_components)
 
 def compute_ica(image, n_components=3):
     """
@@ -134,11 +113,11 @@ def compute_ica(image, n_components=3):
     ica_components : np.ndarray
         ICA components of shape (n_components, H, W).
     """
-    C, H, W = image.shape
-    reshaped = image.reshape(C, -1).T  # Shape: (H*W, C)
+    H, W, C = image.shape
+    reshaped = image.reshape(-1, image.shape[2])  # Shape: (H*W, C)
 
     ica = FastICA(n_components=n_components, random_state=0)
     ica_result = ica.fit_transform(reshaped)
-    ica_components = ica_result.T.reshape(n_components, H, W)
+    ica_components = ica_result.reshape(H, W, n_components)
 
-    return ica_components
+    return ica_components # shape (H, W, n_components)

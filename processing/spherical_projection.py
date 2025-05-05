@@ -11,11 +11,13 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from typing import Union, List, Dict, Any
 from pathlib import Path
-from tools.plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values
+from tools.plot_tools import plot_correlation_matrix, plot_pca_components, plot_rgb_permutations
+from tools.pca_helper import compute_band_correlation, compute_pca_components, compute_mnf, compute_ica
+from tools.plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values, histogram_to_ascii
 from tools.norm_to_hsv import attach_normal_color_to_df
 from tools.config_loader import CONFIG
-import json
 from tools.pcd_utils import create_dir_if_not_exists
+import yaml
 
 # Ignore warnings
 pd.options.mode.chained_assignment = None
@@ -52,8 +54,8 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
     df_filtered_ncolored['Z'] = - (df_filtered_ncolored['Z'] - z_min)
     print("Z shifted to start from 0.")
 
-    # # Normalize columns to (0.01, 1.0): Intensity, Z, curvature, roughness
-    for col_name in ['Intensity', 'Z', 'curvature', 'roughness']:
+    # # Normalize columns to (0.01, 1.0): Intensity, Z
+    for col_name in ['Intensity', 'Z']:
         col_min = df_filtered_ncolored[col_name].min()
         col_max = df_filtered_ncolored[col_name].max()
         df_filtered_ncolored[col_name] = 0.01 + 0.99 * (df_filtered_ncolored[col_name] - col_min) / (col_max - col_min)
@@ -85,18 +87,11 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
     df_filtered_ncolored = load_and_preprocess_point_cloud(filename)
     grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)
 
-    # Compute intensity and range per pixel. 
-    # [Since less than 0.1% of the pixels contain more than one point, 
-    # it may or may not matter if we use mean or max.]
-
-    # Use mean to avoid too much noise
 
     group_intensity = grouped['Intensity'].mean()
     group_z = grouped['Z'].min()
     group_range = grouped['range1metres'].mean()
     pts_per_pixel = grouped.size()
-    curvature_per_pixel = grouped['curvature'].mean()
-    roughness_per_pixel = grouped['roughness'].mean()
     
 
     ## Map the computed values to the image arrays
@@ -105,36 +100,26 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
     range_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
     z_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
     density_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    curvature_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    roughness_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
     
     pxpy_indices = np.array(group_intensity.index.tolist())
     intensity_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_intensity.values
     z_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_z.values
     range_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_range.values
     density_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = pts_per_pixel.values
-    curvature_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = curvature_per_pixel.values
-    roughness_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = roughness_per_pixel.values
 
 
     # Apply HDR adjustment to intensity and range images
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
-    z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0.1)
+    z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
-    curvature_image_adjusted = contrast_enhancement(curvature_image)
-    roughness_image_adjusted = contrast_enhancement(roughness_image)
 
     image_names = ['Density Map', 
                     'Intensity Map (adjusted)', 
-                    'Z Map Inverse (adjusted)',
+                    'Z-Inv Map (adjusted)',
                     'Range Map (adjusted)', 
-                    'Curvature Map (adjusted)',
-                    'Roughness Map (adjusted)',
                     'Intensity Map (raw)', 
-                    'Z Map Inverse (raw)',
+                    'Z Map (raw)',
                     'Range Map (raw)', 
-                    'Curvature Map (raw)',
-                    'Roughness Map (raw)',
                     ]
     
     
@@ -143,13 +128,9 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
                      intensity_image_adjusted, 
                      z_image_adjusted,
                      range_image_adjusted, 
-                     curvature_image_adjusted,
-                     roughness_image_adjusted,
                      intensity_image, 
                      z_image,
                      range_image, 
-                     curvature_image,
-                     roughness_image,
                      )
     
     output_images_dict = {image_name: image for image_name, image in zip(image_names, output_images)}
@@ -190,18 +171,17 @@ def unwrap_pc_normals_to_rgb_image(df_filtered_ncolored: pd.DataFrame) -> np.nda
 
 
 
-def save_image_cube_and_metadata(
+def save_image_cube_and_meta(
     output_images_dict: Dict[str, np.ndarray],
     normals_rgb_image: np.ndarray,
     output_dir: Path,
     key_str: str,
-    input_folder: str
 ) -> tuple[np.ndarray, Dict[str, Any]]:
     """
     Saves an image cube and its metadata.
 
     This function constructs an image cube by stacking different adjusted maps
-    (Intensity, Z, Range, Curvature, Roughness) along with the normal vector RGB
+    (Intensity, Z, Range) along with the normal vector RGB
     image and then saves it as a `.npy` file. Additionally, metadata related to
     the image processing steps and other relevant information is saved in a separate
     `.npy` file.
@@ -219,65 +199,92 @@ def save_image_cube_and_metadata(
 
     # Titles for the image channels
     save_titles = [
+        'Intensity Map (raw)', 
+        'Z Map (raw)',
+        'Range Map (raw)', 
         'Intensity Map (adjusted)',
-        'Z Map Inverse (adjusted)',
-        'Range Map (adjusted)', 
-        'Curvature Map (adjusted)',
-        'Roughness Map (adjusted)'
+        'Z-Inv Map (adjusted)',
+        'Range Map (adjusted)'
     ]
 
     # Dynamically fetch the adjusted maps
-    adjusted_maps = []
+    collected_maps = []
     for title in save_titles:
         try:
-            adjusted_map = output_images_dict[title]
+            feature_map = output_images_dict[title]
             # Examine the shape of the adjusted map
-            if adjusted_map.shape != normals_rgb_image.shape[:2]:
-                raise ValueError(f"Shape mismatch: {title} shape: {adjusted_map.shape}, normals_rgb_image shape: {normals_rgb_image.shape[:2]}")
-            adjusted_maps.append(output_images_dict[title])
+            if feature_map.shape != normals_rgb_image.shape[:2]:
+                raise ValueError(f"Shape mismatch: {title} shape: {feature_map.shape}, normals_rgb_image shape: {normals_rgb_image.shape[:2]}")
+            collected_maps.append(output_images_dict[title])
         except KeyError as e:
             print(f"Missing key: {e}")
             raise KeyError(f"Key {e} not found in the output_images_dict.")
 
-    image_cube = np.stack(adjusted_maps, axis=-1)
-    image_cube = np.concatenate([image_cube, normals_rgb_image], axis=-1)
+    raw_maps = np.stack(collected_maps[:3], axis=-1) # shape: (H, W, 3)
+    adjusted_maps = np.stack(collected_maps[3:], axis=-1) # shape: (H, W, 3)
+    pca_input_cube = np.concatenate([adjusted_maps, normals_rgb_image], axis=-1) # shape: (H, W, 6)
 
+    pcs, _ = compute_pca_components(pca_input_cube, n_components=3) # shape: (H, W, 3)
+    mnf_components = compute_mnf(pca_input_cube, n_components=3)
+    ica_components = compute_ica(pca_input_cube, n_components=3)
+    extended_image_cube = np.concatenate([raw_maps, pca_input_cube, pcs, mnf_components, ica_components], axis=-1) # shape: (H, W, 18)
+
+    save_titles += ['Pseduo-Rn', 'Pseudo-Gn', 'Pseudo-Bn',
+                    'PCA1', 'PCA2', 'PCA3', 
+                    'MNF1', 'MNF2', 'MNF3', 
+                    'ICA1', 'ICA2', 'ICA3']
     # Save the image cube
     image_cube_path = output_dir / f'{key_str}_image_cube.npy'
-    np.save(image_cube_path, image_cube)
-    print(f"Image cube saved to {image_cube_path}, shape: {image_cube.shape}")
+    np.save(image_cube_path, extended_image_cube)
+    print(f"Image cube saved to {image_cube_path}, shape: {extended_image_cube.shape}")
 
     # Prepare metadata dynamically
-    preprocess_metadata = {}
-    for title in save_titles:
-        preprocess_metadata[title] = f"Contrast enhanced {title.lower()}; first normalized all the values to (0.1, 1.0), then did histogram equalization on the valid pixels."
+    preprocess_meta = {}
+    hist_visuals = {}
+    for i, title in enumerate(save_titles):
+        obs_image = extended_image_cube[:, :, i]
+        histogram, _ = np.histogram(obs_image, bins=20)
+        hist_visual = histogram_to_ascii(histogram, style="blocks")
+        hist_visuals[title] = f"histogram_20_bins: {histogram.tolist()} | visual: {hist_visual}"
+    preprocess_meta["histograms per channel"] = hist_visuals
 
-    # Include the metadata for the normals RGB map
-    preprocess_metadata['Normals RGB - Cnx, Cny, Cnz'] = 'RGB image colorized by the normal vectors.'
 
-    # Metadata for the image cube
+    notes_per_channel = {}
+    for i, title in enumerate(save_titles):
+        if i<3:
+            notes_per_channel[title] = f"Ch{i+1} - Raw data."
+        elif i<6:
+            notes_per_channel[title] = f"Ch{i+1} - {title} - first normalized all the values to (0.01, 1.0), then did histogram equalization on the valid pixels."
+        elif i<9:
+            notes_per_channel[title] = f"Ch{i+1} - {title} - image colorized by mapping nx-ny-nz to (azimuth, zenith) and then to Hue(azi)-Saturation(0.5)-Value(zen) (HSV) color space and converted to RGB."
+        elif i<12:
+            notes_per_channel[title] = f"Ch{i+1} - PCA component {i+1-9} from Channels 4-9."
+        elif i<15:
+            notes_per_channel[title] = f"Ch{i+1} - MNF component {i+1-12} from Channels 4-9."
+        elif i<18:
+            notes_per_channel[title] = f"Ch{i+1} - ICA component {i+1-15} from Channels 4-9."
+
+    preprocess_meta["Notes per channel"] = notes_per_channel
+    
+
     metadata = {
-        'titles': save_titles + ['Normals RGB - Cnx, Cny, Cnz'],
-        'shape': image_cube.shape,
-        'dtype': image_cube.dtype,
+        'channel_names': save_titles,
+        'shape': list(extended_image_cube.shape),
+        'dtype': str(extended_image_cube.dtype),
         'key_str': key_str,
-        'input_folder': input_folder,
-        'output_dir': output_dir,
-        'preprocess_metadata': preprocess_metadata
+        'preprocess_meta': preprocess_meta
     }
 
-    # Save the metadata
-    metadata_path = output_dir / f'{key_str}_image_cube_metadata.json'
-    with open(metadata_path, 'w') as metadata_file:
-        json.dump(metadata, metadata_file, indent=4, default=str)
+    metadata_path = output_dir / f'{key_str}_image_cube_meta.yaml'
+    with open(metadata_path, "w") as f:
+        yaml.dump(metadata, f, sort_keys=False, allow_unicode=True)
     print(f"Metadata saved to {metadata_path}")
-    print(f"Metadata titles:\n{metadata['titles']}")
 
-    return image_cube, metadata
-
+    return extended_image_cube, metadata
 
 
-def load_image_cube_and_metadata(image_cube_path: Path, metadata_path: Path) -> Dict[str, Any]:
+
+def load_image_cube_and_meta(image_cube_path: Path) -> Dict[str, Any]:
     """
     Loads an image cube and its metadata from saved .npy files.
 
@@ -288,13 +295,12 @@ def load_image_cube_and_metadata(image_cube_path: Path, metadata_path: Path) -> 
     Returns:
     - A dictionary containing the image cube and metadata.
 
-    # # Example usage of the load_image_cube_and_metadata function
+    # # Example usage of the load_image_cube_and_meta function
     # # Define file paths
     # image_cube_path = output_dir / f'{input_file_stem}_image_cube.npy'
-    # metadata_path = output_dir / f'{input_file_stem}_image_cube_metadata.npy'
 
     # # Load the image cube and metadata
-    # data = load_image_cube_and_metadata(image_cube_path, metadata_path)
+    # data = load_image_cube_and_meta(image_cube_path)
 
     # # Access the image cube and metadata separately
     # image_cube = data['image_cube']
@@ -310,13 +316,11 @@ def load_image_cube_and_metadata(image_cube_path: Path, metadata_path: Path) -> 
     print(f"Image cube loaded from {image_cube_path}, shape: {image_cube.shape}")
     
     # Load the metadata
-    metadata = np.load(metadata_path, allow_pickle=True).item()
+    metadata_path = image_cube_path.parent / f"{image_cube_path.stem}_meta.yaml"
+    with open(metadata_path, "r") as f:
+        metadata = yaml.safe_load(f)
     print(f"Metadata loaded from {metadata_path}")
-
-    return {
-        'image_cube': image_cube,
-        'metadata': metadata
-    }
+    return image_cube, metadata
 
 
 
@@ -366,9 +370,9 @@ def normalize_and_stack_images(image_list: List[np.array], method="global"):
     return stacked_image
 
 
-def create_pseudo_rgb_image(intensity_image: np.ndarray, 
-                            range_image: np.ndarray, 
-                            third_channel_img: np.ndarray, 
+def create_pseudo_rgb_image(img_ch1: np.ndarray, 
+                            img_ch2: np.ndarray, 
+                            img_ch3: np.ndarray, 
                             figure_title: str = '',
                             output_dir:Path=None,
                             saveflag:bool=False,
@@ -376,22 +380,17 @@ def create_pseudo_rgb_image(intensity_image: np.ndarray,
     """
     Combine intensity, range, and density images into a pseudo-RGB image.
 
-    Parameters:
-    -----------
-    intensity_image : np.ndarray
-        The adjusted intensity image.
-    range_image : np.ndarray
-        The adjusted range image.
-    third_channel_img : np.ndarray
-        The third channel image, can be roughness or curvature.
-
-    Returns:
-    --------
-    np.ndarray
-        The pseudo-RGB image.
+    Args:
+        img_ch1 (np.ndarray): First image channel (e.g., intensity).
+        img_ch2 (np.ndarray): Second image channel (e.g., range).
+        img_ch3 (np.ndarray): Third image channel (e.g., Z-Inv).
+        figure_title (str): Title for the figure.
+        output_dir (Path): Directory to save the output image.
+        saveflag (bool): If True, save the image.
+        visualize (bool): If True, display the image.
     """
     # Normalize each channel before stacking them
-    image_list = [intensity_image, range_image, third_channel_img]
+    image_list = [img_ch1, img_ch2, img_ch3]
     pseudo_rgb_image = normalize_and_stack_images(image_list, method="global")
     display_unwrapped_rgb_image(pseudo_rgb_image, 
                             figure_title, 
@@ -406,91 +405,89 @@ def create_pseudo_rgb_image(intensity_image: np.ndarray,
 def main():
     global_params = CONFIG['global']
     input_file_stem = global_params['input_file_stem']
-    input_folder = global_params['input_folder']
     params = CONFIG['spherical_projection']
     saveflag = params['saveflag']
     visualize = params['visualize']
+    simple_output = params['simple_output']
     output_dir = Path(global_params['output_dir'])
     pcd_dir = output_dir / 'pcd'
     img_out_dir = output_dir / 'img'
     create_dir_if_not_exists(img_out_dir)
-    filename = next(pcd_dir.glob("*_ncr_*"), None)
+    filename = next(pcd_dir.glob("*_normaled*"), None)
     if filename is None:
         raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
 
-
+    titles = ['Intensity Map (adjusted)', 
+            'Z-Inv Map (adjusted)',
+            'Range Map (adjusted)', 
+            'Intensity Map (raw)', 
+            'Z Map (raw)',
+            'Range Map (raw)', 
+            ]
+    
     key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
     df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename)
-    density_image = output_images_dict['Density Map']
-    display_single_band_img_wt_discrete_values(density_image, 
-                                            title='Point Density Map', 
-                                            output_dir=img_out_dir, 
-                                            saveflag=saveflag,
-                                            visualize=visualize)
-
-
-    # Display and save the adjusted intensity and range images
-    titles = ['Intensity Map (adjusted)', 
-            'Z Map Inverse (adjusted)',
-            'Range Map (adjusted)', 
-            'Curvature Map (adjusted)',
-            'Roughness Map (adjusted)',
-            'Intensity Map (raw)', 
-            'Z Map Inverse (raw)',
-            'Range Map (raw)', 
-            'Curvature Map (raw)',
-            'Roughness Map (raw)',
-            ]
-    display_images = [output_images_dict[title] for title in titles]
-    display_unwrapped_single_band_images(display_images, 
-                                        titles=titles,
-                                        key_str=key_str,
-                                        output_dir=img_out_dir,
-                                        saveflag=saveflag,
-                                        visualize=visualize
-                                        )
-
-    # Display the Pseudo-RGB image from normals.
     normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered)
-    display_unwrapped_rgb_image(normals_rgb_image, 
-                                figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
-                                saveflag=saveflag, 
-                                output_dir=img_out_dir,
-                                visualize=visualize
-                                )
-
     # Save the image cube and metadata
-    save_image_cube_and_metadata(
-                                output_images_dict, 
-                                normals_rgb_image, 
-                                img_out_dir, 
-                                key_str, 
-                                input_folder
-                                )
+    image_cube, _ = save_image_cube_and_meta(output_images_dict, 
+                            normals_rgb_image, 
+                            img_out_dir, 
+                            key_str, 
+                            )
+    if not simple_output:
+        density_image = output_images_dict['Density Map']
+        display_single_band_img_wt_discrete_values(density_image, 
+                                                title='Point Density Map', 
+                                                output_dir=img_out_dir, 
+                                                saveflag=saveflag,
+                                                visualize=visualize)
 
-    # Create pseudo-RGB images from various combinations of intensity, range, and roughness, and Z.
-    figure_title_1 = f'Pseudo-RGB_Intensity-Z-Roughness-{key_str}'
-    figure_title_2 = f'Pseudo-RGB_Intensity-Range-Roughness-{key_str}'
-    figure_title_3 = f'Pseudo-RGB_Z-Roughness-Intensity-{key_str}'
-    figure_title_4 = f'Pseudo-RGB_Roughness-Intensity-Z-{key_str}'
-    figure_title_5 = f'Pseudo-RGB_Roughness-Intensity-Range-{key_str}'
-    figure_title_6 = f'Pseudo-RGB_Intensity-Range-Z-{key_str}'
+        # Display and save the adjusted intensity and range images
+        display_images = [output_images_dict[title] for title in titles]
+        display_unwrapped_single_band_images(display_images, 
+                                            titles=titles,
+                                            key_str=key_str,
+                                            output_dir=img_out_dir,
+                                            saveflag=saveflag,
+                                            visualize=visualize
+                                            )
 
-    intensity_image_adjusted = output_images_dict['Intensity Map (adjusted)']
-    z_image_adjusted = output_images_dict['Z Map Inverse (adjusted)']
-    range_image_adjusted = output_images_dict['Range Map (adjusted)']
-    roughness_image_adjusted = output_images_dict['Roughness Map (adjusted)']
-    shuffle_images = [intensity_image_adjusted, z_image_adjusted, range_image_adjusted, roughness_image_adjusted]
-    shuffle_orders = [[0, 1, 3], [0, 2, 3], [1, 3, 0], [3, 0, 1], [3, 0, 2], [0, 2, 1]]
-    figure_titles = [figure_title_1, figure_title_2, figure_title_3, figure_title_4, figure_title_5, figure_title_6]
-    for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
-        pseudo_rgb_image = create_pseudo_rgb_image(shuffle_images[shuffle_order[0]], 
-                                                    shuffle_images[shuffle_order[1]], 
-                                                    shuffle_images[shuffle_order[2]], 
-                                                    figure_title=figure_title, 
-                                                    output_dir=img_out_dir, 
-                                                    saveflag=saveflag, 
-                                                    visualize=visualize)
+        # Display the Pseudo-RGB image from normals.
+        display_unwrapped_rgb_image(normals_rgb_image, 
+                                    figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
+                                    saveflag=saveflag, 
+                                    output_dir=img_out_dir,
+                                    visualize=visualize
+                                    )
+
+        # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
+        feat_strs = ['Intensity', 'Z-Inv', 'Range']
+        feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]
+        shuffle_orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+        figure_titles = [f'Pseudo-RGB_{feat_strs[shuffle_order[0]]}-{feat_strs[shuffle_order[1]]}-{feat_strs[shuffle_order[2]]}_{key_str}' for shuffle_order in shuffle_orders]
+        for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
+            create_pseudo_rgb_image(feature_maps[shuffle_order[0]], 
+                                    feature_maps[shuffle_order[1]], 
+                                    feature_maps[shuffle_order[2]], 
+                                    figure_title=figure_title, 
+                                    output_dir=img_out_dir, 
+                                    saveflag=saveflag, 
+                                    visualize=visualize)
+            
+        # Plot confusion matrix of the pca_cube
+        output_stem = f'{key_str}_image_cube'
+        corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
+        band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
+        plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
+        
+        # Display PCA, MNF, and ICA components
+        pcs = image_cube[:, :, 9:12]
+        mnf_components = image_cube[:, :, 12:15]
+        ica_components = image_cube[:, :, 15:18]
+        for components, name in zip([pcs, mnf_components, ica_components], ['PCA', 'MNF', 'ICA']):
+            out_file = f"{output_stem}_{name}"
+            plot_pca_components(components, img_out_dir, output_stem=out_file)
+            plot_rgb_permutations(components, img_out_dir, output_stem=out_file)
 
 if __name__ == "__main__":
     main()

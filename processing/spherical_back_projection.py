@@ -13,6 +13,8 @@ from tools.config_loader import CONFIG
 from pathlib import Path
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from plyfile import PlyData, PlyElement
+from processing.spherical_projection import load_image_cube_and_meta
+from numpy.typing import NDArray
 
 def image_preprocess(image, img_size):
     """
@@ -27,12 +29,15 @@ def image_preprocess(image, img_size):
     if image.ndim == 2:
         image = np.stack([image] * 3, axis=-1)  # grayscale to RGB
 
-    if image.shape[0] == 3:  # (H, W, 3) -> (3, H, W) 
-        image = np.transpose(image, (1, 2, 0))
 
     # Resize to (271, 720) if needed (zenith: 0–135 at 0.5° → 271 rows)
-    if image.shape[0] != img_size[0] or image.shape[1] != img_size[1]:
-        image = np.array(Image.fromarray(image).resize((img_size[1], img_size[0]), resample=Image.BILINEAR))
+    if image.dtype == np.float64:
+        image_uint8 = (np.clip(image, 0, 1) * 255).astype(np.uint8)
+        img_resized = Image.fromarray(image_uint8).resize((img_size[1], img_size[0]))
+    else:
+        img_resized = Image.fromarray(image).resize((img_size[1], img_size[0]), resample=Image.BILINEAR)
+
+    image = np.array(img_resized)
 
     # Convert to float in [0, 1]
     if image.dtype == np.uint8:
@@ -54,6 +59,9 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), inverse_z
     Assumes image shape (271, 720), angular res = 0.5°, azimuth 0–360, zenith 0–135.
     """
     img_size = int((zenith_range[1] - zenith_range[0]) // 0.5 + 1), 720  # (271, 720) for zenith range (0, 135)
+    print("Image Size:", img_size)
+    print("Image Shape:", image.shape)
+    print("Image Dtype:", image.dtype)
     image = image_preprocess(image, img_size)
 
     # Compute row, col indices
@@ -75,7 +83,7 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), inverse_z
 
     return df_ball
 
-def get_a_colorized_ball_from_img(image_path: Path, 
+def get_a_colorized_ball_from_img(rgb_img: NDArray, 
                                   key_str: str,
                                   zenith_range: tuple = (0, 135), 
                                   save_dir: Path = None,
@@ -83,17 +91,11 @@ def get_a_colorized_ball_from_img(image_path: Path,
     """
     Get a colorized ball from an image using spherical projection.
     Args:
-        image_path (Path): Path to the image.
+        rgb_img (NDArray): RGB image to be projected, shape (H, W, 3).
         key_str (str): Key string to identify the image.
         zenith_range (tuple): Zenith range for the ball.
         save_dir (Path): Directory to save the output point cloud.
     """
-
-    rgb_img = np.array(Image.open(image_path))  # shape (H, W, 3)
-    print("RGB Image Shape:", rgb_img.shape)
-    print("RGB Image Dtype:", rgb_img.dtype)
-    print("RGB Image Max:", rgb_img.max())
-
 
     df_colored = back_project_color_to_ball(df_ball, rgb_img, 
                                             zenith_range=zenith_range,
@@ -123,7 +125,7 @@ def attach_image_colors_to_pcd(rgb_image, channel_names=['r', 'g', 'b']):
     root_dir = CONFIG["global"]["output_dir"] / 'pcd'
     point_cloud_file = next(root_dir.glob(f"*_color*"), None)
     if point_cloud_file is None:
-        point_cloud_file = next(root_dir.glob(f"*_ncr_*"), None)
+        point_cloud_file = next(root_dir.glob(f"*_filtered_normaled*"), None)
     
 
     pc_df = pd.read_csv(point_cloud_file, sep=',')
@@ -131,7 +133,7 @@ def attach_image_colors_to_pcd(rgb_image, channel_names=['r', 'g', 'b']):
     if "_color" in point_cloud_file.stem:
         output_file = root_dir / (point_cloud_file.stem + '.csv')
     else:
-        file_str = str(point_cloud_file.stem).split("_ncr_")[0]
+        file_str = str(point_cloud_file.stem).split("_filtered_normaled")[0]
         output_file = root_dir / (f"{file_str}_color" + '.csv')
         point_cloud_file.unlink()
         print(f"Deleted intermediate file: {point_cloud_file}")
@@ -172,31 +174,24 @@ if __name__ == "__main__":
 
     df_ball = generate_lidar_ball(radius=10.0, zenith_range=ZENITH_RANGE)
 
-    image_dir1 = Path(CONFIG['global']['output_dir']) / 'pca'
-    image_dir2 = Path(CONFIG['global']['output_dir']) / 'img'
+    image_dir = Path(CONFIG['global']['output_dir']) / 'img'
     pcd_out_dir = Path(CONFIG['global']['output_dir']) / 'pcd'
 
-    key_str_ls1 = ['PCA_rgb_0_1_2', 'MNF_rgb_0_1_2', 'ICA_rgb_0_1_2']
-    key_str_ls2 = ['Roughness-Intensity-Range', 'Roughness-Intensity-Z']
-    img_paths = [next(image_dir1.glob(f"*{key_str}*"), None) for key_str in key_str_ls1] + \
-                [next(image_dir2.glob(f"*{key_str}*"), None) for key_str in key_str_ls2]
 
+    input_file_stem = CONFIG['global']['input_file_stem']
+    key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
+    image_cube_path = image_dir / f'{key_str}_image_cube.npy'
+    image_cube, metadata = load_image_cube_and_meta(image_cube_path)
 
-    # Create colorful balls from images
-    for image_path, key_str in zip(img_paths, key_str_ls1 + key_str_ls2):
-        if image_path is None:
-            raise FileNotFoundError(f"No file containing '{key_str}' found in output_dir.")
-
-        get_a_colorized_ball_from_img(image_path, 
-                                      key_str,
-                                      zenith_range=ZENITH_RANGE, 
-                                      save_dir=pcd_out_dir)
-
-    # Attach colors to original point cloud
-    rgb_channel_names = [['pca1', 'pca2', 'pca3'],
-                         ['mnf1', 'mnf2', 'mnf3'],
-                         ['ica1', 'ica2', 'ica3']]
-    for image_path, channel_names in zip(img_paths[:3], rgb_channel_names):
-        rgb_img = np.array(Image.open(image_path))
-
-        attach_image_colors_to_pcd(rgb_img, channel_names=channel_names)
+    channel_names = metadata['channel_names']
+    channel_name_groups = [channel_names[3:6], channel_names[6:9],
+                            channel_names[9:12], channel_names[12:15], 
+                            channel_names[15:18]]
+    rgb_groups = [image_cube[:, :, 3:6], image_cube[:, :, 6:9],
+                    image_cube[:, :, 9:12], image_cube[:, :, 12:15], image_cube[:, :, 15:18]]
+    get_a_colorized_ball_from_img(rgb_groups[0], 
+                                key_str,
+                                zenith_range=ZENITH_RANGE, 
+                                save_dir=pcd_out_dir)
+    for channel_name_group, rgb_image in zip(channel_name_groups, rgb_groups):
+        attach_image_colors_to_pcd(rgb_image, channel_names=channel_name_group)

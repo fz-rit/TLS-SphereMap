@@ -6,10 +6,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pathlib import Path
 import numpy as np
-from tools.pca_helper import load_image_cube_and_metadata, compute_band_correlation, compute_pca_components, compute_mnf, compute_ica
+from processing.spherical_projection import load_image_cube_and_metadata
+from tools.pca_helper import compute_band_correlation, compute_pca_components, compute_mnf, compute_ica
 from tools.plot_tools import plot_correlation_matrix, plot_pca_components, plot_rgb_permutations
 import matplotlib.pyplot as plt
-from PIL import Image
 from tools.config_loader import CONFIG
 from tools.pcd_utils import create_dir_if_not_exists
 
@@ -18,20 +18,15 @@ output_dir = Path(CONFIG['global']['output_dir'])
 input_file_stem = CONFIG['global']['input_file_stem']
 key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
 image_cube_path = output_dir / 'img' / f'{key_str}_image_cube.npy'
-image_meta_path = output_dir / 'img' / f'{key_str}_image_cube_metadata.json'
 
 output_stem = image_cube_path.stem
-image_cube, metadata = load_image_cube_and_metadata(image_cube_path, image_meta_path)
+image_cube, metadata = load_image_cube_and_metadata(image_cube_path)
 image_cube = image_cube.astype(np.float32) # (H, W, C)
-image_cube = image_cube.transpose(2, 0, 1) # Change to (C, H, W)
 
 
-image_cube = np.concatenate([image_cube[[0,1,2], :, :], image_cube[[5, 6, 7], :, :]], axis=0) # delete 3rd and 4th bands; Curvature and Roughness
 band_names = ['Intensity', 
             'Z Map Inverse', 
             'Range', 
-            # 'Curvature', 
-            # 'Roughness', 
             'Rn',
             'Gn',
             'Bn']
