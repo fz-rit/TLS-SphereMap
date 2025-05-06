@@ -1,6 +1,6 @@
 {
     "global": {
-        "input_folder": "AURSET2",
+        "input_folder": "ALRSET1",
         "input_folder_parent": "palau_2024",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
         "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs",
@@ -28,11 +28,11 @@
         "simple_output" : true
     },
     "convert_color_to_mask": {
-        "color_seg_map": "seg_map_AURSET2_9872.png",
+        "color_seg_map": "seg_map_ALRSET2_9979.png",
         "dataset": "MANGROVE_ROOTS"
     },
     "attach_segmap_to_points": {
-        "segmap": "seg_map_AURSET2_9872_mask.png",
+        "segmap": "seg_map_ALRSET2_9979_mask.png",
         "dataset": "MANGROVE_ROOTS",
         "output_formats": [".ply", ".csv"]
     }

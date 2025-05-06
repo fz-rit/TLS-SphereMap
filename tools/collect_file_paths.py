@@ -20,6 +20,7 @@ for split in ["train", "val", "test"]:
 temp_output = {
     "img": {"train": {}, "val": {}, "test": {}},
     "img_metadata": {"train": {}, "val": {}, "test": {}},
+    "mask": {"train": {}, "val": {}, "test": {}},
     "pcd": {"train": {}, "val": {}, "test": {}}
 }
 
@@ -39,6 +40,15 @@ for yaml_file in root_dir.rglob("*.yaml"):
         for split in ["train", "val", "test"]:
             if match_str in id_dict[split]:
                 temp_output["img_metadata"][split][match_str] = str(yaml_file.resolve())
+                break
+
+# --- Match .png files in 'img' folder ---
+for png_file in root_dir.rglob("*_mask.png"):
+    if png_file.parent.name == "img":
+        match_str = png_file.name.split("mask")[0][-5:]
+        for split in ["train", "val", "test"]:
+            if match_str in id_dict[split]:
+                temp_output["mask"][split][match_str] = str(png_file.resolve())
                 break
 
 # --- Match .csv files in 'pcd' folder ---
@@ -61,6 +71,10 @@ output = {
         split: [temp_output["img_metadata"][split][id_] for id_ in id_dict[split] if id_ in temp_output["img_metadata"][split]]
         for split in ["train", "val", "test"]
     },
+    "mask": {
+        split: [temp_output["mask"][split][id_] for id_ in id_dict[split] if id_ in temp_output["mask"][split]]
+        for split in ["train", "val", "test"]
+    },
     "pcd": {
         split: [temp_output["pcd"][split][id_] for id_ in id_dict[split] if id_ in temp_output["pcd"][split]]
         for split in ["train", "val", "test"]
@@ -72,6 +86,6 @@ with open(output_yaml_path, 'w') as f:
     yaml.dump(output, f, default_flow_style=False)
 
 print(f"Saved structured and sorted paths to {output_yaml_path}")
-for mode in ["img", "img_metadata", "pcd"]:
+for mode in ["img", "img_metadata", "mask", "pcd"]:
     for split in ["train", "val", "test"]:
         print(f"  {mode}/{split}: {len(output[mode][split])} files")

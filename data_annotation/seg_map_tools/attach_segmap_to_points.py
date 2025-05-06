@@ -9,9 +9,7 @@ from plyfile import PlyData, PlyElement
 # Add parent directory to sys.path
 current_file = Path(__file__).resolve()
 current_file_dir = current_file.parent
-# parent_dir = current_file.parents[2]  # Go two levels up to root directory
-# sys.path.append(str(parent_dir))
-# sys.path.append(str(current_file_dir))
+
 
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from tools.config_loader import CONFIG
