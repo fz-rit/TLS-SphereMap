@@ -403,91 +403,93 @@ def create_pseudo_rgb_image(img_ch1: np.ndarray,
 
 
 def main():
-    global_params = CONFIG['global']
-    input_file_stem = global_params['input_file_stem']
     params = CONFIG['spherical_projection']
     saveflag = params['saveflag']
     visualize = params['visualize']
     simple_output = params['simple_output']
-    output_dir = Path(global_params['output_dir'])
-    pcd_dir = output_dir / 'pcd'
-    img_out_dir = output_dir / 'img'
-    create_dir_if_not_exists(img_out_dir)
-    filename = next(pcd_dir.glob("*_normaled*"), None)
-    if filename is None:
-        raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
 
-    titles = ['Intensity Map (adjusted)', 
-            'Z-Inv Map (adjusted)',
-            'Range Map (adjusted)', 
-            'Intensity Map (raw)', 
-            'Z Map (raw)',
-            'Range Map (raw)', 
-            ]
-    
-    key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
-    df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename)
-    normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered)
-    # Save the image cube and metadata
-    image_cube, _ = save_image_cube_and_meta(output_images_dict, 
-                            normals_rgb_image, 
-                            img_out_dir, 
-                            key_str, 
-                            )
-    if not simple_output:
-        density_image = output_images_dict['Density Map']
-        display_single_band_img_wt_discrete_values(density_image, 
-                                                title='Point Density Map', 
-                                                output_dir=img_out_dir, 
-                                                saveflag=saveflag,
-                                                visualize=visualize)
+    output_dir_ls = CONFIG['global']['output_dir_ls']
 
-        # Display and save the adjusted intensity and range images
-        display_images = [output_images_dict[title] for title in titles]
-        display_unwrapped_single_band_images(display_images, 
-                                            titles=titles,
-                                            key_str=key_str,
-                                            output_dir=img_out_dir,
-                                            saveflag=saveflag,
-                                            visualize=visualize
-                                            )
+    for output_dir in output_dir_ls:
+        input_file_stem = output_dir.parent.name
+        pcd_dir = output_dir / 'pcd'
+        img_out_dir = output_dir / 'img'
 
-        # Display the Pseudo-RGB image from normals.
-        display_unwrapped_rgb_image(normals_rgb_image, 
-                                    figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
-                                    saveflag=saveflag, 
-                                    output_dir=img_out_dir,
-                                    visualize=visualize
-                                    )
+        create_dir_if_not_exists(img_out_dir)
+        filename = next(pcd_dir.glob("*_normaled*"), None)
+        if filename is None:
+            raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
 
-        # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
-        feat_strs = ['Intensity', 'Z-Inv', 'Range']
-        feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]
-        shuffle_orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
-        figure_titles = [f'Pseudo-RGB_{feat_strs[shuffle_order[0]]}-{feat_strs[shuffle_order[1]]}-{feat_strs[shuffle_order[2]]}_{key_str}' for shuffle_order in shuffle_orders]
-        for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
-            create_pseudo_rgb_image(feature_maps[shuffle_order[0]], 
-                                    feature_maps[shuffle_order[1]], 
-                                    feature_maps[shuffle_order[2]], 
-                                    figure_title=figure_title, 
-                                    output_dir=img_out_dir, 
-                                    saveflag=saveflag, 
-                                    visualize=visualize)
-            
-        # Plot confusion matrix of the pca_cube
-        output_stem = f'{key_str}_image_cube'
-        corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
-        band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
-        plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
+        titles = ['Intensity Map (adjusted)', 
+                'Z-Inv Map (adjusted)',
+                'Range Map (adjusted)', 
+                'Intensity Map (raw)', 
+                'Z Map (raw)',
+                'Range Map (raw)', 
+                ]
         
-        # Display PCA, MNF, and ICA components
-        pcs = image_cube[:, :, 9:12]
-        mnf_components = image_cube[:, :, 12:15]
-        ica_components = image_cube[:, :, 15:18]
-        for components, name in zip([pcs, mnf_components, ica_components], ['PCA', 'MNF', 'ICA']):
-            out_file = f"{output_stem}_{name}"
-            plot_pca_components(components, img_out_dir, output_stem=out_file)
-            plot_rgb_permutations(components, img_out_dir, output_stem=out_file)
+        key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
+        df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename)
+        normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered)
+        image_cube, _ = save_image_cube_and_meta(output_images_dict, 
+                                normals_rgb_image, 
+                                img_out_dir, 
+                                key_str, 
+                                )
+        if not simple_output:
+            density_image = output_images_dict['Density Map']
+            display_single_band_img_wt_discrete_values(density_image, 
+                                                    title='Point Density Map', 
+                                                    output_dir=img_out_dir, 
+                                                    saveflag=saveflag,
+                                                    visualize=visualize)
+
+            # Display and save the adjusted intensity and range images
+            display_images = [output_images_dict[title] for title in titles]
+            display_unwrapped_single_band_images(display_images, 
+                                                titles=titles,
+                                                key_str=key_str,
+                                                output_dir=img_out_dir,
+                                                saveflag=saveflag,
+                                                visualize=visualize
+                                                )
+
+            # Display the Pseudo-RGB image from normals.
+            display_unwrapped_rgb_image(normals_rgb_image, 
+                                        figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
+                                        saveflag=saveflag, 
+                                        output_dir=img_out_dir,
+                                        visualize=visualize
+                                        )
+
+            # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
+            feat_strs = ['Intensity', 'Z-Inv', 'Range']
+            feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]
+            shuffle_orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+            figure_titles = [f'Pseudo-RGB_{feat_strs[shuffle_order[0]]}-{feat_strs[shuffle_order[1]]}-{feat_strs[shuffle_order[2]]}_{key_str}' for shuffle_order in shuffle_orders]
+            for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
+                create_pseudo_rgb_image(feature_maps[shuffle_order[0]], 
+                                        feature_maps[shuffle_order[1]], 
+                                        feature_maps[shuffle_order[2]], 
+                                        figure_title=figure_title, 
+                                        output_dir=img_out_dir, 
+                                        saveflag=saveflag, 
+                                        visualize=visualize)
+                
+            # Plot confusion matrix of the pca_cube
+            output_stem = f'{key_str}_image_cube'
+            corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
+            band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
+            plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
+            
+            # Display PCA, MNF, and ICA components
+            pcs = image_cube[:, :, 9:12]
+            mnf_components = image_cube[:, :, 12:15]
+            ica_components = image_cube[:, :, 15:18]
+            for components, name in zip([pcs, mnf_components, ica_components], ['PCA', 'MNF', 'ICA']):
+                out_file = f"{output_stem}_{name}"
+                plot_pca_components(components, img_out_dir, output_stem=out_file)
+                plot_rgb_permutations(components, img_out_dir, output_stem=out_file)
 
 if __name__ == "__main__":
     main()

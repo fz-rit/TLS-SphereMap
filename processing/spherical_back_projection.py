@@ -110,7 +110,7 @@ def get_a_colorized_ball_from_img(rgb_img: NDArray,
                                 output_prefix=key_str)
 
 
-def attach_image_colors_to_pcd(rgb_image, channel_names=['r', 'g', 'b']):
+def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, channel_names=['r', 'g', 'b']):
     """
     Attach RGB or arbitrary 3-channel color values from a 2D image to a point cloud based on pixel mapping.
 
@@ -122,19 +122,18 @@ def attach_image_colors_to_pcd(rgb_image, channel_names=['r', 'g', 'b']):
         pd.DataFrame: Point cloud DataFrame with additional color columns.
     """
 
-    root_dir = CONFIG["global"]["output_dir"] / 'pcd'
-    point_cloud_file = next(root_dir.glob(f"*_color*"), None)
+    point_cloud_file = next(pcd_out_dir.glob(f"*_color*"), None)
     if point_cloud_file is None:
-        point_cloud_file = next(root_dir.glob(f"*_filtered_normaled*"), None)
+        point_cloud_file = next(pcd_out_dir.glob(f"*_filtered_normaled*"), None)
     
 
     pc_df = pd.read_csv(point_cloud_file, sep=',')
 
     if "_color" in point_cloud_file.stem:
-        output_file = root_dir / (point_cloud_file.stem + '.csv')
+        output_file = pcd_out_dir / (point_cloud_file.stem + '.csv')
     else:
         file_str = str(point_cloud_file.stem).split("_filtered_normaled")[0]
-        output_file = root_dir / (f"{file_str}_color" + '.csv')
+        output_file = pcd_out_dir / (f"{file_str}_color" + '.csv')
         point_cloud_file.unlink()
         print(f"Deleted intermediate file: {point_cloud_file}")
         
@@ -174,24 +173,28 @@ if __name__ == "__main__":
 
     df_ball = generate_lidar_ball(radius=10.0, zenith_range=ZENITH_RANGE)
 
-    image_dir = Path(CONFIG['global']['output_dir']) / 'img'
-    pcd_out_dir = Path(CONFIG['global']['output_dir']) / 'pcd'
+    out_dir_ls = CONFIG['global']['output_dir_ls']
+    for output_dir in out_dir_ls:
+        input_file_stem = output_dir.parent.name
+        print(f'#######Processing {input_file_stem}...########')
 
+        image_dir = output_dir / 'img'
+        pcd_out_dir = output_dir / 'pcd'
 
-    input_file_stem = CONFIG['global']['input_file_stem']
-    key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
-    image_cube_path = image_dir / f'{key_str}_image_cube.npy'
-    image_cube, metadata = load_image_cube_and_meta(image_cube_path)
+        
+        key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
+        image_cube_path = image_dir / f'{key_str}_image_cube.npy'
+        image_cube, metadata = load_image_cube_and_meta(image_cube_path)
 
-    channel_names = metadata['channel_names']
-    channel_name_groups = [channel_names[3:6], channel_names[6:9],
-                            channel_names[9:12], channel_names[12:15], 
-                            channel_names[15:18]]
-    rgb_groups = [image_cube[:, :, 3:6], image_cube[:, :, 6:9],
-                    image_cube[:, :, 9:12], image_cube[:, :, 12:15], image_cube[:, :, 15:18]]
-    get_a_colorized_ball_from_img(rgb_groups[0], 
-                                key_str,
-                                zenith_range=ZENITH_RANGE, 
-                                save_dir=pcd_out_dir)
-    for channel_name_group, rgb_image in zip(channel_name_groups, rgb_groups):
-        attach_image_colors_to_pcd(rgb_image, channel_names=channel_name_group)
+        channel_names = metadata['channel_names']
+        channel_name_groups = [channel_names[3:6], channel_names[6:9],
+                                channel_names[9:12], channel_names[12:15], 
+                                channel_names[15:18]]
+        rgb_groups = [image_cube[:, :, 3:6], image_cube[:, :, 6:9],
+                        image_cube[:, :, 9:12], image_cube[:, :, 12:15], image_cube[:, :, 15:18]]
+        get_a_colorized_ball_from_img(rgb_groups[0], 
+                                    key_str,
+                                    zenith_range=ZENITH_RANGE, 
+                                    save_dir=pcd_out_dir)
+        for channel_name_group, rgb_image in zip(channel_name_groups, rgb_groups):
+            attach_image_colors_to_pcd(rgb_image, pcd_out_dir, channel_names=channel_name_group)

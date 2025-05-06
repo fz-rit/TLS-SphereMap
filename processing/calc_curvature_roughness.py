@@ -151,17 +151,14 @@ class CalcCurvatureRoughness:
         return all_points_xyz, all_curvatures, all_roughness
 
 
-def process_point_cloud_curvature_roughness(config: Dict[str, Any]) -> pd.DataFrame:
+def process_point_cloud_curvature_roughness(params: Dict[str, Any], output_dir) -> pd.DataFrame:
     """Process the point cloud, estimate curvature and roughness, and combine results.
 
     Args:
         config (Dict[str, Any]): Configuration dictionary.
     """
     # Load configuration parameters
-    global_params = config["global"]
-    params = config["calc_curvature_roughness"]
-    output_dir = Path(global_params["output_dir"])
-    input_file_stem = global_params['input_file_stem']
+    input_file_stem = output_dir.parent.name
     input_path = Path(output_dir / 'pcd' / f"{input_file_stem}_filtered_normaled.txt")
     neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for both curvature and roughness
     max_neighbors = params["max_neighbors"]
@@ -240,10 +237,13 @@ def main() -> None:
         with profiler.gpu_memory_monitoring():
             print("-----------Calculating curvature and roughness...----------")
             print("Configuration:")
-            print(CONFIG['global'])
-            print(CONFIG['calc_curvature_roughness'])
-
-            process_point_cloud_curvature_roughness(CONFIG)
+            global_params = CONFIG["global"]
+            current_file_params = CONFIG["calc_curvature_roughness"]
+            output_dir_ls = global_params["output_dir_ls"]
+            for output_dir in output_dir_ls:
+                input_path_stem = output_dir.parent.name 
+                print(f'#######Processing {input_path_stem}...########')
+                process_point_cloud_curvature_roughness(current_file_params, output_dir)
     
     # Monitor memory usage and elapsed time
     elapsed_time = time.time() - start_time

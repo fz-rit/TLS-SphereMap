@@ -76,19 +76,22 @@ def main():
     # Load the configuration file for input paths
     params = CONFIG["calc_pt_cloud_normal"]
     global_params = CONFIG["global"]
-    output_dir = Path(global_params["output_dir"])
-    input_path = Path(global_params["input_path"])
+    output_dir_ls = global_params["output_dir_ls"]
+    input_path_ls = global_params["input_path_ls"]
     cut_percent = params["cut_percent"]
     clean_pc = params["clean_pc"]
     visualize = params["visualize"]
     flip_mangrove = params["flip_mangrove"]
 
     # Process the point cloud
-    calc_normals_of_pt_cloud(input_path, output_dir, 
-                             cut_percent = cut_percent,
-                             clean_pc = clean_pc,
-                             visualize = visualize,
-                             flip_mangrove = flip_mangrove)
+    for input_path, output_dir in zip(input_path_ls, output_dir_ls):
+        print(f'#######Processing {input_path}...########')
+        
+        calc_normals_of_pt_cloud(input_path, output_dir, 
+                                cut_percent = cut_percent,
+                                clean_pc = clean_pc,
+                                visualize = visualize,
+                                flip_mangrove = flip_mangrove)
 
 if __name__ == "__main__":
     main()
