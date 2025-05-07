@@ -107,7 +107,6 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
     range_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_range.values
     density_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = pts_per_pixel.values
 
-
     # Apply HDR adjustment to intensity and range images
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
@@ -290,7 +289,6 @@ def load_image_cube_and_meta(image_cube_path: Path) -> Dict[str, Any]:
 
     Parameters:
     - image_cube_path: The path to the saved image cube file.
-    - metadata_path: The path to the saved metadata file.
 
     Returns:
     - A dictionary containing the image cube and metadata.

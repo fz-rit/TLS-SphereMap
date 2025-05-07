@@ -89,3 +89,19 @@ print(f"Saved structured and sorted paths to {output_yaml_path}")
 for mode in ["img", "img_metadata", "mask", "pcd"]:
     for split in ["train", "val", "test"]:
         print(f"  {mode}/{split}: {len(output[mode][split])} files")
+
+
+# --- Load and print the YAML file ---
+def validate_yaml(yaml_path):
+    with open(yaml_path, 'r') as f:
+        data = yaml.safe_load(f)
+
+
+    # Example: access train image paths
+    train_img_paths = data["img"]["train"]
+    print(f"\nNumber of train .npy images: {len(train_img_paths)}")
+    print("First few .npy paths:")
+    pprint(train_img_paths[:3])
+
+
+validate_yaml(output_yaml_path)
