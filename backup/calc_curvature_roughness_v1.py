@@ -342,13 +342,13 @@ def calculate_curvature_and_roughness(config: Dict[str, Any]) -> None:
     roughness_radius = config["roughness_radius"]
     max_neighbors = config["max_neighbors"]
     batch_num = config["batch_num"]
-    range1metres_min = config.get("range1metres_min", 2.25)
-    range1metres_max = config.get("range1metres_max", 4.0)
+    rangemeter_min = config.get("rangemeter_min", 2.25)
+    rangemeter_max = config.get("rangemeter_max", 4.0)
     histogram_saveflag = config.get("histogram_saveflag", True)
     visualize = config.get("visualize", True)
     export = config.get("export", True)
 
-    # df_filtered = preprocess_point_cloud(filename, range1metres_min, range1metres_max, clean_pc=False, upside_down=False)
+    # df_filtered = preprocess_point_cloud(filename, rangemeter_min, rangemeter_max, clean_pc=False, upside_down=False)
     # Since filename is .ply, we can use o3d.io.read_point_cloud
     pt_xyz_np = o3d.io.read_point_cloud(str(filename)).points
     df_filtered = pd.DataFrame(pt_xyz_np, columns=['X', 'Y', 'Z']).reset_index(drop=True)

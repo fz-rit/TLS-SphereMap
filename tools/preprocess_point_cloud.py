@@ -124,7 +124,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
         - 'Z': Z coordinates
         - 'zenith': Zenith angle (in degrees, range: 0 to 180)
         - 'azimuth': Azimuth angle (in degrees, range: 0 to 360)
-        - 'range1metres': Range in meters
+        - 'rangemeter': Range in meters
         - 'Intensity': Intensity of the return
         - 'Return Number': Return number
     Raises:
@@ -135,7 +135,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
         try:
             # Try reading the file assuming there is a header
             df = pd.read_csv(filename, sep=',')
-            column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
+            column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'rangemeter', 'Intensity', 'Return Number']
             # Check if the first row looks like column names (e.g., by type or value checks)
             if set(df.columns).intersection(column_names): # check if any of the predefined column names are in the dataframe
                 print("Header detected.")
@@ -176,7 +176,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
             zenith_angles = calculate_zenith_angles(las_x, las_y, las_z)
             df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
             df['zenith'] = zenith_angles
-            df['range1metres'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
+            df['rangemeter'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
     elif filename.suffix == '.bin':
         print("Reading a .bin file, for SemanticKitti data.")
         points = np.fromfile(filename, dtype=np.float32)
@@ -192,7 +192,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
         zenith_angles = calculate_zenith_angles(pc_x, pc_y, pc_z)
         df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
         df['zenith'] = zenith_angles
-        df['range1metres'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
+        df['rangemeter'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
     else:
         raise ValueError(f"Unsupported file extension: {filename.suffix}")
     
@@ -207,17 +207,17 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
 
 def clean_pcd_df_based_on_ir(df: pd.DataFrame, cut_percent: float=0.006) -> pd.DataFrame:
     """
-    Clean the point cloud data based on intensity and range1metres.
+    Clean the point cloud data based on intensity and rangemeter.
     
     Parameters:
     df (pd.DataFrame): The point cloud data DataFrame.
-    cut_percent (float): The percentage of points to keep based on intensity and range1metres.
+    cut_percent (float): The percentage of points to keep based on intensity and rangemeter.
     
     Returns:
     pd.DataFrame: The cleaned point cloud data DataFrame.
     """
     print(f"❗ Cleaning point cloud data based on {cut_percent * 100}% cut-off.")
-    col_names = ['range1metres', 'Intensity']
+    col_names = ['rangemeter', 'Intensity']
     bottom_values = [0.1, 0.001]
     # Calculate the cut-off values for each column
     cut_off_values = {}
@@ -245,8 +245,8 @@ def read_and_clean_pcd(filename: Path,
     
     Args:
         filename (Path): The path to the point cloud file. Supported formats are .txt, .las, and .bin.
-        cut_percent (float): The percentage of points to keep based on intensity and range1metres.
-        clean_pc (bool): Whether to clean the point cloud data based on intensity and range1metres.
+        cut_percent (float): The percentage of points to keep based on intensity and rangemeter.
+        clean_pc (bool): Whether to clean the point cloud data based on intensity and rangemeter.
         flip_mangrove (bool): Whether to flip the Z axis for mangrove datasets.
     
     Returns:
@@ -258,7 +258,7 @@ def read_and_clean_pcd(filename: Path,
     - 'Z': Z coordinate of the point.
     - 'zenith': Zenith angle of the point.
     - 'azimuth': Azimuth angle of the point.
-    - 'range1metres': Range to the point in meters.
+    - 'rangemeter': Range to the point in meters.
     - 'Intensity': Intensity value of the point.
     - 'Return Number': Return number of the point.
     

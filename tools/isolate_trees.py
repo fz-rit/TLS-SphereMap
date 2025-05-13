@@ -56,7 +56,7 @@ def reformat_outputfile(root_dir: Union[str, Path], log_file: Union[str, Path], 
     header = header.replace('Scalar field #2', 'Return Number')
     header = header.replace('Scalar field #3', 'azimuth')
     header = header.replace('Scalar field #4', 'zenith')
-    header = header.replace('Scalar field #5', 'range1metres')
+    header = header.replace('Scalar field #5', 'rangemeter')
     header = header.replace('Scalar field #6', 'x_pix')
     header = header.replace('Scalar field #7', 'y_pix')
     header = header.replace('Scalar field', 'Intensity')
@@ -75,7 +75,7 @@ def reformat_outputfile(root_dir: Union[str, Path], log_file: Union[str, Path], 
                     'Return Number': 'uint8',
                     'azimuth': 'float32',
                     'zenith': 'float32',
-                    'range1metres': 'float32',
+                    'rangemeter': 'float32',
                     'x_pix': 'uint16',
                     'y_pix': 'uint16',
                     'treeiso_label': 'uint16', # upto 65535

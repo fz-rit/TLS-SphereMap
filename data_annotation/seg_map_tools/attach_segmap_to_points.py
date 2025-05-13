@@ -52,7 +52,7 @@ def attach_segmentation_to_points():
     
     # Rename "Return Number" to "return_number" to avoid space issues
     pc_df.rename(columns={"Return Number": "return_number"}, inplace=True)
-    pc_df.rename(columns={"range1metres": "range"}, inplace=True)
+    pc_df.rename(columns={"rangemeter": "range"}, inplace=True)
 
     azimuth, elevation = pc_df['azimuth'], pc_df['elevation']
 

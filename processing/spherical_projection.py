@@ -63,7 +63,7 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
 
     
     # Check if there are NaN values or negative values in the columns of interest
-    for col_name in ['Intensity', 'azimuth', 'zenith', 'range1metres']:
+    for col_name in ['Intensity', 'azimuth', 'zenith', 'rangemeter']:
             assert df_filtered_ncolored[col_name].isnull().sum() == 0, f"Column {col_name} has NaN values"
             assert (df_filtered_ncolored[col_name] < 0).sum() == 0, f"Column {col_name} has negative values"
 
@@ -90,7 +90,7 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
 
     group_intensity = grouped['Intensity'].mean()
     group_z = grouped['Z'].min()
-    group_range = grouped['range1metres'].mean()
+    group_range = grouped['rangemeter'].mean()
     pts_per_pixel = grouped.size()
     
 

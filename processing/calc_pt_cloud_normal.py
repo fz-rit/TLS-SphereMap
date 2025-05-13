@@ -52,7 +52,7 @@ def calc_normals_of_pt_cloud(input_path: Path,
                                     'azimuth': 'float32',
                                     'zenith': 'float32',
                                     'elevation': 'float32',
-                                    'range1metres': 'float32',
+                                    'rangemeter': 'float32',
                                     'nx': 'float32',
                                     'ny': 'float32',
                                     'nz': 'float32'
