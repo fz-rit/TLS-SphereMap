@@ -129,44 +129,45 @@ class MemoryProfiler:
             pass
 
 
-def create_dir_if_not_exists(directory: Path) -> None:
+def create_dir_if_not_exists(directory: Path, ask_user: bool=True) -> None:
     """
     Ask the user whether to create a directory (and its parents) if it does not exist.
     Also display the nearest existing parent directory.
 
-    Parameters
-    ----------
-    directory : Path
-        The directory to create.
-
-    Returns
-    -------
-    None
+    Args:
+        directory (Path): The directory to check and create.
+        ask_user (bool): Whether to ask the user for confirmation to create the directory. Default is True.
+    
     """
     if directory.exists():
-        print(f"Directory {directory} already exists.")
         return
 
-    # Find the nearest existing parent
-    existing_parent = directory
-    while not existing_parent.exists():
-        existing_parent = existing_parent.parent
+    if not ask_user:
+        directory.mkdir(parents=True, exist_ok=True)
+        print(f"Directory {directory} created.")
+        return
 
-    print(f"Directory '{directory}' does not exist.")
-    print(f"The nearest existing parent is: '{existing_parent}'")
+    else:
+        # Find the nearest existing parent
+        existing_parent = directory
+        while not existing_parent.exists():
+            existing_parent = existing_parent.parent
 
-    # Ask user whether to create
-    while True:
-        response = input("Do you want to create the missing directory (and any missing parents)? (y/n): ").strip().lower()
-        if response == 'y':
-            directory.mkdir(parents=True, exist_ok=True)
-            print(f"Directory {directory} created.")
-            break
-        elif response == 'n':
-            print(f"Program stopped due to lack of the path '{directory}'.")
-            break
-        else:
-            print("Please enter 'y' or 'n'.")
+        print(f"Directory '{directory}' does not exist.")
+        print(f"The nearest existing parent is: '{existing_parent}'")
+
+        # Ask user whether to create
+        while True:
+            response = input("Do you want to create the missing directory (and any missing parents)? (y/n): ").strip().lower()
+            if response == 'y':
+                directory.mkdir(parents=True, exist_ok=True)
+                print(f"Directory {directory} created.")
+                break
+            elif response == 'n':
+                print(f"Program stopped due to lack of the path '{directory}'.")
+                break
+            else:
+                print("Please enter 'y' or 'n'.")
 
 
 if __name__ == "__main__":

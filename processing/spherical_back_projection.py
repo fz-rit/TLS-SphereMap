@@ -110,7 +110,10 @@ def get_a_colorized_ball_from_img(rgb_img: NDArray,
                                 output_prefix=key_str)
 
 
-def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, channel_names=['r', 'g', 'b']):
+def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, 
+                               canvas_size: tuple[int, int],
+                                angular_res: tuple[int, int],
+                                channel_names=['r', 'g', 'b']):
     """
     Attach RGB or arbitrary 3-channel color values from a 2D image to a point cloud based on pixel mapping.
 
@@ -141,7 +144,10 @@ def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, channel_names=['r', 'g', 
     assert len(channel_names) == 3, "Exactly 3 channel names must be provided"
 
     # Map angles to image pixel coordinates
-    x_pix, y_pix = map_angle_to_pixel(pc_df['azimuth'], pc_df['elevation'])
+    x_pix, y_pix = map_angle_to_pixel(pc_df['azimuth'], 
+                                      pc_df['elevation'], 
+                                      canvas_size=canvas_size,
+                                      angular_res=angular_res)
     pc_df['x_pix'] = x_pix.astype(int)
     pc_df['y_pix'] = y_pix.astype(int)
 
@@ -167,12 +173,15 @@ def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, channel_names=['r', 'g', 
 
 
 if __name__ == "__main__":
-    # ZENITH_RANGE = (75, 105)  # Zenith range for VLP64
-
-    ZENITH_RANGE = (0, 135)  # Zenith range for the CBL V2.0
-
-    df_ball = generate_lidar_ball(radius=10.0, zenith_range=ZENITH_RANGE)
-
+    v_fov = CONFIG['global']['v_fov']
+    h_fov = CONFIG['global']['h_fov']
+    canvas_width = int(h_fov[1] / CONFIG['global']['h_ang_res_deg'])
+    canvas_height = int(v_fov[1] / CONFIG['global']['v_ang_res_deg'])
+    canvas_size = (canvas_height, canvas_width)
+    angular_res = (CONFIG['global']['v_ang_res_deg'], CONFIG['global']['h_ang_res_deg'])
+    zenith_range = CONFIG['global']['v_fov']  # Zenith range for the CBL V2.0
+    df_ball = generate_lidar_ball(radius=10.0, zenith_range=zenith_range)
+    
     out_dir_ls = CONFIG['global']['output_dir_ls']
     for output_dir in out_dir_ls:
         input_file_stem = output_dir.parent.name
@@ -187,14 +196,30 @@ if __name__ == "__main__":
         image_cube, metadata = load_image_cube_and_meta(image_cube_path)
 
         channel_names = metadata['channel_names']
-        channel_name_groups = [channel_names[3:6], channel_names[6:9],
-                                channel_names[9:12], channel_names[12:15], 
-                                channel_names[15:18]]
-        rgb_groups = [image_cube[:, :, 3:6], image_cube[:, :, 6:9],
-                        image_cube[:, :, 9:12], image_cube[:, :, 12:15], image_cube[:, :, 15:18]]
+        
+        if channel_names[0]== "True-R":
+            group_indices = [
+                            [6, 7, 8], 
+                            [9, 10, 11], 
+                            [12, 13, 14], 
+                            [15, 16, 17],
+                            [18, 19, 20],]
+        elif channel_names[0]== "Intensity Map (raw)":
+            group_indices = [[3, 4, 5], 
+                            [6, 7, 8], 
+                            [9, 10, 11], 
+                            [12, 13, 14], 
+                            [15, 16, 17]]
+        else:
+            raise ValueError(f"Weird channel name: {channel_names[0]}, checkout previous script.")
+        channel_name_groups = [[channel_names[i] for i in group] for group in group_indices]
+        rgb_groups = [image_cube[:,:, group_index] for group_index in group_indices]
         get_a_colorized_ball_from_img(rgb_groups[0], 
                                     key_str,
-                                    zenith_range=ZENITH_RANGE, 
+                                    zenith_range=zenith_range, 
                                     save_dir=pcd_out_dir)
         for channel_name_group, rgb_image in zip(channel_name_groups, rgb_groups):
-            attach_image_colors_to_pcd(rgb_image, pcd_out_dir, channel_names=channel_name_group)
+            attach_image_colors_to_pcd(rgb_image, pcd_out_dir, 
+                                       channel_names=channel_name_group, 
+                                       canvas_size=canvas_size,
+                                       angular_res=angular_res)

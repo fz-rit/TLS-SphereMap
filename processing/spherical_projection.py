@@ -23,10 +23,10 @@ import yaml
 pd.options.mode.chained_assignment = None
 
 
-CANVAS_WIDTH = 1440 
-CANVAS_HEIGHT = 540
 
-def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
+def load_and_preprocess_point_cloud(filename: Union[str, Path], 
+                                    canvas_size: tuple[int, int],
+                                    angular_res: tuple[int, int]) -> pd.DataFrame:
     """
     Load the point cloud data and preprocess it by:
     1. Attach the pixel values for azimuth and elevation
@@ -42,7 +42,7 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
 
     df_filtered = pd.read_csv(filename, sep=',')
     azimuth, elevation = df_filtered['azimuth'], df_filtered['elevation']
-    x_pix, y_pix = map_angle_to_pixel(azimuth, elevation)
+    x_pix, y_pix = map_angle_to_pixel(azimuth, elevation, canvas_size, angular_res)
     df_filtered['x_pix'] = x_pix
     df_filtered['y_pix'] = y_pix
 
@@ -70,7 +70,9 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path]) -> pd.DataFrame:
     return df_filtered_ncolored
 
 
-def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+def unwrap_point_cloud_to_2d_images(filename: str, 
+                                    canvas_size:tuple[int, int], 
+                                    angular_res:tuple[int, int]) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
     """
     Unwrap the point cloud to 2D images with x being azimuth angle, y being zenith angle, and pixel value with different kinds of scalar fields.
     Including density, intensity, range, and range-xy images.
@@ -84,7 +86,12 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
     tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: A tuple containing the density image, adjusted intensity image, adjusted range image, and adjusted range-xy image.
     """
     ## Load and Preprocess the point cloud data
-    df_filtered_ncolored = load_and_preprocess_point_cloud(filename)
+    df_filtered_ncolored = load_and_preprocess_point_cloud(filename, 
+                                                           canvas_size=canvas_size, 
+                                                           angular_res=angular_res)
+    
+    print(df_filtered_ncolored.head())
+    # return
     grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)
 
 
@@ -96,10 +103,10 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
 
     ## Map the computed values to the image arrays
     ## Create empty image canvases with proper resolution
-    intensity_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    range_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    z_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    density_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
+    intensity_image = np.zeros(canvas_size, dtype=np.float32)
+    range_image = np.zeros(canvas_size, dtype=np.float32)
+    z_image = np.zeros(canvas_size, dtype=np.float32)
+    density_image = np.zeros(canvas_size, dtype=np.float32)
     
     pxpy_indices = np.array(group_intensity.index.tolist())
     intensity_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_intensity.values
@@ -112,6 +119,7 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
 
+
     image_names = ['Density Map', 
                     'Intensity Map (adjusted)', 
                     'Z-Inv Map (adjusted)',
@@ -123,27 +131,40 @@ def unwrap_point_cloud_to_2d_images(filename: str) -> tuple[pd.DataFrame, tuple[
     
     
 
-    output_images = (density_image, 
+    output_images = [density_image, 
                      intensity_image_adjusted, 
                      z_image_adjusted,
                      range_image_adjusted, 
                      intensity_image, 
                      z_image,
                      range_image, 
-                     )
+    ]
     
     output_images_dict = {image_name: image for image_name, image in zip(image_names, output_images)}
-   
+    
+    # Add the True RGB image if available
+    if 'r' in df_filtered_ncolored.columns and 'g' in df_filtered_ncolored.columns and 'b' in df_filtered_ncolored.columns:
+        rgb_image = np.zeros((*canvas_size, 3), dtype=np.float32)
+        group_r = grouped['r'].mean()
+        group_g = grouped['g'].mean()
+        group_b = grouped['b'].mean()
+        rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 0] = group_r.values
+        rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 1] = group_g.values
+        rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 2] = group_b.values
+        output_images_dict['True-RGB'] = rgb_image
+
     return df_filtered_ncolored, output_images_dict
 
 
-def unwrap_pc_normals_to_rgb_image(df_filtered_ncolored: pd.DataFrame) -> np.ndarray:
+def unwrap_pc_normals_to_rgb_image(df_filtered_ncolored: pd.DataFrame,
+                                   canvas_size: tuple[int, int]) -> np.ndarray:
     """
     Unwrap the point cloud to 2D images with x being azimuth angle, y being zenith angle, and pixel values
     colorized by the normal vectors.
 
     Parameters:
-    
+        df_filtered_ncolored (pd.DataFrame): A DataFrame containing the filtered and processed point cloud data with additional columns for pixel coordinates.
+        canvas_size (tuple[int, int]): The size of the canvas for the output image, (height, width).
     """
     grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)
 
@@ -154,9 +175,9 @@ def unwrap_pc_normals_to_rgb_image(df_filtered_ncolored: pd.DataFrame) -> np.nda
 
     ## Map the computed values to the image arrays
     ## Create empty image canvases with proper resolution
-    r_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    g_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
-    b_image = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=np.float32)
+    r_image = np.zeros(canvas_size, dtype=np.float32)
+    g_image = np.zeros(canvas_size, dtype=np.float32)
+    b_image = np.zeros(canvas_size, dtype=np.float32)
     
     pxpy_indices = np.array(r_per_pixel.index.tolist())
     r_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = r_per_pixel.values
@@ -206,6 +227,7 @@ def save_image_cube_and_meta(
         'Range Map (adjusted)'
     ]
 
+    
     # Dynamically fetch the adjusted maps
     collected_maps = []
     for title in save_titles:
@@ -220,6 +242,7 @@ def save_image_cube_and_meta(
             raise KeyError(f"Key {e} not found in the output_images_dict.")
 
     raw_maps = np.stack(collected_maps[:3], axis=-1) # shape: (H, W, 3)
+    
     adjusted_maps = np.stack(collected_maps[3:], axis=-1) # shape: (H, W, 3)
     pca_input_cube = np.concatenate([adjusted_maps, normals_rgb_image], axis=-1) # shape: (H, W, 6)
 
@@ -227,6 +250,12 @@ def save_image_cube_and_meta(
     mnf_components = compute_mnf(pca_input_cube, n_components=3)
     ica_components = compute_ica(pca_input_cube, n_components=3)
     extended_image_cube = np.concatenate([raw_maps, pca_input_cube, pcs, mnf_components, ica_components], axis=-1) # shape: (H, W, 18)
+
+    if 'True-RGB' in output_images_dict:
+        save_titles = ['True-R', 'True-G', 'True-B'] + save_titles
+        true_rgb_image = output_images_dict['True-RGB'] if 'True-RGB' in output_images_dict else None
+        if true_rgb_image is not None:
+            extended_image_cube = np.concatenate([true_rgb_image, extended_image_cube], axis=-1)
 
     save_titles += ['Pseduo-Rn', 'Pseudo-Gn', 'Pseudo-Bn',
                     'PCA1', 'PCA2', 'PCA3', 
@@ -250,18 +279,21 @@ def save_image_cube_and_meta(
 
     notes_per_channel = {}
     for i, title in enumerate(save_titles):
-        if i<3:
+        if "True-" in title:
+            notes_per_channel[title] = f"Ch{i+1} - {title} image."
+        elif 'raw' in title:
             notes_per_channel[title] = f"Ch{i+1} - Raw data."
-        elif i<6:
+        elif 'adjusted' in title:
             notes_per_channel[title] = f"Ch{i+1} - {title} - first normalized all the values to (0.01, 1.0), then did histogram equalization on the valid pixels."
-        elif i<9:
+        elif "Pseduo-" in title:
             notes_per_channel[title] = f"Ch{i+1} - {title} - image colorized by mapping nx-ny-nz to (azimuth, zenith) and then to Hue(azi)-Saturation(0.5)-Value(zen) (HSV) color space and converted to RGB."
-        elif i<12:
-            notes_per_channel[title] = f"Ch{i+1} - PCA component {i+1-9} from Channels 4-9."
-        elif i<15:
-            notes_per_channel[title] = f"Ch{i+1} - MNF component {i+1-12} from Channels 4-9."
-        elif i<18:
-            notes_per_channel[title] = f"Ch{i+1} - ICA component {i+1-15} from Channels 4-9."
+        elif "PCA" in title:
+            notes_per_channel[title] = f"Ch{i+1} - PCA component {i+1-9} from intensity-range-Z-Rn-Gn-Bn."
+        elif "MNF" in title:
+            notes_per_channel[title] = f"Ch{i+1} - MNF component {i+1-12} from intensity-range-Z-Rn-Gn-Bn."
+        elif "ICA" in title:
+            notes_per_channel[title] = f"Ch{i+1} - ICA component {i+1-15} from intensity-range-Z-Rn-Gn-Bn."
+        
 
     preprocess_meta["Notes per channel"] = notes_per_channel
     
@@ -405,6 +437,12 @@ def main():
     saveflag = params['saveflag']
     visualize = params['visualize']
     simple_output = params['simple_output']
+    v_fov = CONFIG['global']['v_fov']
+    h_fov = CONFIG['global']['h_fov']
+    canvas_width = int(h_fov[1] / CONFIG['global']['h_ang_res_deg'])
+    canvas_height = int(v_fov[1] / CONFIG['global']['v_ang_res_deg'])
+    canvas_size = (canvas_height, canvas_width)
+    angular_res = (CONFIG['global']['v_ang_res_deg'], CONFIG['global']['h_ang_res_deg'])
 
     output_dir_ls = CONFIG['global']['output_dir_ls']
 
@@ -427,21 +465,23 @@ def main():
                 ]
         
         key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
-        df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename)
-        normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered)
+        df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename, canvas_size, angular_res)
+        normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered, canvas_size)
         image_cube, _ = save_image_cube_and_meta(output_images_dict, 
                                 normals_rgb_image, 
                                 img_out_dir, 
                                 key_str, 
                                 )
+        # return
         if not simple_output:
             density_image = output_images_dict['Density Map']
+            # print(f"Density image shape: {density_image.shape}")
             display_single_band_img_wt_discrete_values(density_image, 
                                                     title='Point Density Map', 
                                                     output_dir=img_out_dir, 
                                                     saveflag=saveflag,
-                                                    visualize=visualize)
-
+                                                    visualize=visualize
+                                                    )
             # Display and save the adjusted intensity and range images
             display_images = [output_images_dict[title] for title in titles]
             display_unwrapped_single_band_images(display_images, 
@@ -449,17 +489,23 @@ def main():
                                                 key_str=key_str,
                                                 output_dir=img_out_dir,
                                                 saveflag=saveflag,
-                                                visualize=visualize
+                                                visualize=visualize,
+                                                canvas_size=canvas_size,
+                                                v_fov = v_fov,
+                                                h_fov = h_fov
                                                 )
-
+            
             # Display the Pseudo-RGB image from normals.
             display_unwrapped_rgb_image(normals_rgb_image, 
                                         figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
                                         saveflag=saveflag, 
                                         output_dir=img_out_dir,
-                                        visualize=visualize
+                                        visualize=visualize,
+                                        canvas_size=canvas_size,
+                                        v_fov = v_fov,
+                                        h_fov = h_fov
                                         )
-
+            print(f"Program stopped in lin 473.")
             # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
             feat_strs = ['Intensity', 'Z-Inv', 'Range']
             feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]

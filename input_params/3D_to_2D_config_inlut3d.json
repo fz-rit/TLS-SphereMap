@@ -1,20 +1,18 @@
 {
     "global": {
-        "input_folder": "ALRSET1",
-        "input_folder_parent": "palau_2024",
-        "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
-        "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs",
-        "input_suffix": ".txt",
-        "h_fov": 360,
-        "v_fov": 135,
-        "h_ang_res_deg": 0.25,
-        "v_ang_res_deg": 0.25
+        "input_base_dir": "/home/fzhcis/mylab/data/inlut3d",
+        "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/inlut3d",
+        "input_suffix": ".pts",
+        "h_fov": [0, 360],
+        "v_fov": [0, 150],
+        "h_ang_res_deg": 0.15,
+        "v_ang_res_deg": 0.15
     },
     "calc_pt_cloud_normal": {
+        "clean_pc": false,
         "cut_percent": 0.005,
-        "clean_pc": true,
-        "visualize": false,
-        "flip_mangrove": true
+        "visualize": true,
+        "flip_mangrove": false
     },
     "calc_curvature_roughness": {
         "batch_num_elevation": 5,

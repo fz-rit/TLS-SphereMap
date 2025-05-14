@@ -19,22 +19,23 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
 from skimage import io
-from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.colors import ListedColormap, BoundaryNorm, Normalize
+from matplotlib.colorbar import ColorbarBase
 import seaborn as sns
 from PIL import Image
 
-HORIZONTAL_FOV = 360.0
-# ======For TLS data======
-VERTICAL_FOV = 135.0
-VERTICAL_ANGLE_RESOLUTION = 0.25
-HORIZONTAL_ANGLE_RESOLUTION = 0.25
+# HORIZONTAL_FOV = 360.0
+# # ======For TLS data======
+# VERTICAL_FOV = 135.0
+# VERTICAL_ANGLE_RESOLUTION = 0.25
+# HORIZONTAL_ANGLE_RESOLUTION = 0.25
 
-# # ===For SemanticKitti data (Velodyne-HDL-64)===
-# VERTICAL_FOV = 30.0
-# VERTICAL_ANGLE_RESOLUTION = 0.4
-# HORIZONTAL_ANGLE_RESOLUTION = 0.08
-CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data; 4500 for SemanticKitti data
-CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data; 75 for SemanticKitti data
+# # # ===For SemanticKitti data (Velodyne-HDL-64)===
+# # VERTICAL_FOV = 30.0
+# # VERTICAL_ANGLE_RESOLUTION = 0.4
+# # HORIZONTAL_ANGLE_RESOLUTION = 0.08
+# CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data; 4500 for SemanticKitti data
+# CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data; 75 for SemanticKitti data
 
 
 
@@ -307,7 +308,11 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
                              output_dir: Path,
                              colormap: str = 'plasma', 
                              saveflag: bool = False,
-                             visualize: bool = True) -> None:
+                             visualize: bool = True,
+                             canvas_size: list = [540, 1440],
+                             v_fov: list = [0, 135],
+                             h_fov: list = [0, 360]
+                             ) -> None:
     """
     Display images with titles and colorbars.
 
@@ -320,7 +325,7 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     Returns:
     None
     """
-
+    CANVAS_HEIGHT, CANVAS_WIDTH = canvas_size
     num_subplots = len(subplot_images)
     fig, axes = plt.subplots(num_subplots, 1, figsize=(12, 4*num_subplots))
 
@@ -328,8 +333,8 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
     colormap = colormap  # e.g.: 'jet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis'
 
     # Define custom ticks using np.linspace
-    y_ticks = np.linspace(0, VERTICAL_FOV, CANVAS_HEIGHT + 1)
-    x_ticks = np.linspace(0, HORIZONTAL_FOV, CANVAS_WIDTH + 1)
+    y_ticks = np.linspace(v_fov[0], v_fov[1], CANVAS_HEIGHT + 1)
+    x_ticks = np.linspace(h_fov[0], h_fov[1], CANVAS_WIDTH + 1)
     for ax, subplot_img, title in zip(axes, subplot_images, titles):
         print(f"Generating {title} image...")
         im = ax.imshow(subplot_img, cmap=colormap, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])
@@ -359,6 +364,7 @@ def display_single_band_img_wt_discrete_values(
     image_data: np.ndarray,
     output_dir: Path,
     title: str = "Point Density Map",
+    simpl_colormap: str = 'jet',
     saveflag: bool = False,
     visualize: bool = True,
 ) -> None:
@@ -386,34 +392,43 @@ def display_single_band_img_wt_discrete_values(
     unique_values = np.unique(image_data)
     num_unique_values = len(unique_values)
 
-    if num_unique_values < 50:
-        colors = plt.get_cmap('jet', num_unique_values)(np.arange(num_unique_values))
-    else:
-        # Sample the 'jet' colormap to get 50 colors
-        jet_colors = plt.get_cmap('jet', 50)(np.linspace(0, 1, 50))
-        # Repeat the colors to match the number of unique values
-        repeated_colors = np.tile(jet_colors, (int(np.ceil(num_unique_values / 50)), 1))[:num_unique_values]
-        # Shuffle the colors to make adjacent values more distinguishable
-        np.random.seed(1)  # For reproducibility
-        np.random.shuffle(repeated_colors)
-        colors = repeated_colors
+    # Clip values to match color bins (0 to 9)
+    unique_values = np.clip(unique_values, 0, 9).astype(int)
 
-    colors[0] = [0, 0, 0, 1]  # Set the color for zero to black (RGBA)
+    # Define color boundaries and colormap
+    boundaries = list(range(10)) + [1e6]  # Bins: [0–1), [1–2), ..., [9–inf)
+    jet = plt.cm.get_cmap('jet', len(boundaries) - 1)
+    colors = [jet(i) for i in range(jet.N)] + ['gray']
     cmap = ListedColormap(colors)
+    norm = BoundaryNorm(boundaries, ncolors=cmap.N)
 
-    # Create a boundary norm with explicit bounds
-    boundaries = np.concatenate([[unique_values[0] - 0.5], unique_values + 0.5])
-    norm = BoundaryNorm(boundaries, num_unique_values)
-
+    # --- Display the image ---
     im = ax.imshow(image_data, cmap=cmap, norm=norm)
-    cbar = fig.colorbar(im, ax=ax, ticks=unique_values)
-    cbar.set_ticklabels([str(int(i)) for i in unique_values])
-    cbar.set_label('Points per pixel')
-    ax.set_title(title)
-    ax.set_xlabel('Azimuth Angle (degrees)')
-    ax.set_ylabel('Elevation Angle (degree)')
 
+    # --- Compute frequencies and cumulative proportions for proportional colorbar ---
+    flat_data = image_data.flatten()
+    flat_data_clipped = np.clip(flat_data, 0, 9).astype(int)
+    value_counts = np.array([np.count_nonzero(flat_data_clipped == i) for i in range(10)])
+    proportions = value_counts / value_counts.sum()
+    cumulative = np.concatenate([[0], np.cumsum(proportions)])
 
+    # Create separate axes for custom colorbar
+    cax = fig.add_axes([0.92, 0.15, 0.02, 0.7])  # [left, bottom, width, height]
+
+    # --- Build proportional colorbar ---
+    cb = ColorbarBase(
+        cax,
+        cmap=ListedColormap(colors),
+        norm=BoundaryNorm(cumulative, cmap.N),
+        ticks=(cumulative[:-1] + cumulative[1:]) / 2,
+        spacing='proportional',
+        orientation='vertical'
+    )
+
+    # Set colorbar tick labels
+    cb.ax.set_yticklabels([str(i) for i in range(10)])
+    cb.set_label('Points per pixel')
+ 
     if saveflag:
         # Save the raw image without labels or colorbars
         normalized_data = norm(image_data)
@@ -439,13 +454,17 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
                             figure_title: str, 
                             output_dir: Path, 
                             saveflag: bool = False,
-                            visualize: bool = True
+                            visualize: bool = True,
+                            canvas_size: list = [540, 1440],
+                            v_fov: list = [0, 135],
+                            h_fov: list = [0, 360]
                             ) -> None:
     """
     Display the unwrapped RGB image with custom ticks.
     """
-    y_ticks = np.linspace(0, VERTICAL_FOV, CANVAS_HEIGHT + 1)
-    x_ticks = np.linspace(0, HORIZONTAL_FOV, CANVAS_WIDTH + 1)
+    CANVAS_HEIGHT, CANVAS_WIDTH = canvas_size
+    y_ticks = np.linspace(v_fov[0], v_fov[1], CANVAS_HEIGHT + 1)
+    x_ticks = np.linspace(h_fov[0], h_fov[1], CANVAS_WIDTH + 1)
     y_label = 'Elevation Angle (degree)'
     plt.figure(figsize=(12, 6))
     plt.imshow(rgb_image, aspect='auto', extent=[x_ticks[0], x_ticks[-1], y_ticks[0], y_ticks[-1]])

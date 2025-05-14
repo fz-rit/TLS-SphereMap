@@ -3,16 +3,21 @@ from pathlib import Path
 import laspy
 import numpy as np
 
-HORIZONTAL_FOV = 360.0
-# ======For TLS data======
-VERTICAL_FOV = 135.0
-VERTICAL_ANGLE_RESOLUTION = 0.25
-HORIZONTAL_ANGLE_RESOLUTION = 0.25
+# HORIZONTAL_FOV = 360.0
+# # ======For TLS data======
+# VERTICAL_FOV = 135.0
+# VERTICAL_ANGLE_RESOLUTION = 0.25
+# HORIZONTAL_ANGLE_RESOLUTION = 0.25
 
 # ===For SemanticKitti data (Velodyne-HDL-64)===
 # VERTICAL_FOV = 26.8
 # VERTICAL_ANGLE_RESOLUTION = 0.4188
 # HORIZONTAL_ANGLE_RESOLUTION = 0.08
+
+# # ===For InLUT3D data===
+# VERTICAL_FOV = 150.0
+# VERTICAL_ANGLE_RESOLUTION = 0.0229183
+# HORIZONTAL_ANGLE_RESOLUTION = 0.0229183
 
 
 def convert_SemanticKitti_bin_to_pcd(bin_file: Path, pcd_file: Path):
@@ -78,7 +83,10 @@ def calculate_zenith_angles(las_x: np.ndarray, las_y: np.ndarray, las_z: np.ndar
 
 
 
-def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def map_angle_to_pixel(azimuth: np.ndarray, 
+                       elevation: np.ndarray, 
+                       canvas_size: tuple[int, int],
+                       angular_res: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
     """
     Map azimuth and elevation angles to pixel coordinates on the unwrapped image.
     
@@ -91,26 +99,47 @@ def map_angle_to_pixel(azimuth: np.ndarray, elevation: np.ndarray) -> tuple[np.n
 
     """
 
-    CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data (360 azimuth range)
-    CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data (135 elevation range)
-
+    # CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data (360 azimuth range)
+    # CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data (135 elevation range)
+    CANVAS_HEIGHT, CANVAS_WIDTH = canvas_size
+    VERTICAL_ANGLE_RESOLUTION, HORIZONTAL_ANGLE_RESOLUTION = angular_res
+    # print(f"CANVAS_WIDTH: {CANVAS_WIDTH}, CANVAS_HEIGHT: {CANVAS_HEIGHT}")
+    # print(f"VERTICAL_ANGLE_RESOLUTION: {VERTICAL_ANGLE_RESOLUTION}, HORIZONTAL_ANGLE_RESOLUTION: {HORIZONTAL_ANGLE_RESOLUTION}")
     # Map azimuth (e.g., 0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
     x_pix = (azimuth / HORIZONTAL_ANGLE_RESOLUTION).astype(int)
 
     # Map elevation angle (e.g., -90 ~ 45 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), 
     # flipping the y-axis since elevation increases from bottom to top while 
     # pixel indices increase from top to bottom.
-    if elevation.min() < -45: # Mangrove root
-        y_pix = CANVAS_HEIGHT - ((elevation + 90) / VERTICAL_ANGLE_RESOLUTION).astype(int)
-    else: # Harvard Forest or an upward facing dataset in mangrove root
-        y_pix = CANVAS_HEIGHT - ((elevation + 45) / VERTICAL_ANGLE_RESOLUTION).astype(int)
+    # if elevation.min() < -89: # Mangrove root upside down
+    #     print("Mangrove root - LiDAR upside down.")
+    #     y_pix = CANVAS_HEIGHT - ((elevation + 90) / VERTICAL_ANGLE_RESOLUTION).astype(int)
+    # else: # Harvard Forest or an upward facing dataset in mangrove root
+    #     y_pix = CANVAS_HEIGHT - ((elevation + 45) / VERTICAL_ANGLE_RESOLUTION).astype(int)
+    y_pix = CANVAS_HEIGHT - ((elevation - elevation.min()) / VERTICAL_ANGLE_RESOLUTION).astype(int)
 
     # Ensure pixel indices are within bounds, in case x_pix or y_pix goes beyond 540 or 1440
     x_pix = x_pix.clip(0, CANVAS_WIDTH - 1)
     y_pix = y_pix.clip(0, CANVAS_HEIGHT - 1)
-
+    # print(f"Pixel coordinates: x_pix range: {x_pix.min()} to {x_pix.max()}, y_pix range: {y_pix.min()} to {y_pix.max()}")
+    # return
     return x_pix, y_pix
 
+def read_pts_file(file_path):
+    # Read the file
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+
+    # First line is the number of points, skip it
+    data_lines = lines[1:]
+
+    # Convert to DataFrame
+    from io import StringIO
+    data_str = ''.join(data_lines)
+    df = pd.read_csv(StringIO(data_str), sep='\s+', header=None)
+    df.columns = ["X", "Y", "Z", "r", "g", "b", "class_id", "instance_id"]
+
+    return df
 
 def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFrame:
     """
@@ -132,40 +161,41 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
     """
     if filename.suffix == '.txt':
         print("Reading a text file - for Mongrove roots.")
-        try:
-            # Try reading the file assuming there is a header
-            df = pd.read_csv(filename, sep=',')
-            column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'rangemeter', 'Intensity', 'Return Number']
-            # Check if the first row looks like column names (e.g., by type or value checks)
-            if set(df.columns).intersection(column_names): # check if any of the predefined column names are in the dataframe
-                print("Header detected.")
-            else:
-                print("No header detected. Now trying to read the file with predefined column names.")
-                df = pd.read_csv(filename, sep=',', names=column_names)
-            
-            if flip_mangrove: # LIDAR upside down, Flip the Z axis to match the orientation of the point cloud
-                df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
-                df['elevation'] = df['zenith'] - 90
-                print("------Flipping of Z axis for mangrove dataset.-------------")
-            else: # For the single scan of the mangrove forest, lidar was not upsidedown.
-                print("------Not flipping of Z axis for mangrove dataset.-------------")
-                df['elevation'] = 90 - df['zenith']
-        except Exception as e:
-            print(f"Error reading file: {e}")
+        # Try reading the file assuming there is a header
+        df = pd.read_csv(filename, sep=',')
+        column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'rangemeter', 'Intensity', 'Return Number']
+        # Check if the first row looks like column names (e.g., by type or value checks)
+        if set(df.columns).intersection(column_names): # check if any of the predefined column names are in the dataframe
+            print("Header detected.")
+        else:
+            print("No header detected. Now trying to read the file with predefined column names.")
+            df = pd.read_csv(filename, sep=',', names=column_names)
+        
+        if flip_mangrove: # LIDAR upside down, Flip the Z axis to match the orientation of the point cloud
+            df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
+            df['elevation'] = df['zenith'] - 90
+            print("------Flipping of Z axis for mangrove dataset.-------------")
+        else: # For the single scan of the mangrove forest, lidar was not upsidedown.
+            print("------Not flipping of Z axis for mangrove dataset.-------------")
+            df['elevation'] = 90 - df['zenith']
             
     elif filename.suffix == '.las':
-        print("Reading a .las file, for Harvard Forest data.")
+        print("Reading a .las file, for Harvard Forest data or InLUT3D data.")
         with laspy.open(filename) as las_file:
             las = las_file.read()
             scale_factors = las.header.scales
-            las_x = las.X * scale_factors[0]
-            las_y = las.Y * scale_factors[1]
-            las_z = las.Z * scale_factors[2]
+            shifts = las.header.offsets
+            las_x = las.X * scale_factors[0] + shifts[0]
+            las_y = las.Y * scale_factors[1] + shifts[1]
+            las_z = las.Z * scale_factors[2] + shifts[2]
+            # If las.intensity are all zeros (InLUT3D data), assign intensity values by mean of the R/G/B channels
+            las_intensity = las.intensity if any(las.intensity) else (las.red + las.green + las.blue) / 3
+            
             data = {
             'X': las_x,
             'Y': las_y,
             'Z': las_z,
-            'Intensity': las.intensity,
+            'Intensity': las_intensity,
             'Return Number': np.array(las.return_number),}
             df = pd.DataFrame(data)
             # Calculate azimuth in degrees
@@ -177,6 +207,13 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
             df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
             df['zenith'] = zenith_angles
             df['rangemeter'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
+
+            # If the point cloud contains r/g/b channels, assign them to the DataFrame
+            if any(las.red) and any(las.green) and any(las.blue):
+                df['r'] = las.red / max(las.red)
+                df['g'] = las.green / max(las.green)
+                df['b'] = las.blue / max(las.blue)
+
     elif filename.suffix == '.bin':
         print("Reading a .bin file, for SemanticKitti data.")
         points = np.fromfile(filename, dtype=np.float32)
@@ -193,8 +230,22 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
         df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
         df['zenith'] = zenith_angles
         df['rangemeter'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
+
+    elif filename.suffix == '.pts':
+        print("Reading a .pts file, for In_LUT3D data.")
+        df = read_pts_file(filename) # columns: ['x', 'y', 'z', 'r', 'g', 'b', 'class_id', 'instance_id']
+        # prepare intensity(psedo), azimuth, zenith, elevation angles, rangemeter, and return number (psedo)
+        df['Intensity'] = df[['r', 'g', 'b']].mean(axis=1) / 255.0 # normalize to [0, 1]
+        df['Return Number'] = 1
+        df['azimuth'] = np.arctan2(df['Y'], df['X']) * 180 / np.pi
+        df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+        zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
+        df['elevation'] = 90 - zenith_angles
+        df['zenith'] = zenith_angles
+        df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+
     else:
-        raise ValueError(f"Unsupported file extension: {filename.suffix}")
+        raise ValueError(f"Unsupported file extension: {filename.suffix}; supported extensions are .txt, .las, .bin, and .pts")
     
     print(f"Read {len(df)} points from {filename}")
     print("---------Before preprocessing:----------")
