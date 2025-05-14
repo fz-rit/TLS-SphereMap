@@ -90,8 +90,6 @@ def unwrap_point_cloud_to_2d_images(filename: str,
                                                            canvas_size=canvas_size, 
                                                            angular_res=angular_res)
     
-    print(df_filtered_ncolored.head())
-    # return
     grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)
 
 
@@ -152,6 +150,14 @@ def unwrap_point_cloud_to_2d_images(filename: str,
         rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 1] = group_g.values
         rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 2] = group_b.values
         output_images_dict['True-RGB'] = rgb_image
+
+    # Add the segmentation mask if available
+    if 'class_id' in df_filtered_ncolored.columns:
+        seg_mask = np.zeros(canvas_size, dtype=np.uint8)
+        group_class_id = grouped['class_id'].agg(lambda x: x.value_counts().idxmax())
+        seg_mask[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_class_id.values
+        seg_mask = seg_mask.astype(np.uint8)
+        output_images_dict['Segmentation Mask'] = seg_mask
 
     return df_filtered_ncolored, output_images_dict
 
@@ -432,56 +438,81 @@ def create_pseudo_rgb_image(img_ch1: np.ndarray,
     return pseudo_rgb_image
 
 
-def main():
-    params = CONFIG['spherical_projection']
-    saveflag = params['saveflag']
-    visualize = params['visualize']
-    simple_output = params['simple_output']
-    v_fov = CONFIG['global']['v_fov']
-    h_fov = CONFIG['global']['h_fov']
-    canvas_width = int(h_fov[1] / CONFIG['global']['h_ang_res_deg'])
-    canvas_height = int(v_fov[1] / CONFIG['global']['v_ang_res_deg'])
-    canvas_size = (canvas_height, canvas_width)
-    angular_res = (CONFIG['global']['v_ang_res_deg'], CONFIG['global']['h_ang_res_deg'])
+def generate_2D_projection_images(output_dir: Path,
+                                    canvas_size: tuple[int, int], 
+                                    angular_res: tuple[int, int], 
+                                    saveflag: bool = False,
+                                    visualize: bool = True,
+                                    detailed_outputs: bool = True,
+                                    show_single_band: bool = True,
+                                    show_pseudo_rgb: bool = True,
+                                    show_pca: bool = True,
+                                    v_fov: tuple[float, float] = (0, 90),
+                                    h_fov: tuple[float, float] = (0, 360)
+                                    ) -> None:
+    """
+    Generate 2D projection images from point cloud data.
+    Args:
+        output_dir (Path): Directory containing the point cloud data.
+        canvas_size (tuple[int, int]): Size of the canvas for the output images.
+        angular_res (tuple[int, int]): Angular resolution for the projection.
+        saveflag (bool): If True, save the images.
+        visualize (bool): If True, display the images.
+        detailed_outputs (bool): If True, generate detailed outputs.
+        show_single_band (bool): If True, show single band images.
+        show_pseudo_rgb (bool): If True, show pseudo RGB images.
+        show_pca (bool): If True, show PCA components.
+        v_fov (tuple[float, float]): Vertical field of view.
+        h_fov (tuple[float, float]): Horizontal field of view.
+    """
 
-    output_dir_ls = CONFIG['global']['output_dir_ls']
 
-    for output_dir in output_dir_ls:
-        input_file_stem = output_dir.parent.name
-        pcd_dir = output_dir / 'pcd'
-        img_out_dir = output_dir / 'img'
+    input_file_stem = output_dir.parent.name
+    pcd_dir = output_dir / 'pcd'
+    img_out_dir = output_dir / 'img'
+    
+    create_dir_if_not_exists(img_out_dir)
+    filename = next(pcd_dir.glob("*_normaled*"), None)
+    if filename is None:
+        raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
 
-        create_dir_if_not_exists(img_out_dir)
-        filename = next(pcd_dir.glob("*_normaled*"), None)
-        if filename is None:
-            raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
+    titles = ['Intensity Map (adjusted)', 
+            'Z-Inv Map (adjusted)',
+            'Range Map (adjusted)', 
+            'Intensity Map (raw)', 
+            'Z Map (raw)',
+            'Range Map (raw)', 
+            ]
+    
+    key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
+    df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename, canvas_size, angular_res)
+    normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered, canvas_size)
+    image_cube, _ = save_image_cube_and_meta(output_images_dict, 
+                            normals_rgb_image, 
+                            img_out_dir, 
+                            key_str, 
+                            )
+    # Generate seg-mask from class_id
+    if 'class_id' in df_filtered.columns:
+        seg_mask = output_images_dict['Segmentation Mask']
+        display_single_band_img_wt_discrete_values(seg_mask, 
+                                                title='Segmentation Mask', 
+                                                output_dir=img_out_dir, 
+                                                saveflag=saveflag,
+                                                visualize=visualize
+                                                )
 
-        titles = ['Intensity Map (adjusted)', 
-                'Z-Inv Map (adjusted)',
-                'Range Map (adjusted)', 
-                'Intensity Map (raw)', 
-                'Z Map (raw)',
-                'Range Map (raw)', 
-                ]
-        
-        key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
-        df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename, canvas_size, angular_res)
-        normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered, canvas_size)
-        image_cube, _ = save_image_cube_and_meta(output_images_dict, 
-                                normals_rgb_image, 
-                                img_out_dir, 
-                                key_str, 
-                                )
-        # return
-        if not simple_output:
-            density_image = output_images_dict['Density Map']
-            # print(f"Density image shape: {density_image.shape}")
-            display_single_band_img_wt_discrete_values(density_image, 
-                                                    title='Point Density Map', 
-                                                    output_dir=img_out_dir, 
-                                                    saveflag=saveflag,
-                                                    visualize=visualize
-                                                    )
+
+    if detailed_outputs:
+        density_image = output_images_dict['Density Map']
+        # print(f"Density image shape: {density_image.shape}")
+        display_single_band_img_wt_discrete_values(density_image, 
+                                                title='Point Density Map', 
+                                                output_dir=img_out_dir, 
+                                                saveflag=saveflag,
+                                                visualize=visualize
+                                                )
+        if show_single_band:
             # Display and save the adjusted intensity and range images
             display_images = [output_images_dict[title] for title in titles]
             display_unwrapped_single_band_images(display_images, 
@@ -494,7 +525,7 @@ def main():
                                                 v_fov = v_fov,
                                                 h_fov = h_fov
                                                 )
-            
+        if show_pseudo_rgb:
             # Display the Pseudo-RGB image from normals.
             display_unwrapped_rgb_image(normals_rgb_image, 
                                         figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
@@ -505,7 +536,6 @@ def main():
                                         v_fov = v_fov,
                                         h_fov = h_fov
                                         )
-            print(f"Program stopped in lin 473.")
             # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
             feat_strs = ['Intensity', 'Z-Inv', 'Range']
             feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]
@@ -519,13 +549,14 @@ def main():
                                         output_dir=img_out_dir, 
                                         saveflag=saveflag, 
                                         visualize=visualize)
-                
-            # Plot confusion matrix of the pca_cube
-            output_stem = f'{key_str}_image_cube'
-            corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
-            band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
-            plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
             
+        # Plot confusion matrix of the pca_cube
+        output_stem = f'{key_str}_image_cube'
+        corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
+        band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
+        plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
+        
+        if show_pca:
             # Display PCA, MNF, and ICA components
             pcs = image_cube[:, :, 9:12]
             mnf_components = image_cube[:, :, 12:15]
@@ -534,6 +565,134 @@ def main():
                 out_file = f"{output_stem}_{name}"
                 plot_pca_components(components, img_out_dir, output_stem=out_file)
                 plot_rgb_permutations(components, img_out_dir, output_stem=out_file)
+def main():
+    params = CONFIG['spherical_projection']
+    saveflag = params['saveflag']
+    visualize = params['visualize']
+    detailed_outputs = params['detailed_outputs']
+    v_fov = CONFIG['global']['v_fov']
+    h_fov = CONFIG['global']['h_fov']
+    canvas_width = int(h_fov[1] / CONFIG['global']['h_ang_res_deg'])
+    canvas_height = int(v_fov[1] / CONFIG['global']['v_ang_res_deg'])
+    canvas_size = (canvas_height, canvas_width)
+    angular_res = (CONFIG['global']['v_ang_res_deg'], CONFIG['global']['h_ang_res_deg'])
+
+    output_dir_ls = CONFIG['global']['output_dir_ls']
+    show_single_band = params['show_single_band']
+    show_pseudo_rgb = params['show_pseudo_rgb']
+    show_pca = params['show_pca']
+    for output_dir in output_dir_ls:
+        generate_2D_projection_images(output_dir=output_dir,
+                                    canvas_size=canvas_size, 
+                                    angular_res=angular_res, 
+                                    saveflag=saveflag,
+                                    visualize=visualize,
+                                    detailed_outputs=detailed_outputs,
+                                    show_single_band=show_single_band,
+                                    show_pseudo_rgb=show_pseudo_rgb,
+                                    show_pca=show_pca,
+                                    v_fov=v_fov,
+                                    h_fov=h_fov
+                                        )
+        # input_file_stem = output_dir.parent.name
+        # pcd_dir = output_dir / 'pcd'
+        # img_out_dir = output_dir / 'img'
+        
+        # create_dir_if_not_exists(img_out_dir)
+        # filename = next(pcd_dir.glob("*_normaled*"), None)
+        # if filename is None:
+        #     raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
+
+        # titles = ['Intensity Map (adjusted)', 
+        #         'Z-Inv Map (adjusted)',
+        #         'Range Map (adjusted)', 
+        #         'Intensity Map (raw)', 
+        #         'Z Map (raw)',
+        #         'Range Map (raw)', 
+        #         ]
+        
+        # key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
+        # df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename, canvas_size, angular_res)
+        # normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered, canvas_size)
+        # image_cube, _ = save_image_cube_and_meta(output_images_dict, 
+        #                         normals_rgb_image, 
+        #                         img_out_dir, 
+        #                         key_str, 
+        #                         )
+        # # Generate seg-mask from class_id
+        # if 'class_id' in df_filtered.columns:
+        #     seg_mask = output_images_dict['Segmentation Mask']
+        #     display_single_band_img_wt_discrete_values(seg_mask, 
+        #                                             title='Segmentation Mask', 
+        #                                             output_dir=img_out_dir, 
+        #                                             saveflag=saveflag,
+        #                                             visualize=visualize
+        #                                             )
+
+
+
+        # if detailed_outputs:
+        #     density_image = output_images_dict['Density Map']
+        #     # print(f"Density image shape: {density_image.shape}")
+        #     display_single_band_img_wt_discrete_values(density_image, 
+        #                                             title='Point Density Map', 
+        #                                             output_dir=img_out_dir, 
+        #                                             saveflag=saveflag,
+        #                                             visualize=visualize
+        #                                             )
+        #     if show_single_band:
+        #         # Display and save the adjusted intensity and range images
+        #         display_images = [output_images_dict[title] for title in titles]
+        #         display_unwrapped_single_band_images(display_images, 
+        #                                             titles=titles,
+        #                                             key_str=key_str,
+        #                                             output_dir=img_out_dir,
+        #                                             saveflag=saveflag,
+        #                                             visualize=visualize,
+        #                                             canvas_size=canvas_size,
+        #                                             v_fov = v_fov,
+        #                                             h_fov = h_fov
+        #                                             )
+        #     if show_pseudo_rgb:
+        #         # Display the Pseudo-RGB image from normals.
+        #         display_unwrapped_rgb_image(normals_rgb_image, 
+        #                                     figure_title=f'HSV_colorized_map_from_normals_{key_str}', 
+        #                                     saveflag=saveflag, 
+        #                                     output_dir=img_out_dir,
+        #                                     visualize=visualize,
+        #                                     canvas_size=canvas_size,
+        #                                     v_fov = v_fov,
+        #                                     h_fov = h_fov
+        #                                     )
+        #         # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
+        #         feat_strs = ['Intensity', 'Z-Inv', 'Range']
+        #         feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]
+        #         shuffle_orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+        #         figure_titles = [f'Pseudo-RGB_{feat_strs[shuffle_order[0]]}-{feat_strs[shuffle_order[1]]}-{feat_strs[shuffle_order[2]]}_{key_str}' for shuffle_order in shuffle_orders]
+        #         for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
+        #             create_pseudo_rgb_image(feature_maps[shuffle_order[0]], 
+        #                                     feature_maps[shuffle_order[1]], 
+        #                                     feature_maps[shuffle_order[2]], 
+        #                                     figure_title=figure_title, 
+        #                                     output_dir=img_out_dir, 
+        #                                     saveflag=saveflag, 
+        #                                     visualize=visualize)
+                
+        #     # Plot confusion matrix of the pca_cube
+        #     output_stem = f'{key_str}_image_cube'
+        #     corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
+        #     band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
+        #     plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
+            
+        #     if show_pca:
+        #         # Display PCA, MNF, and ICA components
+        #         pcs = image_cube[:, :, 9:12]
+        #         mnf_components = image_cube[:, :, 12:15]
+        #         ica_components = image_cube[:, :, 15:18]
+        #         for components, name in zip([pcs, mnf_components, ica_components], ['PCA', 'MNF', 'ICA']):
+        #             out_file = f"{output_stem}_{name}"
+        #             plot_pca_components(components, img_out_dir, output_stem=out_file)
+        #             plot_rgb_permutations(components, img_out_dir, output_stem=out_file)
 
 if __name__ == "__main__":
     main()

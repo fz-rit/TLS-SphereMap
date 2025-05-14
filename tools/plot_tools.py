@@ -364,7 +364,6 @@ def display_single_band_img_wt_discrete_values(
     image_data: np.ndarray,
     output_dir: Path,
     title: str = "Point Density Map",
-    simpl_colormap: str = 'jet',
     saveflag: bool = False,
     visualize: bool = True,
 ) -> None:
@@ -390,13 +389,13 @@ def display_single_band_img_wt_discrete_values(
     # Display the image with the discrete colormap
     fig, ax = plt.subplots(figsize=(18, 5))
     unique_values = np.unique(image_data)
-    num_unique_values = len(unique_values)
+    num_unique_values = min(len(unique_values), 18)  # Limit to 18 unique values for color mapping
 
     # Clip values to match color bins (0 to 9)
-    unique_values = np.clip(unique_values, 0, 9).astype(int)
+    unique_values = np.clip(unique_values, 0, num_unique_values-1).astype(int)
 
     # Define color boundaries and colormap
-    boundaries = list(range(10)) + [1e6]  # Bins: [0–1), [1–2), ..., [9–inf)
+    boundaries = list(range(num_unique_values)) + [1e6]  # Bins: [0–1), [1–2), ..., [9–inf)
     jet = plt.cm.get_cmap('jet', len(boundaries) - 1)
     colors = [jet(i) for i in range(jet.N)] + ['gray']
     cmap = ListedColormap(colors)
@@ -407,8 +406,8 @@ def display_single_band_img_wt_discrete_values(
 
     # --- Compute frequencies and cumulative proportions for proportional colorbar ---
     flat_data = image_data.flatten()
-    flat_data_clipped = np.clip(flat_data, 0, 9).astype(int)
-    value_counts = np.array([np.count_nonzero(flat_data_clipped == i) for i in range(10)])
+    flat_data_clipped = np.clip(flat_data, 0, num_unique_values-1).astype(int)
+    value_counts = np.array([np.count_nonzero(flat_data_clipped == i) for i in range(num_unique_values)])
     proportions = value_counts / value_counts.sum()
     cumulative = np.concatenate([[0], np.cumsum(proportions)])
 
@@ -426,7 +425,7 @@ def display_single_band_img_wt_discrete_values(
     )
 
     # Set colorbar tick labels
-    cb.ax.set_yticklabels([str(i) for i in range(10)])
+    cb.ax.set_yticklabels([str(i) for i in range(num_unique_values)])
     cb.set_label('Points per pixel')
  
     if saveflag:

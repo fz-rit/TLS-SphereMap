@@ -201,20 +201,17 @@ if __name__ == "__main__":
             group_indices = [
                             [6, 7, 8], 
                             [9, 10, 11], 
-                            [12, 13, 14], 
-                            [15, 16, 17],
-                            [18, 19, 20],]
+                            [12, 13, 14]]
         elif channel_names[0]== "Intensity Map (raw)":
             group_indices = [[3, 4, 5], 
                             [6, 7, 8], 
                             [9, 10, 11], 
-                            [12, 13, 14], 
-                            [15, 16, 17]]
+                            ]
         else:
             raise ValueError(f"Weird channel name: {channel_names[0]}, checkout previous script.")
         channel_name_groups = [[channel_names[i] for i in group] for group in group_indices]
         rgb_groups = [image_cube[:,:, group_index] for group_index in group_indices]
-        get_a_colorized_ball_from_img(rgb_groups[0], 
+        get_a_colorized_ball_from_img(image_cube[:,:, [0,1,2]], 
                                     key_str,
                                     zenith_range=zenith_range, 
                                     save_dir=pcd_out_dir)

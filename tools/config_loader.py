@@ -40,7 +40,7 @@ def load_config(config_path):
 
     return config
 
-def load_config_inlut3d(config_path):
+def load_config_inlut3d(config_path, selected_scans = [1,30]):
     """Load the JSON config and dynamically generate paths."""
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -55,7 +55,7 @@ def load_config_inlut3d(config_path):
     input_folders_sort = sorted(input_folders, key=lambda p: int(p.name.split('_')[1]))
     output_dir_ls = []
     input_path_ls = []
-    for p in input_folders_sort:
+    for p in input_folders_sort[selected_scans[0]:selected_scans[1]]:
         input_path = next(p.glob(f"*{input_suffix}"), None)
         if not input_path.exists():
             raise FileNotFoundError(f"❗ Input file {input_path} does not exist.")
@@ -77,7 +77,7 @@ def load_config_inlut3d(config_path):
 # config_path = './input_params/3D_to_2D_config_random_folder.json'
 config_path = './input_params/3D_to_2D_config_inlut3d.json'
 # config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
-CONFIG = load_config_inlut3d(config_path)
+CONFIG = load_config_inlut3d(config_path, selected_scans=[2, 3])
 # CONFIG = load_config(config_path)
 # pprint("🔹 Loaded configuration:"
 #        f"\n{CONFIG}")

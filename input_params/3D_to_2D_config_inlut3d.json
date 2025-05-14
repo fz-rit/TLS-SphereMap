@@ -11,7 +11,7 @@
     "calc_pt_cloud_normal": {
         "clean_pc": false,
         "cut_percent": 0.005,
-        "visualize": true,
+        "visualize": false,
         "flip_mangrove": false
     },
     "calc_curvature_roughness": {
@@ -26,8 +26,11 @@
     },
     "spherical_projection": {
         "saveflag" : true,
-        "visualize" : false,
-        "simple_output" : true
+        "visualize" : true,
+        "detailed_outputs" : true,
+        "show_single_band" : true,
+        "show_pca" : false,
+        "show_pseudo_rgb" : false
     },
     "convert_color_to_mask": {
         "color_seg_map": "seg_map_ALRSET2_9979.png",
