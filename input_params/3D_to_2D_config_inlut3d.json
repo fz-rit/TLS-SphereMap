@@ -5,8 +5,8 @@
         "input_suffix": ".pts",
         "h_fov": [0, 360],
         "v_fov": [0, 150],
-        "h_ang_res_deg": 0.15,
-        "v_ang_res_deg": 0.15
+        "h_ang_res_deg": 0.17578125,
+        "v_ang_res_deg": 0.2929
     },
     "calc_pt_cloud_normal": {
         "clean_pc": false,
@@ -25,12 +25,12 @@
         "delete_intermediate_file": true
     },
     "spherical_projection": {
-        "saveflag" : true,
-        "visualize" : true,
-        "detailed_outputs" : true,
-        "show_single_band" : true,
-        "show_pca" : false,
-        "show_pseudo_rgb" : false
+        "visualize" : false,
+        "extra_maps" : true,
+        "save_extra_maps" : true,
+        "show_single_band" : false,
+        "show_pseudo_rgb" : false,
+        "show_pca" : false        
     },
     "convert_color_to_mask": {
         "color_seg_map": "seg_map_ALRSET2_9979.png",

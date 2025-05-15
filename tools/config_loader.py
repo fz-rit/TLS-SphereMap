@@ -64,10 +64,13 @@ def load_config_inlut3d(config_path, selected_scans = [1,30]):
         create_dir_if_not_exists(output_dir, ask_user=False)
         output_dir_ls.append(output_dir)
 
-
+    color_map_file = input_base_dir / "colormap.json"
+    with open(color_map_file, 'r') as f:
+            color_map = json.load(f)
     # Add computed paths to global config
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
+    global_params["color_map"] = color_map
     config["global"] = global_params
 
     return config
@@ -77,7 +80,7 @@ def load_config_inlut3d(config_path, selected_scans = [1,30]):
 # config_path = './input_params/3D_to_2D_config_random_folder.json'
 config_path = './input_params/3D_to_2D_config_inlut3d.json'
 # config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
-CONFIG = load_config_inlut3d(config_path, selected_scans=[2, 3])
+CONFIG = load_config_inlut3d(config_path, selected_scans=[4, 60])
 # CONFIG = load_config(config_path)
 # pprint("🔹 Loaded configuration:"
 #        f"\n{CONFIG}")

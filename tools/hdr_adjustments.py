@@ -53,23 +53,15 @@ def contrast_enhancement(image, method='hist_equal', **kwargs):
 
     elif method == 'hist_equal':
         adjusted_image = exposure.equalize_hist(image, mask=~zero_mask)
-        print("Global Histogram Equalization applied. (Void pixels excluded)")
+        channel_info = kwargs.get('channel_info', None)
+        if channel_info is not None:
+            print(f"{channel_info} - Global Histogram Equalization applied. (Void pixels excluded)")
 
     elif method == 'log':
         c = kwargs.get('scale_factor', 1)
         adjusted_image = image.copy()
         adjusted_image[~zero_mask] = c * np.log(1 + image[~zero_mask])
         print("Logarithmic Transformation applied. (Void pixels excluded)")
-
-
-    # elif method == 'sigmoid':
-    #     cutoff = kwargs.get('cutoff', 0.05)
-    #     gain = kwargs.get('gain', 2)
-    #     adjusted_image = exposure.adjust_sigmoid(image, cutoff=cutoff, gain=gain)
-
-    # elif method == 'weighting':
-    #     alpha = kwargs.get('alpha', 0.02)
-    #     adjusted_image = np.exp(-alpha * image) * image
 
     else:
         raise ValueError("Invalid method specified. Choose from 'clahe', 'log', 'piecewise', 'sigmoid', 'weighting'.")

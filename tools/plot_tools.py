@@ -108,10 +108,6 @@ def get_image_histogram(image_data: np.ndarray,
     # Adjust layout for better spacing
     fig.tight_layout()
     
-
-    # Print histogram data
-    print(f'Histogram:\nValues: {values}\nCounts: {counts}\nNormalized Counts: {normalized_counts.round(3)}')
-
     # Save the figure if saveflag is True
     if saveflag:
         save_path = output_dir / f'Histogram_{title}.png'
@@ -205,7 +201,6 @@ def get_vector_histogram(input_vec: np.ndarray,
     fig.legend(loc="upper right", bbox_to_anchor=(1, 0.9 if title else 1), bbox_transform=ax1.transAxes)
 
     plt.tight_layout()
-    print(f'Histogram:\nValues: {bin_centers}\nCounts: {hist_values}\nNormalized Counts: {normalized_counts.round(3)}')
 
     if saveflag:
         save_path = output_dir / f'Histogram_{title}.png'
@@ -363,7 +358,10 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 def display_single_band_img_wt_discrete_values(
     image_data: np.ndarray,
     output_dir: Path,
+    color_map: dict = None,
+    num_unique_values: int = None,
     title: str = "Point Density Map",
+    cb_label: str = "Point Density",
     saveflag: bool = False,
     visualize: bool = True,
 ) -> None:
@@ -388,18 +386,17 @@ def display_single_band_img_wt_discrete_values(
     """
     # Display the image with the discrete colormap
     fig, ax = plt.subplots(figsize=(18, 5))
-    unique_values = np.unique(image_data)
-    num_unique_values = min(len(unique_values), 18)  # Limit to 18 unique values for color mapping
-
-    # Clip values to match color bins (0 to 9)
-    unique_values = np.clip(unique_values, 0, num_unique_values-1).astype(int)
-
-    # Define color boundaries and colormap
+    # unique_values = np.unique(image_data)
+    num_unique_values = 10 if num_unique_values is None else num_unique_values
     boundaries = list(range(num_unique_values)) + [1e6]  # Bins: [0–1), [1–2), ..., [9–inf)
-    jet = plt.cm.get_cmap('jet', len(boundaries) - 1)
-    colors = [jet(i) for i in range(jet.N)] + ['gray']
+    if color_map is None:
+        jet = plt.cm.get_cmap('jet', len(boundaries) - 1)
+        colors = [jet(i) for i in range(jet.N)] + ['gray']
+    elif type(color_map) == dict:
+        colors = [color_map[str(i)] for i in range(num_unique_values)]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(boundaries, ncolors=cmap.N)
+    
 
     # --- Display the image ---
     im = ax.imshow(image_data, cmap=cmap, norm=norm)
@@ -426,16 +423,13 @@ def display_single_band_img_wt_discrete_values(
 
     # Set colorbar tick labels
     cb.ax.set_yticklabels([str(i) for i in range(num_unique_values)])
-    cb.set_label('Points per pixel')
+    cb.set_label(cb_label)
  
     if saveflag:
         # Save the raw image without labels or colorbars
         normalized_data = norm(image_data)
         rgba_image = cmap(normalized_data)
         plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
-
-        # # Save the displayed image with annotations
-        # fig.savefig(output_dir / f'{title}.png', dpi=600)
         print(f'Images saved to {output_dir} directory')
 
     get_image_histogram(image_data=image_data, 
@@ -475,7 +469,10 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     plt.ylabel(y_label)
 
     if saveflag:
-        rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
+        if rgb_image.dtype == np.uint8:
+            rgb_image_uint8 = rgb_image
+        else:
+            rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
         io.imsave(f'{output_dir}/{figure_title}.png', rgb_image_uint8)
 
     if visualize:
