@@ -14,7 +14,8 @@
         "cut_percent": 0.005,
         "clean_pc": true,
         "visualize": false,
-        "flip_mangrove": true
+        "flip_mangrove": true,
+        "radius": 0.05
     },
     "calc_curvature_roughness": {
         "batch_num_elevation": 5,
@@ -27,9 +28,12 @@
         "delete_intermediate_file": true
     },
     "spherical_projection": {
-        "saveflag" : true,
         "visualize" : false,
-        "simple_output" : true
+        "extra_maps" : false,
+        "save_extra_maps" : false,
+        "show_single_band" : false,
+        "show_pseudo_rgb" : false,
+        "show_pca" : false        
     },
     "convert_color_to_mask": {
         "color_seg_map": "seg_map_ALRSET2_9979.png",

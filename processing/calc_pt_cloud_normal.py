@@ -23,7 +23,9 @@ def calc_normals_of_pt_cloud(input_path: Path,
                             cut_percent:float,
                              clean_pc:bool, 
                              visualize:bool=False,
-                             flip_mangrove:bool=True):
+                             flip_mangrove:bool=True,
+                             radius:float=0.1,
+                             max_nn:int=30):
     """Process the point cloud by estimating normals and saving the result."""
     # Filter the point cloud by range values
     df_filtered = read_and_clean_pcd(input_path, 
@@ -37,7 +39,7 @@ def calc_normals_of_pt_cloud(input_path: Path,
     pcd.points = o3d.utility.Vector3dVector(points)
 
     # Estimate normals
-    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=max_nn))
     pcd.orient_normals_consistent_tangent_plane(k=10)
 
     # Add normals to the DataFrame
@@ -82,16 +84,18 @@ def main():
     clean_pc = params["clean_pc"]
     visualize = params["visualize"]
     flip_mangrove = params["flip_mangrove"]
-
+    radius = params["radius"]
     # Process the point cloud
     for input_path, output_dir in zip(input_path_ls, output_dir_ls):
         print(f'#######Processing {input_path}...########')
         
-        calc_normals_of_pt_cloud(input_path, output_dir, 
+        calc_normals_of_pt_cloud(input_path, 
+                                 output_dir, 
                                 cut_percent = cut_percent,
                                 clean_pc = clean_pc,
                                 visualize = visualize,
-                                flip_mangrove = flip_mangrove)
+                                flip_mangrove = flip_mangrove,
+                                radius=radius)
 
 if __name__ == "__main__":
     main()

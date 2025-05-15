@@ -12,7 +12,8 @@
         "clean_pc": false,
         "cut_percent": 0.005,
         "visualize": false,
-        "flip_mangrove": false
+        "flip_mangrove": false,
+        "radius": 0.05
     },
     "calc_curvature_roughness": {
         "batch_num_elevation": 5,
@@ -26,8 +27,8 @@
     },
     "spherical_projection": {
         "visualize" : false,
-        "extra_maps" : true,
-        "save_extra_maps" : true,
+        "extra_maps" : false,
+        "save_extra_maps" : false,
         "show_single_band" : false,
         "show_pseudo_rgb" : false,
         "show_pca" : false        
