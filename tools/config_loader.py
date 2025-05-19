@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from pprint import pprint
+import numpy as np
 from tools.pcd_utils import create_dir_if_not_exists
 # from pcd_utils import create_dir_if_not_exists
 
@@ -40,6 +41,22 @@ def load_config(config_path):
 
     return config
 
+def get_color_map(input_base_dir):
+    label_file = input_base_dir / 'labels.json'
+    with open(label_file, 'r') as f:
+        label_json = json.load(f)
+    color_map = {label_dict['code']:label_dict["color"] for label_dict in label_json}
+    color_map = {k: v for k, v in color_map.items() if k <18}
+
+    color_arr = np.array(list(color_map.values()))
+
+    scale = 1/255 if color_arr.max() > 1 else 1
+    color_arr = color_arr * scale
+    color_list = [tuple(color) for color in color_arr]
+    color_map = {str(k): tuple(color) for k, color in zip(color_map.keys(), color_list)}
+
+    return color_map
+
 def load_config_inlut3d(config_path, selected_scans = [1,30]):
     """Load the JSON config and dynamically generate paths."""
     with open(config_path, "r") as f:
@@ -64,10 +81,11 @@ def load_config_inlut3d(config_path, selected_scans = [1,30]):
         create_dir_if_not_exists(output_dir, ask_user=False)
         output_dir_ls.append(output_dir)
 
-    color_map_file = input_base_dir / "colormap.json"
-    with open(color_map_file, 'r') as f:
-            color_map = json.load(f)
+    # color_map_file = input_base_dir / "colormap.json"
+    # with open(color_map_file, 'r') as f:
+    #         color_map = json.load(f)
     # Add computed paths to global config
+    color_map = get_color_map(input_base_dir)
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
     global_params["color_map"] = color_map
@@ -80,7 +98,7 @@ def load_config_inlut3d(config_path, selected_scans = [1,30]):
 # config_path = './input_params/3D_to_2D_config_random_folder.json'
 config_path = './input_params/3D_to_2D_config_inlut3d.json'
 # config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
-CONFIG = load_config_inlut3d(config_path, selected_scans=[0, 120])
+CONFIG = load_config_inlut3d(config_path, selected_scans=[121, 122])
 # CONFIG = load_config(config_path)
 # pprint("🔹 Loaded configuration:"
 #        f"\n{CONFIG}")
