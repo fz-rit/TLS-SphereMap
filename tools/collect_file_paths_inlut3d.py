@@ -4,11 +4,11 @@ from pathlib import Path
 from pprint import pprint
 
 # --- Paths ---
-json_dir = Path("/home/fzhcis/mylab/TLS-SphereMap")
+json_dir = Path("/home/fzhcis/mylab/data/point_cloud_segmentation/segmentation_on_unwrapped_image/inlut3d")
 json_path = json_dir / "train_val_test_split_inlut3d.json"
 
 output_yaml_path = json_dir / "concrete_paths_inlut3d.yaml"
-root_dir = Path("/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/inlut3d")
+root_dir = Path("/media/fzhcis/Seagate Expansion Drive/point_cloud_data/outputs/inlut3d")
 # --- Load and sort ID lists ---
 with open(json_path, 'r') as f:
     id_dict = json.load(f)

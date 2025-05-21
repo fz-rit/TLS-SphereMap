@@ -98,7 +98,7 @@ def load_config_inlut3d(config_path, selected_scans = [1,30]):
 # config_path = './input_params/3D_to_2D_config_random_folder.json'
 config_path = './input_params/3D_to_2D_config_inlut3d.json'
 # config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
-CONFIG = load_config_inlut3d(config_path, selected_scans=[121, 122])
+CONFIG = load_config_inlut3d(config_path, selected_scans=[122, 321])
 # CONFIG = load_config(config_path)
 # pprint("🔹 Loaded configuration:"
 #        f"\n{CONFIG}")
