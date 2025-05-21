@@ -8,7 +8,7 @@ json_dir = Path("/home/fzhcis/mylab/data/point_cloud_segmentation/segmentation_o
 json_path = json_dir / "train_val_test_split_inlut3d.json"
 
 output_yaml_path = json_dir / "concrete_paths_inlut3d.yaml"
-root_dir = Path("/media/fzhcis/Seagate Expansion Drive/point_cloud_data/outputs/inlut3d")
+root_dir = Path("/home/fzhcis/mylab/data/inlut3d_img_cube_2d_mask")
 # --- Load and sort ID lists ---
 with open(json_path, 'r') as f:
     id_dict = json.load(f)
@@ -27,7 +27,7 @@ temp_output = {
 # --- Match .npy files in 'img' folder ---
 for npy_file in root_dir.rglob("*.npy"):
     parent_dir_name = npy_file.parent.name
-    match_str = npy_file.parent.parent.name
+    match_str = npy_file.stem.split("_inlut")[0]
     if parent_dir_name == "img":
         for split in ["train", "val", "test"]:
             if match_str in id_dict[split]:
@@ -37,18 +37,18 @@ for npy_file in root_dir.rglob("*.npy"):
 # --- Match .yaml files in 'img' folder ---
 for yaml_file in root_dir.rglob("*.yaml"):
     parent_dir_name = yaml_file.parent.name
-    match_str = yaml_file.parent.parent.name
-    if parent_dir_name == "img":
+    match_str = yaml_file.stem.split("_inlut")[0]
+    if parent_dir_name == "img_metadata":
         for split in ["train", "val", "test"]:
             if match_str in id_dict[split]:
                 temp_output["img_metadata"][split][match_str] = str(yaml_file.resolve())
                 break
 
 # --- Match .png files in 'img' folder ---
-for png_file in root_dir.rglob("seg_map_merged*_mask.png"):
+for png_file in root_dir.rglob("*merged*_mask.png"):
     parent_dir_name = png_file.parent.name
-    match_str = png_file.parent.parent.name
-    if parent_dir_name == "img":
+    match_str = png_file.stem.split("_map")[0]
+    if parent_dir_name == "mask":
         for split in ["train", "val", "test"]:
             if match_str in id_dict[split]:
                 temp_output["mask"][split][match_str] = str(png_file.resolve())
