@@ -24,6 +24,7 @@ def calc_normals_of_pt_cloud(input_path: Path,
                              clean_pc:bool, 
                              visualize:bool=False,
                              flip_mangrove:bool=True,
+                             dataset_name:str=None,
                              radius:float=0.1,
                              max_nn:int=30):
     """Process the point cloud by estimating normals and saving the result."""
@@ -31,6 +32,7 @@ def calc_normals_of_pt_cloud(input_path: Path,
     df_filtered = read_and_clean_pcd(input_path, 
                                          cut_percent=cut_percent,
                                          clean_pc=clean_pc,
+                                         dataset_name=dataset_name,
                                          flip_mangrove=flip_mangrove)
 
     # Load point cloud data and create PointCloud object
@@ -85,6 +87,7 @@ def main():
     visualize = params["visualize"]
     flip_mangrove = params["flip_mangrove"]
     radius = params["radius"]
+    dataset_name = global_params["dataset"]
     # Process the point cloud
     for input_path, output_dir in zip(input_path_ls, output_dir_ls):
         print(f'#######Processing {input_path}...########')
@@ -95,6 +98,7 @@ def main():
                                 clean_pc = clean_pc,
                                 visualize = visualize,
                                 flip_mangrove = flip_mangrove,
+                                dataset_name=dataset_name,
                                 radius=radius)
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
         "input_base_dir": "/home/fzhcis/mylab/data/inlut3d",
         "output_base_dir": "/media/fzhcis/Seagate Expansion Drive/point_cloud_data/outputs/inlut3d",
         "input_suffix": ".pts",
+        "dataset": "INLUT3D",
         "h_fov": [0, 360],
         "v_fov": [0, 150],
         "h_ang_res_deg": 0.17578125,

@@ -66,7 +66,6 @@ def calculate_zenith_angles(las_x: np.ndarray, las_y: np.ndarray, las_z: np.ndar
     Returns:
         np.ndarray: Zenith angles in degrees for all points, with 0 assigned where magnitudes are 0.
     """
-    import numpy as np
 
     # Stack the input vectors into a single array
     points = np.column_stack((las_x, las_y, las_z))
@@ -141,7 +140,33 @@ def read_pts_file(file_path):
 
     return df
 
-def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFrame:
+def add_angle_range_to_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add azimuth and zenith angles to the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): The point cloud data DataFrame.
+    
+    Returns:
+    pd.DataFrame: The DataFrame with added azimuth and zenith angles.
+    """
+    if not all(col in df.columns for col in ['X', 'Y', 'Z']):
+        raise ValueError("DataFrame must contain 'X', 'Y', and 'Z' columns to calculate angles.")
+    if all(col in df.columns for col in ['azimuth', 'zenith', 'elevation', 'rangemeter']):
+        raise ValueError("DataFrame already contains 'azimuth' and 'zenith' columns.")
+
+    # df['X'] = df['X'].astype(float)
+    # df['Y'] = df['Y'].astype(float)
+    # df['Z'] = df['Z'].astype(float)
+    df['azimuth'] = np.arctan2(df['Y'].values, df['X'].values) * 180 / np.pi
+    df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+    zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
+    df['elevation'] = 90 - zenith_angles
+    df['zenith'] = zenith_angles
+    df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+    return df
+
+def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangrove:bool=True) -> pd.DataFrame:
     """
     Reads a point cloud from a file and returns it as a pandas DataFrame.
     Parameters:
@@ -159,7 +184,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
     Raises:
     ValueError: If the file extension is not supported.
     """
-    if filename.suffix == '.txt':
+    if filename.suffix == '.txt' and dataset_name == 'MANGROVE':
         print("Reading a text file - for Mongrove roots.")
         # Try reading the file assuming there is a header
         df = pd.read_csv(filename, sep=',')
@@ -168,8 +193,10 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
         if set(df.columns).intersection(column_names): # check if any of the predefined column names are in the dataframe
             print("Header detected.")
         else:
-            print("No header detected. Now trying to read the file with predefined column names.")
-            df = pd.read_csv(filename, sep=',', names=column_names)
+            # print("No header detected. Now trying to read the file with predefined column names.")
+            # df = pd.read_csv(filename, sep=',', names=column_names)
+            print("No header detected. Now trying to add predefined column names to the dataframe.")
+            df.columns = column_names
         
         if flip_mangrove: # LIDAR upside down, Flip the Z axis to match the orientation of the point cloud
             df['Z'] = -df['Z'] # flip the Z axis for mongrove datasets
@@ -179,8 +206,8 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
             print("------Not flipping of Z axis for mangrove dataset.-------------")
             df['elevation'] = 90 - df['zenith']
             
-    elif filename.suffix == '.las':
-        print("Reading a .las file, for Harvard Forest data or InLUT3D data.")
+    elif filename.suffix == '.las' and dataset_name == 'HARVARD_FOREST':
+        print("Reading a .las file, for Harvard Forest data.")
         with laspy.open(filename) as las_file:
             las = las_file.read()
             scale_factors = las.header.scales
@@ -198,15 +225,16 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
             'Intensity': las_intensity,
             'Return Number': np.array(las.return_number),}
             df = pd.DataFrame(data)
-            # Calculate azimuth in degrees
-            df['azimuth'] = np.arctan2(las_y, las_x) * 180 / np.pi
-            # Remap azimuth values: [0, 180] stays the same, [-1, -180] becomes [181, 360]
-            df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-            # Calculate zenith in degrees range: theoretically (0 to 180), pratically (0, 135)
-            zenith_angles = calculate_zenith_angles(las_x, las_y, las_z)
-            df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
-            df['zenith'] = zenith_angles
-            df['rangemeter'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
+            df = add_angle_range_to_df(df)
+            # # Calculate azimuth in degrees
+            # df['azimuth'] = np.arctan2(las_y, las_x) * 180 / np.pi
+            # # Remap azimuth values: [0, 180] stays the same, [-1, -180] becomes [181, 360]
+            # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+            # # Calculate zenith in degrees range: theoretically (0 to 180), pratically (0, 135)
+            # zenith_angles = calculate_zenith_angles(las_x, las_y, las_z)
+            # df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
+            # df['zenith'] = zenith_angles
+            # df['rangemeter'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
 
             # If the point cloud contains r/g/b channels, assign them to the DataFrame
             if any(las.red) and any(las.green) and any(las.blue):
@@ -214,35 +242,56 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
                 df['g'] = las.green / max(las.green)
                 df['b'] = las.blue / max(las.blue)
 
-    elif filename.suffix == '.bin':
+    elif filename.suffix == '.bin' and dataset_name == 'SEMANTICKITTI':
         print("Reading a .bin file, for SemanticKitti data.")
         points = np.fromfile(filename, dtype=np.float32)
         points = points.reshape((-1, 4))
 
         df = pd.DataFrame(points, columns=['X', 'Y', 'Z', 'Intensity'])
-        pc_x = df['X'].values
-        pc_y = df['Y'].values
-        pc_z = df['Z'].values
+        # pc_x = df['X'].values
+        # pc_y = df['Y'].values
+        # pc_z = df['Z'].values
         df['Return Number'] = 1
-        df['azimuth'] = np.arctan2(pc_y, pc_x) * 180 / np.pi
-        df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-        zenith_angles = calculate_zenith_angles(pc_x, pc_y, pc_z)
-        df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
-        df['zenith'] = zenith_angles
-        df['rangemeter'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
+        df = add_angle_range_to_df(df)
+        # df['azimuth'] = np.arctan2(pc_y, pc_x) * 180 / np.pi
+        # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+        # zenith_angles = calculate_zenith_angles(pc_x, pc_y, pc_z)
+        # df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
+        # df['zenith'] = zenith_angles
+        # df['rangemeter'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
 
-    elif filename.suffix == '.pts':
+    elif filename.suffix == '.pts' and dataset_name == 'INLUT3D':
         print("Reading a .pts file, for In_LUT3D data.")
         df = read_pts_file(filename) # columns: ['x', 'y', 'z', 'r', 'g', 'b', 'class_id', 'instance_id']
         # prepare intensity(psedo), azimuth, zenith, elevation angles, rangemeter, and return number (psedo)
         df['Intensity'] = df[['r', 'g', 'b']].mean(axis=1) / 255.0 # normalize to [0, 1]
         df['Return Number'] = 1
-        df['azimuth'] = np.arctan2(df['Y'], df['X']) * 180 / np.pi
-        df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-        zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
-        df['elevation'] = 90 - zenith_angles
-        df['zenith'] = zenith_angles
-        df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+        df = add_angle_range_to_df(df)
+        # df['azimuth'] = np.arctan2(df['Y'], df['X']) * 180 / np.pi
+        # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+        # zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
+        # df['elevation'] = 90 - zenith_angles
+        # df['zenith'] = zenith_angles
+        # df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+
+    elif filename.suffix == '.txt' and dataset_name == 'SEMANTIC3D':
+        print("Reading a .txt file, for Semantic3D data.")
+        # Try reading the file assuming there is a header
+        column_names = ['X', 'Y', 'Z', 'Intensity', 'r', 'g', 'b']
+        df = pd.read_csv(filename, sep=' ', names=column_names)
+        df = add_angle_range_to_df(df)
+        # print(type(np.arctan2))
+        # print("np is", np, "type:", type(np))
+        # print("df type:", type(df))
+        # print("df['X'] type:", type(df['X'].values), type(df['X'].values[0]))
+        # print("shape of df['X']:", df['X'].shape)
+        # df['azimuth'] = np.arctan2(df['Y'].values, df['X'].values) * 180 / np.pi
+        # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
+        # zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
+        # df['elevation'] = 90 - zenith_angles
+        # df['zenith'] = zenith_angles
+        # df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+        
 
     else:
         raise ValueError(f"Unsupported file extension: {filename.suffix}; supported extensions are .txt, .las, .bin, and .pts")
@@ -255,6 +304,7 @@ def read_raw_point_cloud(filename: Path, flip_mangrove:bool=True) -> pd.DataFram
     
     return df
         
+
 
 def clean_pcd_df_based_on_ir(df: pd.DataFrame, cut_percent: float=0.006) -> pd.DataFrame:
     """
@@ -290,6 +340,7 @@ def clean_pcd_df_based_on_ir(df: pd.DataFrame, cut_percent: float=0.006) -> pd.D
 def read_and_clean_pcd(filename: Path, 
                             cut_percent: float = 0.005,
                            clean_pc: bool = False,
+                           dataset_name: str = 'MANGROVE',
                            flip_mangrove: bool = True) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
@@ -321,7 +372,7 @@ def read_and_clean_pcd(filename: Path,
     """
     
     # # Step 1: Read the file as a pandas DataFrame
-    df = read_raw_point_cloud(filename, flip_mangrove)
+    df = read_raw_point_cloud(filename, dataset_name, flip_mangrove)
 
     # Step 2: Clean the dataset
     if clean_pc:
