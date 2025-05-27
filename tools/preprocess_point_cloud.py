@@ -155,9 +155,6 @@ def add_angle_range_to_df(df: pd.DataFrame) -> pd.DataFrame:
     if all(col in df.columns for col in ['azimuth', 'zenith', 'elevation', 'rangemeter']):
         raise ValueError("DataFrame already contains 'azimuth' and 'zenith' columns.")
 
-    # df['X'] = df['X'].astype(float)
-    # df['Y'] = df['Y'].astype(float)
-    # df['Z'] = df['Z'].astype(float)
     df['azimuth'] = np.arctan2(df['Y'].values, df['X'].values) * 180 / np.pi
     df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
     zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
