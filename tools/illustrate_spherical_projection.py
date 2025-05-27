@@ -5,7 +5,7 @@ from matplotlib.colors import hsv_to_rgb
 from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-
+from pathlib import Path
 ZENITH_RES = 0.5
 AZIMUTH_RES = 0.5
 GROUP_SIZE = 10
@@ -88,7 +88,7 @@ def create_colored_cube(center=[0, 0, 0], size=1.0):
     return mesh
 
 
-def generate_lidar_ball(radius=20.0, zenith_range = (0, 135), res_deg=AZIMUTH_RES):
+def generate_lidar_ball(radius=20.0, zenith_range = [0, 135], res_deg=AZIMUTH_RES):
     """
     Generate a dense LiDAR-like point cloud with one point per angular bin.
     Output columns: x, y, z, azimuth_deg, zenith_deg, r, g, b
@@ -147,7 +147,7 @@ def generate_lidar_ball(radius=20.0, zenith_range = (0, 135), res_deg=AZIMUTH_RE
 
 
 
-def spherical_projection_with_density(df, zenith_range = (0, 135), zenith_res=ZENITH_RES, azimuth_res=AZIMUTH_RES):
+def spherical_projection_with_density(df, zenith_range = [0, 135], zenith_res=ZENITH_RES, azimuth_res=AZIMUTH_RES):
     """
     Efficiently compute RGB spherical projection and density map using groupby.
     
@@ -192,7 +192,7 @@ def spherical_projection_with_density(df, zenith_range = (0, 135), zenith_res=ZE
 
     return rgb_img, density_map
 
-def plot_and_save_results(rgb_img, density_map, zenith_range=(0, 135), output_prefix='spherical', res_deg=AZIMUTH_RES):
+def plot_and_save_results(rgb_img, density_map, zenith_range=[0, 135], output_prefix='spherical', res_deg=AZIMUTH_RES):
     # Convert and save RGB image
     rgb_display = np.transpose(rgb_img, (1, 2, 0))  # (H, W, 3)
     rgb_uint8 = (rgb_display * 255).astype(np.uint8)
@@ -339,11 +339,13 @@ def visualize_point_cloud(df, add_cube = False):
         o3d.visualization.draw_geometries([pcd], window_name="Point Cloud Visualization")
 
 
-def visualize_and_save_point_cloud(df_in, zenith_range=(0, 135), visualize=True, output_prefix='spherical'):
+def visualize_and_save_point_cloud(df_in, zenith_range=[0, 135], visualize=True, save_dir=None, output_prefix='spherical'):
     if visualize:
         visualize_point_cloud(df_in)
     
-    output_path = f'outputs/{output_prefix}_pcd.csv'
+    if save_dir is None:
+        save_dir = Path('outputs')
+    output_path = save_dir / f'{output_prefix}_sphere.csv'
     df_in.to_csv(output_path, index=False)
     print(f"Saved combined point cloud to {output_path}")
     # Perform spherical projection

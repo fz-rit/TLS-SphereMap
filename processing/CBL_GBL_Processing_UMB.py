@@ -101,7 +101,7 @@ def writeTxtFile(txtFile,pulseDict,numOfReturns):
         pulseDict["return1xyz"][2],
         np.degrees(pulseDict["zenith"]),
         np.degrees(pulseDict["azimuth"]),
-        pulseDict["range1metres"],
+        pulseDict["rangemeter"],
         pulseDict["intensity1"],
         returnNo)
     txtFile.write(outline)                
@@ -205,7 +205,7 @@ def readPulse(i,scanlineDict,zenithSpacing,scanlineMidPulse,maxScanLineID):
     pulseDict["intensity2"] = int(scanlineDict["return2Intensity"][i],16)
 
     #convert range from mm to metres
-    pulseDict["range1metres"] = range1/1000.0
+    pulseDict["rangemeter"] = range1/1000.0
     pulseDict["range2metres"] = range2/1000.0
     
     #Determine the azimuth adjustment  to use acounting for scanner azimuth rotation during each zenith mirror rotation
@@ -231,7 +231,7 @@ def readPulse(i,scanlineDict,zenithSpacing,scanlineMidPulse,maxScanLineID):
     pulseDict["azimuth"] = np.radians(azimuth)
     
     #Use a function to determine the x,y,z cartesian co-ordinates from azimuth and zenith
-    pulseDict["return1xyz"] = spherical2cartesian(pulseDict["zenith"],pulseDict["azimuth"],pulseDict["range1metres"])
+    pulseDict["return1xyz"] = spherical2cartesian(pulseDict["zenith"],pulseDict["azimuth"],pulseDict["rangemeter"])
     pulseDict["return2xyz"] = spherical2cartesian(pulseDict["zenith"],pulseDict["azimuth"],pulseDict["range2metres"])
           
     return pulseDict
@@ -406,13 +406,13 @@ def doImport(inFile, cblVersion, agh, verbose):
                 
                 if pulseDict["range2metres"] > 0:
                     numOfReturns = 2
-                elif pulseDict["range2metres"] == 0 and pulseDict["range1metres"] > 0:
+                elif pulseDict["range2metres"] == 0 and pulseDict["rangemeter"] > 0:
                     numOfReturns = 1
-                elif pulseDict["range2metres"] == 0 and pulseDict["range1metres"] == 0:
+                elif pulseDict["range2metres"] == 0 and pulseDict["rangemeter"] == 0:
                     numOfReturns = 0
                     zeroReturnCount += 1
                 else:
-                    print(pulseDict["range2metres"], pulseDict["range1metres"])
+                    print(pulseDict["range2metres"], pulseDict["rangemeter"])
                     sys.exit("some weird thing happening with number of returns")           
  
                 #Write textfile Lines and return xyz values for first and second returns
@@ -467,7 +467,7 @@ def doImport(inFile, cblVersion, agh, verbose):
                         point.x = float(pulseDict["return1xyz"][0])
                         point.y = float(pulseDict["return1xyz"][1])
                         point.z = float(pulseDict["return1xyz"][2])
-                        point.range = float(pulseDict["range1metres"])
+                        point.range = float(pulseDict["rangemeter"])
                         point.amplitudeReturn = float(pulseDict["intensity1"])
                         pulse.pts.append(point)
                         pointsStartIdx += 1 

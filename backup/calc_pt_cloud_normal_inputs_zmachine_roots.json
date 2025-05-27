@@ -1,8 +1,8 @@
 {
     "filename": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/palau_2024/ALRSET2/UMBCBL009_2024-03-28-02-24-40_ALRSET24_060180_000503.800_647619236.txt",
     "output_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/ALRSET2/UMBCBL009_2024-03-28-02-24-40_ALRSET24_060180_000503.800_647619236/outputs",
-    "range1metres_min": 0.05,
-    "range1metres_max": 100.0,
+    "rangemeter_min": 0.05,
+    "rangemeter_max": 100.0,
     "clean_pc": false,
     "visualize": false
 }

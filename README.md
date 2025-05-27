@@ -46,6 +46,7 @@ pip install torch-sparse -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-cluster -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-geometric
+pip install seaborn
 
 ```
 
@@ -79,7 +80,7 @@ pip install torch-geometric
             - 'azimuth': 'float32',
             - 'zenith': 'float32',
             - 'elevation': 'float32',
-            - 'range1metres': 'float32',
+            - 'rangemeter': 'float32',
             - 'nx': 'float32',
             - 'ny': 'float32',
             - 'nz': 'float32'

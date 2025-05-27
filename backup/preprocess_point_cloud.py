@@ -82,7 +82,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
         - 'Z': Z coordinates
         - 'zenith': Zenith angle (in degrees, range: 0 to 180)
         - 'azimuth': Azimuth angle (in degrees, range: 0 to 360)
-        - 'range1metres': Range in meters
+        - 'rangemeter': Range in meters
         - 'Intensity': Intensity of the return
         - 'Return Number': Return number
     Raises:
@@ -90,7 +90,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
     """
     if filename.suffix == '.txt':
         # Define column names if there's no header
-        column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'range1metres', 'Intensity', 'Return Number']
+        column_names = ['X', 'Y', 'Z', 'zenith', 'azimuth', 'rangemeter', 'Intensity', 'Return Number']
 
         # Try reading the file assuming there is a header
         try:
@@ -127,7 +127,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
             zenith_angles = calculate_zenith_angles(las_x, las_y, las_z)
             df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
             df['zenith'] = zenith_angles
-            df['range1metres'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
+            df['rangemeter'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
     elif filename.suffix == '.bin':
         # Read the SemanticKitti .bin file and convert to dataframe.
         points = np.fromfile(filename, dtype=np.float32)
@@ -141,7 +141,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
         zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
         df['elevation'] = 90 - zenith_angles
         df['zenith'] = zenith_angles
-        df['range1metres'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
+        df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
     else:
         raise ValueError(f"Unsupported file extension: {filename.suffix}")
     
@@ -149,7 +149,7 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
     print(f"Columns: {df.columns}")
     print(f"Range of azimuth: {df['azimuth'].min()} to {df['azimuth'].max()}")
     print(f"Range of zenith: {df['zenith'].min()} to {df['zenith'].max()}")
-    print(f"Range of range1metres: {df['range1metres'].min()} to {df['range1metres'].max()}")
+    print(f"Range of rangemeter: {df['rangemeter'].min()} to {df['rangemeter'].max()}")
     print(f"Range of Intensity: {df['Intensity'].min()} to {df['Intensity'].max()}")
     print(f"Range of Return Number: {df['Return Number'].min()} to {df['Return Number'].max()}")
     print(f"Range of X: {df['X'].min()} to {df['X'].max()}")
@@ -161,8 +161,8 @@ def read_point_cloud(filename: Path) -> pd.DataFrame:
 
 
 def preprocess_point_cloud(filename: Path, 
-                           range1metres_min: float = 0.25, 
-                           range1metres_max: float = 15.0,
+                           rangemeter_min: float = 0.25, 
+                           rangemeter_max: float = 15.0,
                            clean_pc: bool = True,
                            upside_down: bool = False) -> pd.DataFrame:
     """
@@ -170,8 +170,8 @@ def preprocess_point_cloud(filename: Path,
     
     Parameters:
     filename (Path): The path to the point cloud data file in CSV format.
-    range1metres_min (float): Minimum threshold for range1metres filtering, in meters.
-    range1metres_max (float): Maximum threshold for range1metres filtering, in meters.
+    rangemeter_min (float): Minimum threshold for rangemeter filtering, in meters.
+    rangemeter_max (float): Maximum threshold for rangemeter filtering, in meters.
     
     Returns:
     pandas.DataFrame: A DataFrame containing the filtered and processed point cloud data with additional columns for pixel coordinates.
@@ -182,7 +182,7 @@ def preprocess_point_cloud(filename: Path,
     - 'Z': Z coordinate of the point.
     - 'zenith': Zenith angle of the point.
     - 'azimuth': Azimuth angle of the point.
-    - 'range1metres': Range to the point in meters.
+    - 'rangemeter': Range to the point in meters.
     - 'Intensity': Intensity value of the point.
     - 'Return Number': Return number of the point.
     
@@ -199,8 +199,8 @@ def preprocess_point_cloud(filename: Path,
     # Step 2: Clean the dataset
     if clean_pc:
         df_filtered = df[
-            (df['range1metres'] >= range1metres_min)
-            & (df['range1metres'] <= range1metres_max) 
+            (df['rangemeter'] >= rangemeter_min)
+            & (df['rangemeter'] <= rangemeter_max) 
         ]
     else:
         df_filtered = df

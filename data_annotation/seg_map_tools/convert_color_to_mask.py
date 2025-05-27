@@ -1,3 +1,4 @@
+import re
 import argparse
 import numpy as np
 import json
@@ -10,7 +11,7 @@ parent_dir = current_file.parents[2]  # Go two levels up to root directory
 sys.path.append(str(parent_dir))
 sys.path.append(str(current_file_dir))
 
-from config_loader import CONFIG
+from tools.config_loader import CONFIG
 
 # Load label maps from JSON file
 def load_dataset_info(dataset_name):
@@ -28,12 +29,18 @@ def load_dataset_info(dataset_name):
 
     return color_to_index, class_names
 
-def convert_color_to_mask():
+def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
     """Convert a colorful segmentation map to a grayscale class index mask."""
-    dataset_name = CONFIG["convert_color_to_mask"]["dataset"]
-    directory = CONFIG["global"]["output_dir"]
-    input_map = directory / CONFIG["convert_color_to_mask"]["color_seg_map"]
-    save_path = directory / f"{input_map.stem}_mask.png"
+    
+    pattern = re.compile(r"seg_map_.*_(\d{4})\.png")
+    input_map = [p for p in seg_map_dir.glob("seg_map*.png") if pattern.fullmatch(p.name)]
+    if not input_map:
+        raise FileNotFoundError(f"No segmentation map found in {seg_map_dir} matching the pattern.")
+    elif len(input_map) > 1:
+        raise ValueError(f"Multiple segmentation maps found in {seg_map_dir}. Please ensure only one matches the pattern.")
+    input_map = input_map[0]
+
+    save_path = seg_map_dir / f"{input_map.stem}_mask.png"
     color_to_index, class_names = load_dataset_info(dataset_name)
 
     # Load the colorful PNG file
@@ -69,4 +76,8 @@ if __name__ == "__main__":
     # parser.add_argument("-d", "--dataset", required=True, choices=available_datasets, help="Dataset name to select the appropriate colormap and class names.")
 
     # args = parser.parse_args()
-    convert_color_to_mask()
+    dataset_name = CONFIG["convert_color_to_mask"]["dataset"]
+    output_dir_ls = CONFIG["global"]["output_dir_ls"]
+    for directory in output_dir_ls:
+        seg_map_dir = directory / "img"
+        convert_color_to_mask(seg_map_dir=seg_map_dir, dataset_name=dataset_name)

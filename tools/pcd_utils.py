@@ -40,55 +40,12 @@ def interactive_visualize_pcd(all_points_xyz: np.ndarray,
     o3d.visualization.draw_geometries([pcd], window_name=f"Roughness Visualization (r={neighbor_radius})")
 
 
-def pcd_snapshot_renderer(all_points_xyz: np.ndarray, 
-                        all_curvatures: np.ndarray, 
-                        all_roughness: np.ndarray,
-                        neighbor_radius: float,
-                        output_dir: Path) -> None:
-    """Render point cloud snapshots with curvature and roughness.
-
-    Args:
-        all_points_xyz (np.ndarray): Array of points.
-        all_curvatures (np.ndarray): Array of curvature values.
-        all_roughness (np.ndarray): Array of roughness values.
-        neighbor_radius (float): Radius for curvature & roughness estimation.
-        output_dir (Path): Output directory.
-
-    """
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(all_points_xyz)
-    colormap = plt.get_cmap('plasma')
-    
-    renderer = rendering.OffscreenRenderer(400, 400)
-    mat = rendering.MaterialRecord()
-    mat.shader = "defaultUnlit"
-
-    # Set up the camera
-    focus_point = [0, 0, 0]  
-    camera_eye = [-2, -2, 1]
-    camera_up = [0, 0, 1]
-    renderer.scene.camera.look_at(focus_point, camera_eye, camera_up)
-
-    # Curvature snapshot
-    pcd.colors = o3d.utility.Vector3dVector(colormap(all_curvatures)[:, :3])
-    renderer.scene.add_geometry("cloud", pcd, mat)
-    snapshot = renderer.render_to_image()
-    o3d.io.write_image(str(output_dir / f"snapshot_curvature_{neighbor_radius}.png"), snapshot)
-
-    # Roughness snapshot
-    pcd.colors = o3d.utility.Vector3dVector(colormap(all_roughness)[:, :3])
-    renderer.scene.clear_geometry()
-    renderer.scene.add_geometry("cloud", pcd, mat)
-    snapshot = renderer.render_to_image()
-    o3d.io.write_image(str(output_dir / f"snapshot_roughness_{neighbor_radius}.png"), snapshot)
-
-    print("Snapshots saved to disk.")
 
 
 def export_results(all_points_allinone: pd.DataFrame, 
                    neighbor_radius: float, 
                    output_dir: Path, 
-                   input_path: Path) -> None:
+                   input_file_stem: str) -> None:
     """Append curvature and roughness to points and export.
 
     Args:
@@ -97,7 +54,7 @@ def export_results(all_points_allinone: pd.DataFrame,
         input_path (Path): Filename for the exported file.
     """
 
-    export_path = output_dir / f"{input_path.stem}_curvature_{neighbor_radius:.2f}_roughness_{neighbor_radius:.2f}.txt"
+    export_path = output_dir / f"{input_file_stem}_ncr_{neighbor_radius:.2f}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 
@@ -172,44 +129,45 @@ class MemoryProfiler:
             pass
 
 
-def create_dir_if_not_exists(directory: Path) -> None:
+def create_dir_if_not_exists(directory: Path, ask_user: bool=True) -> None:
     """
     Ask the user whether to create a directory (and its parents) if it does not exist.
     Also display the nearest existing parent directory.
 
-    Parameters
-    ----------
-    directory : Path
-        The directory to create.
-
-    Returns
-    -------
-    None
+    Args:
+        directory (Path): The directory to check and create.
+        ask_user (bool): Whether to ask the user for confirmation to create the directory. Default is True.
+    
     """
     if directory.exists():
-        print(f"Directory {directory} already exists.")
         return
 
-    # Find the nearest existing parent
-    existing_parent = directory
-    while not existing_parent.exists():
-        existing_parent = existing_parent.parent
+    if not ask_user:
+        directory.mkdir(parents=True, exist_ok=True)
+        print(f"Directory {directory} created.")
+        return
 
-    print(f"Directory '{directory}' does not exist.")
-    print(f"The nearest existing parent is: '{existing_parent}'")
+    else:
+        # Find the nearest existing parent
+        existing_parent = directory
+        while not existing_parent.exists():
+            existing_parent = existing_parent.parent
 
-    # Ask user whether to create
-    while True:
-        response = input("Do you want to create the missing directory (and any missing parents)? (y/n): ").strip().lower()
-        if response == 'y':
-            directory.mkdir(parents=True, exist_ok=True)
-            print(f"Directory {directory} created.")
-            break
-        elif response == 'n':
-            print(f"Program stopped due to lack of the path '{directory}'.")
-            break
-        else:
-            print("Please enter 'y' or 'n'.")
+        print(f"Directory '{directory}' does not exist.")
+        print(f"The nearest existing parent is: '{existing_parent}'")
+
+        # Ask user whether to create
+        while True:
+            response = input("Do you want to create the missing directory (and any missing parents)? (y/n): ").strip().lower()
+            if response == 'y':
+                directory.mkdir(parents=True, exist_ok=True)
+                print(f"Directory {directory} created.")
+                break
+            elif response == 'n':
+                print(f"Program stopped due to lack of the path '{directory}'.")
+                break
+            else:
+                print("Please enter 'y' or 'n'.")
 
 
 if __name__ == "__main__":

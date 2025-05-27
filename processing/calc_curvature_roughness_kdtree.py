@@ -7,6 +7,10 @@ Contributor: fzhcis@rit.edu
 Version: 2.0
 Last Updated: 02/18/2025
 """
+# import os
+# import sys
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 import open3d as o3d
 import numpy as np
@@ -15,11 +19,9 @@ import json
 import time
 from pathlib import Path
 from tqdm import tqdm
-from preprocess_point_cloud import read_raw_point_cloud
-from plot_tools import get_vector_histogram
 from matplotlib import pyplot as plt
 from typing import List, Tuple, Dict, Any
-from config_loader import CONFIG
+from tools.config_loader import CONFIG
 import torch
 
 
