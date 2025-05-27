@@ -98,30 +98,14 @@ def map_angle_to_pixel(azimuth: np.ndarray,
 
     """
 
-    # CANVAS_WIDTH = int(HORIZONTAL_FOV / HORIZONTAL_ANGLE_RESOLUTION) # 1440 for TLS data (360 azimuth range)
-    # CANVAS_HEIGHT = int(VERTICAL_FOV / VERTICAL_ANGLE_RESOLUTION) # 540 for TLS data (135 elevation range)
     CANVAS_HEIGHT, CANVAS_WIDTH = canvas_size
     VERTICAL_ANGLE_RESOLUTION, HORIZONTAL_ANGLE_RESOLUTION = angular_res
-    # print(f"CANVAS_WIDTH: {CANVAS_WIDTH}, CANVAS_HEIGHT: {CANVAS_HEIGHT}")
-    # print(f"VERTICAL_ANGLE_RESOLUTION: {VERTICAL_ANGLE_RESOLUTION}, HORIZONTAL_ANGLE_RESOLUTION: {HORIZONTAL_ANGLE_RESOLUTION}")
-    # Map azimuth (e.g., 0-360 degrees) to x-coordinate (0 to CANVAS_WIDTH-1)
     x_pix = (azimuth / HORIZONTAL_ANGLE_RESOLUTION).astype(int)
 
-    # Map elevation angle (e.g., -90 ~ 45 degrees) to y-coordinate (0 to CANVAS_HEIGHT-1), 
-    # flipping the y-axis since elevation increases from bottom to top while 
-    # pixel indices increase from top to bottom.
-    # if elevation.min() < -89: # Mangrove root upside down
-    #     print("Mangrove root - LiDAR upside down.")
-    #     y_pix = CANVAS_HEIGHT - ((elevation + 90) / VERTICAL_ANGLE_RESOLUTION).astype(int)
-    # else: # Harvard Forest or an upward facing dataset in mangrove root
-    #     y_pix = CANVAS_HEIGHT - ((elevation + 45) / VERTICAL_ANGLE_RESOLUTION).astype(int)
     y_pix = CANVAS_HEIGHT - ((elevation - elevation.min()) / VERTICAL_ANGLE_RESOLUTION).astype(int)
 
-    # Ensure pixel indices are within bounds, in case x_pix or y_pix goes beyond 540 or 1440
     x_pix = x_pix.clip(0, CANVAS_WIDTH - 1)
     y_pix = y_pix.clip(0, CANVAS_HEIGHT - 1)
-    # print(f"Pixel coordinates: x_pix range: {x_pix.min()} to {x_pix.max()}, y_pix range: {y_pix.min()} to {y_pix.max()}")
-    # return
     return x_pix, y_pix
 
 def read_pts_file(file_path):
@@ -223,16 +207,6 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
             'Return Number': np.array(las.return_number),}
             df = pd.DataFrame(data)
             df = add_angle_range_to_df(df)
-            # # Calculate azimuth in degrees
-            # df['azimuth'] = np.arctan2(las_y, las_x) * 180 / np.pi
-            # # Remap azimuth values: [0, 180] stays the same, [-1, -180] becomes [181, 360]
-            # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-            # # Calculate zenith in degrees range: theoretically (0 to 180), pratically (0, 135)
-            # zenith_angles = calculate_zenith_angles(las_x, las_y, las_z)
-            # df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
-            # df['zenith'] = zenith_angles
-            # df['rangemeter'] = (las_x ** 2 + las_y ** 2 + las_z ** 2) ** 0.5
-
             # If the point cloud contains r/g/b channels, assign them to the DataFrame
             if any(las.red) and any(las.green) and any(las.blue):
                 df['r'] = las.red / max(las.red)
@@ -245,37 +219,20 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
         points = points.reshape((-1, 4))
 
         df = pd.DataFrame(points, columns=['X', 'Y', 'Z', 'Intensity'])
-        # pc_x = df['X'].values
-        # pc_y = df['Y'].values
-        # pc_z = df['Z'].values
-        df['Return Number'] = 1
         df = add_angle_range_to_df(df)
-        # df['azimuth'] = np.arctan2(pc_y, pc_x) * 180 / np.pi
-        # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-        # zenith_angles = calculate_zenith_angles(pc_x, pc_y, pc_z)
-        # df['elevation'] = 90 - zenith_angles # range from -90 to 90, pratically (-45, 90)
-        # df['zenith'] = zenith_angles
-        # df['rangemeter'] = (pc_x ** 2 + pc_y ** 2 + pc_z ** 2) ** 0.5
 
     elif filename.suffix == '.pts' and dataset_name == 'INLUT3D':
         print("Reading a .pts file, for In_LUT3D data.")
         df = read_pts_file(filename) # columns: ['x', 'y', 'z', 'r', 'g', 'b', 'class_id', 'instance_id']
         # prepare intensity(psedo), azimuth, zenith, elevation angles, rangemeter, and return number (psedo)
         df['Intensity'] = df[['r', 'g', 'b']].mean(axis=1) / 255.0 # normalize to [0, 1]
-        df['Return Number'] = 1
         df = add_angle_range_to_df(df)
-        # df['azimuth'] = np.arctan2(df['Y'], df['X']) * 180 / np.pi
-        # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-        # zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
-        # df['elevation'] = 90 - zenith_angles
-        # df['zenith'] = zenith_angles
-        # df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
 
     elif filename.suffix == '.txt' and dataset_name == 'SEMANTIC3D':
         print("Reading a .txt file, for Semantic3D data.")
         # Try reading the file assuming there is a header
         column_names = ['X', 'Y', 'Z', 'Intensity', 'r', 'g', 'b']
-        df = pd.read_csv(filename, delim_whitespace=True, names=column_names)
+        df = pd.read_csv(filename, sep='\s+', names=column_names)
         print(f"Read {len(df)} points from {filename}")
         print(df.head())
         df = add_angle_range_to_df(df)

@@ -9,8 +9,7 @@ from matplotlib import pyplot as plt
 import threading
 from contextlib import contextmanager
 from typing import List, Generator
-from open3d.visualization import rendering
-
+import os
 
 def interactive_visualize_pcd(all_points_xyz: np.ndarray, 
                       all_curvatures: np.ndarray, 
@@ -169,6 +168,19 @@ def create_dir_if_not_exists(directory: Path, ask_user: bool=True) -> None:
             else:
                 print("Please enter 'y' or 'n'.")
 
+def log_ram(msg=""):
+    process = psutil.Process(os.getpid())
+    mb = process.memory_info().rss / 1024 / 1024
+    print(f"{msg} RAM usage: {mb:_.2f} MB")
+
+
+def log_time_mem_ram(msg="", peak_memory=None, start_time=None):
+    """Log the current time, memory, and RAM usage."""
+    peak_cpu_memory_mb = peak_memory[0] / (1024 * 1024)
+    elapsed_time = time.time() - start_time if start_time is not None else 0
+    print(f"Elapsed Time {msg}: {elapsed_time:.2f} seconds")
+    print(f"Peak CPU Memory Used {msg}: {peak_cpu_memory_mb:.2f} MB")
+    log_ram(msg)
 
 if __name__ == "__main__":
     test_dir = Path("/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/tls_scans_4fei/output")
