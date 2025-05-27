@@ -275,19 +275,10 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
         print("Reading a .txt file, for Semantic3D data.")
         # Try reading the file assuming there is a header
         column_names = ['X', 'Y', 'Z', 'Intensity', 'r', 'g', 'b']
-        df = pd.read_csv(filename, sep=' ', names=column_names)
+        df = pd.read_csv(filename, delim_whitespace=True, names=column_names)
+        print(f"Read {len(df)} points from {filename}")
+        print(df.head())
         df = add_angle_range_to_df(df)
-        # print(type(np.arctan2))
-        # print("np is", np, "type:", type(np))
-        # print("df type:", type(df))
-        # print("df['X'] type:", type(df['X'].values), type(df['X'].values[0]))
-        # print("shape of df['X']:", df['X'].shape)
-        # df['azimuth'] = np.arctan2(df['Y'].values, df['X'].values) * 180 / np.pi
-        # df['azimuth'] = np.where(df['azimuth'] < 0, 360 + df['azimuth'], df['azimuth'])
-        # zenith_angles = calculate_zenith_angles(df['X'].values, df['Y'].values, df['Z'].values)
-        # df['elevation'] = 90 - zenith_angles
-        # df['zenith'] = zenith_angles
-        # df['rangemeter'] = (df['X'] ** 2 + df['Y'] ** 2 + df['Z'] ** 2) ** 0.5
         
 
     else:
