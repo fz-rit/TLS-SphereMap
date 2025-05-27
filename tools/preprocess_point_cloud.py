@@ -295,6 +295,7 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
     
     print(f"Read {len(df)} points from {filename}")
     print("---------Before preprocessing:----------")
+    print(f"Number of points: {len(df)}")
     for col in df.columns:
         print(f"Range of {col}: {df[col].min():.3f} to {df[col].max():.3f}")
 
@@ -375,18 +376,22 @@ def read_and_clean_pcd(filename: Path,
     if clean_pc:
         df_filtered = clean_pcd_df_based_on_ir(df, cut_percent=cut_percent)
     else:
-        df_filtered = df
+        df_filtered = df.copy()
 
     # Normalize the intensity values: first, convert to float32, then normalize to (0.1, 1.0)
-    intensity = df_filtered['Intensity'].to_numpy().astype('float32')
+    intensity = df_filtered['Intensity'].to_numpy().astype('float64')
     intensity = (intensity - intensity.min()) / (intensity.max() - intensity.min())
     df_filtered['Intensity'] = intensity
     print(f"!!Intensity normalized to range: {intensity.min()} to {intensity.max()}!!")
     
+    df_filtered_na_free = df_filtered.dropna()
+    print(f"{len(df_filtered) - len(df_filtered_na_free)} / {len(df_filtered)} points have NaN values, filtered out.")
+
     print("---------After preprocessing:----------")
-    for col in df_filtered.columns:
-        print(f"Range of {col}: {df_filtered[col].min()} to {df_filtered[col].max()}")
-    return df_filtered
+    print(f"Number of points: {len(df_filtered_na_free)}")
+    for col in df_filtered_na_free.columns:
+        print(f"Range of {col}: {df_filtered_na_free[col].min()} to {df_filtered_na_free[col].max()}")
+    return df_filtered_na_free
 
 # Example usage
 if __name__ == "__main__":

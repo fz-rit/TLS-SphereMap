@@ -1,6 +1,6 @@
 {
     "global": {
-        "input_base_dir": "/home/fzhcis/mylab/data/semantic3d",
+        "input_base_dir": "/home/fzhcis/mylab/data/semantic3d/sem8_pcd_training",
         "output_base_dir": "/home/fzhcis/mylab/data/point_cloud_segmentation/segmentation_on_unwrapped_image/semantic3d",
         "input_suffix": ".txt",
         "dataset": "SEMANTIC3D",
