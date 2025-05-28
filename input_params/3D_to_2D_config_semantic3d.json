@@ -5,9 +5,9 @@
         "input_suffix": ".txt",
         "dataset": "SEMANTIC3D",
         "h_fov": [0, 360],
-        "v_fov": [0, 150],
+        "v_fov": [45, 135],
         "h_ang_res_deg": 0.17578125,
-        "v_ang_res_deg": 0.2929
+        "v_ang_res_deg": 0.17578125
     },
     "calc_pt_cloud_normal": {
         "clean_pc": false,
@@ -27,9 +27,9 @@
         "delete_intermediate_file": true
     },
     "spherical_projection": {
-        "visualize" : false,
-        "extra_maps" : false,
-        "save_extra_maps" : false,
+        "visualize" : true,
+        "extra_maps" : true,
+        "save_extra_maps" : true,
         "show_single_band" : false,
         "show_pseudo_rgb" : false,
         "show_pca" : false        

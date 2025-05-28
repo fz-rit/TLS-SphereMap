@@ -70,99 +70,6 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path],
 
     return df_filtered_ncolored
 
-
-# def unwrap_point_cloud_to_2d_images(filename: str, 
-#                                     canvas_size:tuple[int, int], 
-#                                     angular_res:tuple[int, int]) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
-#     """
-#     Unwrap the point cloud to 2D images with x being azimuth angle, y being zenith angle, and pixel value with different kinds of scalar fields.
-#     Including density, intensity, range, and range-xy images.
-
-#     Parameters:
-#     filename (str): The path to the point cloud data file in CSV format.
-
-#     Returns:
-#     df_filtered (pd.DataFrame): A DataFrame containing the filtered and processed point cloud data with additional columns for pixel coordinates.
-#     tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: A tuple containing the density image, adjusted intensity image, adjusted range image, and adjusted range-xy image.
-#     """
-#     ## Load and Preprocess the point cloud data
-#     df_filtered_ncolored = load_and_preprocess_point_cloud(filename, 
-#                                                            canvas_size=canvas_size, 
-#                                                            angular_res=angular_res)
-#     grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)
-
-#     group_intensity = grouped['Intensity'].mean()
-#     group_z = grouped['Z'].min()
-#     group_range = grouped['rangemeter'].mean()
-#     pts_per_pixel = grouped.size()
-    
-
-#     ## Map the computed values to the image arrays
-#     ## Create empty image canvases with proper resolution
-#     intensity_image = np.zeros(canvas_size, dtype=np.float32)
-#     range_image = np.zeros(canvas_size, dtype=np.float32)
-#     z_image = np.zeros(canvas_size, dtype=np.float32)
-#     density_image = np.zeros(canvas_size, dtype=np.float32)
-    
-#     pxpy_indices = np.array(group_intensity.index.tolist())
-#     intensity_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_intensity.values
-#     z_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_z.values
-#     range_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_range.values
-#     density_image[pxpy_indices[:, 0], pxpy_indices[:, 1]] = pts_per_pixel.values
-
-#     # Apply HDR adjustment to intensity and range images
-#     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
-#     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
-#     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
-
-
-#     image_names = ['Density Map', 
-#                     'Intensity Map (adjusted)', 
-#                     'Z-Inv Map (adjusted)',
-#                     'Range Map (adjusted)', 
-#                     'Intensity Map (raw)', 
-#                     'Z Map (raw)',
-#                     'Range Map (raw)', 
-#                     ]
-    
-    
-
-#     output_images = [density_image, 
-#                      intensity_image_adjusted, 
-#                      z_image_adjusted,
-#                      range_image_adjusted, 
-#                      intensity_image, 
-#                      z_image,
-#                      range_image, 
-#     ]
-    
-#     output_images_dict = {image_name: image for image_name, image in zip(image_names, output_images)}
-    
-#     # Add the True RGB image if available
-#     if 'r' in df_filtered_ncolored.columns and 'g' in df_filtered_ncolored.columns and 'b' in df_filtered_ncolored.columns:
-#         rgb_image = np.full((*canvas_size, 3), 255, dtype=np.uint8)
-#         group_r = grouped['r'].mean()
-#         group_g = grouped['g'].mean()
-#         group_b = grouped['b'].mean()
-#         rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 0] = group_r.values
-#         rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 1] = group_g.values
-#         rgb_image[pxpy_indices[:, 0], pxpy_indices[:, 1], 2] = group_b.values
-#         output_images_dict['True-RGB'] = rgb_image
-
-#     # Add the segmentation mask if available
-#     if 'class_id' in df_filtered_ncolored.columns:
-#         seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
-#         group_class_id = grouped['class_id'].agg(lambda x: x.value_counts().idxmax())
-#         seg_mask_raw[pxpy_indices[:, 0], pxpy_indices[:, 1]] = group_class_id.values
-#         seg_mask_raw[seg_mask_raw == -1] = 18
-#         seg_mask_raw = seg_mask_raw.astype(np.uint8)
-#         output_images_dict['seg_mask_raw'] = seg_mask_raw
-#         seg_mask_merged = seg_mask_raw.copy()
-#         seg_mask_merged[seg_mask_merged == 18] = 17
-#         seg_mask_merged[seg_mask_merged == 255] = 17
-#         output_images_dict['seg_mask_merged'] = seg_mask_merged
-
-#     return df_filtered_ncolored, output_images_dict
 def unwrap_point_cloud_to_2d_images(filename: str,
                                     canvas_size: tuple[int, int],
                                     angular_res: tuple[int, int]) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
@@ -699,8 +606,8 @@ def main():
     extra_maps = params['extra_maps']
     v_fov = CONFIG['global']['v_fov']
     h_fov = CONFIG['global']['h_fov']
-    canvas_width = int(h_fov[1] / CONFIG['global']['h_ang_res_deg'])
-    canvas_height = int(v_fov[1] / CONFIG['global']['v_ang_res_deg'])
+    canvas_width = int((h_fov[1]-h_fov[0]) / CONFIG['global']['h_ang_res_deg'])
+    canvas_height = int((v_fov[1]-v_fov[0]) / CONFIG['global']['v_ang_res_deg'])
     canvas_size = (canvas_height, canvas_width)
     angular_res = (CONFIG['global']['v_ang_res_deg'], CONFIG['global']['h_ang_res_deg'])
 

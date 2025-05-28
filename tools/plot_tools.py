@@ -271,6 +271,7 @@ def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
             grouped_labels.append("Other")
 
         # Plot pie chart
+        plt.figure(figsize=(8, 8))
         wedges, texts, autotexts = plt.pie(grouped_counts, autopct='%1.1f%%')
 
         # Add legend with labels
