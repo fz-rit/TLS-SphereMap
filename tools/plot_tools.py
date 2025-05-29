@@ -179,6 +179,8 @@ def get_vector_histogram(input_vec: np.ndarray,
     # Absolute count bars
     bin_width = 1 if len(bin_centers) <= 1 else 0.8 * (bin_centers[1] - bin_centers[0])
     ax1.bar(bin_centers, hist_values, width=bin_width, color='blue', alpha=0.7, label='Absolute Count')
+    for x, y in zip(bin_centers, hist_values):
+        ax1.text(x, y, str(y), ha='center', va='bottom', fontsize=8)
     ax1.set_xlabel('Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
