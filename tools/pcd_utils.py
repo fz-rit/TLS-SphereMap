@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import threading
 from contextlib import contextmanager
 from typing import List, Generator
+import os
 
 def interactive_visualize_pcd(all_points_xyz: np.ndarray, 
                       all_curvatures: np.ndarray, 
@@ -175,6 +176,16 @@ def log_time_mem_ram(msg="", peak_memory=None, start_time=None):
     print(f"Elapsed Time {msg}: {elapsed_time:.2f} seconds")
     print(f"Peak CPU Memory Used {msg}: {peak_cpu_memory_mb:.2f} MB")
 
+
+def check_nprocs(min_required=4):
+    nprocs = len(os.sched_getaffinity(0))
+    if nprocs is None:
+        raise RuntimeError("Could not determine the number of processors.")
+    if nprocs < min_required:
+        raise RuntimeError(f"At least {min_required} processors are required, but only {nprocs} available.")
+    print(f"Number of processors available: {nprocs}")
+
 if __name__ == "__main__":
-    test_dir = Path("/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/tls_scans_4fei/output")
-    create_dir_if_not_exists(test_dir)
+    # test_dir = Path("/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei/tls_scans_4fei/output")
+    # create_dir_if_not_exists(test_dir)
+    check_nprocs(min_required=4)

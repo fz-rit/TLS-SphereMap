@@ -38,9 +38,7 @@ def calc_normals_of_pt_cloud(input_path: Path,
                                     clean_pc=clean_pc,
                                     dataset_name=dataset_name,
                                     flip_mangrove=flip_mangrove)
-    log_time_mem_ram(msg=f"After read and clean pcd, ", 
-                     peak_memory=peak_memory, 
-                     start_time=start_time)
+
     # Load point cloud data and create PointCloud object
     points = df_filtered[['X', 'Y', 'Z']].to_numpy()
     pcd = o3d.geometry.PointCloud()
@@ -52,7 +50,7 @@ def calc_normals_of_pt_cloud(input_path: Path,
 
     log_time_mem_ram(msg=f"After estimating normals, ",
                         peak_memory=peak_memory, 
-                        current_time=start_time)
+                        start_time=start_time)
     # Add normals to the DataFrame
     normals = np.asarray(pcd.normals)
     df_filtered[['nx', 'ny', 'nz']] = normals

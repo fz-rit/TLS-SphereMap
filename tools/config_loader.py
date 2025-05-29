@@ -104,16 +104,29 @@ def load_config_semantic3d(config, selected_scans = [1,30]):
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params["input_suffix"]
 
-    input_paths = sorted(list(input_base_dir.glob(f"*{input_suffix}")))
-    if not input_paths:
-        raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
+    # input_paths = sorted(list(input_base_dir.glob(f"*{input_suffix}")))
+    # if not input_paths:
+    #     raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
+    # output_dir_ls = []
+    # input_path_ls = []
+    # for input_path in input_paths[selected_scans[0]:selected_scans[1]]:
+    #     if not input_path.exists():
+    #         raise FileNotFoundError(f"❗ Input file {input_path} does not exist.")
+    #     input_path_ls.append(input_path)
+    #     output_dir = output_base_dir / input_path.stem
+    #     create_dir_if_not_exists(output_dir, ask_user=False)
+    #     output_dir_ls.append(output_dir)
+    input_folders = list(input_base_dir.iterdir())
+    input_folders = [p for p in input_folders if p.is_dir()]
+    input_folders.sort()
     output_dir_ls = []
     input_path_ls = []
-    for input_path in input_paths[selected_scans[0]:selected_scans[1]]:
+    for p in input_folders[selected_scans[0]:selected_scans[1]]:
+        input_path = next(p.glob(f"*{input_suffix}"), None)
         if not input_path.exists():
-            raise FileNotFoundError(f"❗ Input file {input_path} does not exist.")
+            raise FileNotFoundError(f"W Input file {input_path} does not exist.")
         input_path_ls.append(input_path)
-        output_dir = output_base_dir / input_path.stem
+        output_dir = output_base_dir / p.name
         create_dir_if_not_exists(output_dir, ask_user=False)
         output_dir_ls.append(output_dir)
 
