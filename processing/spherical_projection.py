@@ -70,9 +70,11 @@ def load_and_preprocess_point_cloud(filename: Union[str, Path],
 
     return df_filtered_ncolored
 
-def unwrap_point_cloud_to_2d_images(filename: str,
+def equirectangular_projection_multi(filename: str,
                                     canvas_size: tuple[int, int],
-                                    angular_res: tuple[int, int]) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
+                                    angular_res: tuple[int, int],
+                                    dataset_name: str = 'MANGROVE',
+                                    ) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
     """
     Unwrap the point cloud to 2D images with x being azimuth angle, y being zenith angle, and pixel value with different kinds of scalar fields.
     Including density, intensity, range, and range-xy images.
@@ -90,27 +92,42 @@ def unwrap_point_cloud_to_2d_images(filename: str,
                                                            angular_res=angular_res)
 
     # Convert to float for accurate calculations
-    cols_to_convert = ['Intensity', 'Z', 'rangemeter', 'r', 'g', 'b']
-    for col in cols_to_convert:
-        if col in df_filtered_ncolored.columns:
-            df_filtered_ncolored[col] = df_filtered_ncolored[col].astype(float)
+    if dataset_name == 'SEMANTIC3D':
+        cols_to_convert = ['rangemeter', 'r', 'g', 'b']
+        for col in cols_to_convert:
+            if col in df_filtered_ncolored.columns:
+                df_filtered_ncolored[col] = df_filtered_ncolored[col].astype(float)
 
-    # Group by pixel coordinates and calculate the required values
-    grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).agg(
-        Intensity=('Intensity', 'mean'),
-        Z=('Z', 'min'),
-        rangemeter=('rangemeter', 'mean'),
-        r=('r', 'mean'),  # Add r, g, b to the aggregation
-        g=('g', 'mean'),
-        b=('b', 'mean'),
-        pts_per_pixel=('y_pix', 'size')  # Use any column to count points per pixel
-    )
+        # Group by pixel coordinates and calculate the required values
+        grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).agg(
+            Intensity=('Intensity', 'mean'),
+            Z=('Z', 'min'),
+            rangemeter=('rangemeter', 'mean'),
+            r=('r', 'mean'),  # Add r, g, b to the aggregation
+            g=('g', 'mean'),
+            b=('b', 'mean'),
+            pts_per_pixel=('y_pix', 'size')  # Use any column to count points per pixel
+        )
+        rgb_image = np.full((*canvas_size, 3), 255, dtype=np.uint8) #create the rgb image here
+        rgb_image[y_indices, x_indices, 0] = grouped['r'].values
+        rgb_image[y_indices, x_indices, 1] = grouped['g'].values
+        rgb_image[y_indices, x_indices, 2] = grouped['b'].values
+
+    elif dataset_name == 'MANGROVE':
+        # Group by pixel coordinates and calculate the required values
+        grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).agg(
+            Intensity=('Intensity', 'mean'),
+            Z=('Z', 'min'),
+            rangemeter=('rangemeter', 'mean'),
+            pts_per_pixel=('y_pix', 'size')  # Use any column to count points per pixel
+        )
+    else:
+        raise ValueError(f"Unsupported dataset name: {dataset_name}. Supported datasets are 'SEMANTIC3D' and 'MANGROVE'.")
     # Create empty image canvases with proper resolution
     intensity_image = np.zeros(canvas_size, dtype=np.float32)
     range_image = np.zeros(canvas_size, dtype=np.float32)
     z_image = np.zeros(canvas_size, dtype=np.float32)
     density_image = np.zeros(canvas_size, dtype=np.float32)
-    rgb_image = np.full((*canvas_size, 3), 255, dtype=np.uint8) #create the rgb image here
 
     # Use vectorized assignment to map the computed values to the image arrays
     y_indices = grouped.index.get_level_values(0)
@@ -120,10 +137,7 @@ def unwrap_point_cloud_to_2d_images(filename: str,
     z_image[y_indices, x_indices] = grouped['Z'].values
     range_image[y_indices, x_indices] = grouped['rangemeter'].values
     density_image[y_indices, x_indices] = grouped['pts_per_pixel'].values
-    rgb_image[y_indices, x_indices, 0] = grouped['r'].values
-    rgb_image[y_indices, x_indices, 1] = grouped['g'].values
-    rgb_image[y_indices, x_indices, 2] = grouped['b'].values
-
+    
 
     # Apply HDR adjustment to intensity and range images
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
@@ -151,28 +165,28 @@ def unwrap_point_cloud_to_2d_images(filename: str,
     output_images_dict = {image_name: image for image_name, image in zip(image_names, output_images)}
 
     # Add the True RGB image if available
-    if 'r' in df_filtered_ncolored.columns and 'g' in df_filtered_ncolored.columns and 'b' in df_filtered_ncolored.columns:
+    if dataset_name == 'SEMANTIC3D':
         output_images_dict['True-RGB'] = rgb_image
 
-    # Add the segmentation mask if available
-    if 'class_id' in df_filtered_ncolored.columns:
-        seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
-        grouped_class_id = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)['class_id'].agg(lambda x: x.value_counts().idxmax())
-        y_indices_class = grouped_class_id.index.get_level_values(0)
-        x_indices_class = grouped_class_id.index.get_level_values(1)
-        seg_mask_raw[y_indices_class, x_indices_class] = grouped_class_id.values
-        seg_mask_raw[seg_mask_raw == -1] = 18
-        seg_mask_raw = seg_mask_raw.astype(np.uint8)
-        output_images_dict['seg_mask_raw'] = seg_mask_raw
-        seg_mask_merged = seg_mask_raw.copy()
-        seg_mask_merged[seg_mask_merged == 18] = 17
-        seg_mask_merged[seg_mask_merged == 255] = 17
-        output_images_dict['seg_mask_merged'] = seg_mask_merged
+        # Add the segmentation mask if available
+        if 'class_id' in df_filtered_ncolored.columns:
+            seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
+            grouped_class_id = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)['class_id'].agg(lambda x: x.value_counts().idxmax())
+            y_indices_class = grouped_class_id.index.get_level_values(0)
+            x_indices_class = grouped_class_id.index.get_level_values(1)
+            seg_mask_raw[y_indices_class, x_indices_class] = grouped_class_id.values
+            seg_mask_raw[seg_mask_raw == -1] = 18
+            seg_mask_raw = seg_mask_raw.astype(np.uint8)
+            output_images_dict['seg_mask_raw'] = seg_mask_raw
+            seg_mask_merged = seg_mask_raw.copy()
+            seg_mask_merged[seg_mask_merged == 18] = 17
+            seg_mask_merged[seg_mask_merged == 255] = 17
+            output_images_dict['seg_mask_merged'] = seg_mask_merged
 
     return df_filtered_ncolored, output_images_dict
 
 
-def unwrap_pc_normals_to_rgb_image(df_filtered_ncolored: pd.DataFrame,
+def equirectangular_projection_normals(df_filtered_ncolored: pd.DataFrame,
                                    canvas_size: tuple[int, int]) -> np.ndarray:
     """
     Unwrap the point cloud to 2D images with x being azimuth angle, y being zenith angle, and pixel values
@@ -451,6 +465,7 @@ def create_pseudo_rgb_image(img_ch1: np.ndarray,
 def generate_2D_projection_images(output_dir: Path,
                                     canvas_size: tuple[int, int], 
                                     angular_res: tuple[int, int], 
+                                    dataset_name: str = 'MANGROVE',
                                     color_map: Dict[str, tuple] = None,
                                     saveflag: bool = False,
                                     visualize: bool = True,
@@ -496,8 +511,8 @@ def generate_2D_projection_images(output_dir: Path,
             ]
     
     key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
-    df_filtered, output_images_dict = unwrap_point_cloud_to_2d_images(filename, canvas_size, angular_res)
-    normals_rgb_image = unwrap_pc_normals_to_rgb_image(df_filtered, canvas_size)
+    df_filtered, output_images_dict = equirectangular_projection_multi(filename, canvas_size, angular_res, dataset_name)
+    normals_rgb_image = equirectangular_projection_normals(df_filtered, canvas_size)
     image_cube, _ = save_image_cube_and_meta(output_images_dict, 
                             normals_rgb_image, 
                             img_out_dir, 
@@ -508,8 +523,8 @@ def generate_2D_projection_images(output_dir: Path,
     corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
     band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
     plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
-    
-    if "True-RGB" in output_images_dict:
+
+    if dataset_name == 'SEMANTIC3D' and "True-RGB" in output_images_dict:
         true_rgb_image = output_images_dict['True-RGB']
         display_unwrapped_rgb_image(true_rgb_image, 
                                     figure_title=f'True_RGB_{key_str}', 
@@ -521,7 +536,7 @@ def generate_2D_projection_images(output_dir: Path,
                                     h_fov = h_fov
                                     )
     # Generate seg-mask from class_id
-    if 'class_id' in df_filtered.columns:
+    if dataset_name == 'SEMANTIC3D' and 'class_id' in df_filtered.columns:
         seg_mask_merged = output_images_dict['seg_mask_merged']
         seg_map_merged_title = f'seg_map_merged_{output_dir.name}'
         seg_mask_merged_out = Image.fromarray(seg_mask_merged)
@@ -610,7 +625,7 @@ def main():
     canvas_height = int((v_fov[1]-v_fov[0]) / CONFIG['global']['v_ang_res_deg'])
     canvas_size = (canvas_height, canvas_width)
     angular_res = (CONFIG['global']['v_ang_res_deg'], CONFIG['global']['h_ang_res_deg'])
-
+    dataset_name = CONFIG['global']['dataset']
     output_dir_ls = CONFIG['global']['output_dir_ls']
     show_single_band = params['show_single_band']
     show_pseudo_rgb = params['show_pseudo_rgb']
@@ -619,6 +634,7 @@ def main():
         generate_2D_projection_images(output_dir=output_dir,
                                     canvas_size=canvas_size, 
                                     angular_res=angular_res, 
+                                    dataset_name=dataset_name,
                                     color_map=color_map,
                                     saveflag=save_extra_maps,
                                     visualize=visualize,

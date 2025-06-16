@@ -24,6 +24,15 @@ from matplotlib.colorbar import ColorbarBase
 import seaborn as sns
 from PIL import Image
 
+plt.rcParams.update({
+    'font.size': 12,         # base font size
+    'axes.titlesize': 12,    # title size
+    'axes.labelsize': 10,    # x/y label size
+    'xtick.labelsize': 9,
+    'ytick.labelsize': 9,
+    'legend.fontsize': 9,
+    'figure.titlesize': 12
+})
 # HORIZONTAL_FOV = 360.0
 # # ======For TLS data======
 # VERTICAL_FOV = 135.0
@@ -43,8 +52,10 @@ def get_image_histogram(image_data: np.ndarray,
                         output_dir: Path, 
                         title: str = '', 
                         saveflag: bool = False,
-                        visualize: bool = True
+                        visualize: bool = True,
+                        cmap: ListedColormap = None
                         ) -> None:
+
     """
     Generate and display a histogram of pixel values in the image data,
     distributing bars evenly along the x-axis based on unique pixel values.
@@ -83,14 +94,18 @@ def get_image_histogram(image_data: np.ndarray,
     x_indices = np.arange(len(values))
 
     # Create the bar plot
-    fig, ax1 = plt.subplots(figsize=(12, 6))
+    fig, ax1 = plt.subplots(figsize=(4.5, 2.5), dpi=300)
 
-    # Absolute count bars
-    ax1.bar(x_indices, counts, color='blue', alpha=0.7, label='Absolute Count')
+    if cmap:
+        colors = [cmap(i / (len(x_indices)-1)) for i in x_indices]
+    else:
+        colors = 'blue'
+
+    ax1.bar(x_indices, counts, color=colors, alpha=0.7, label='Absolute Count')
     ax1.set_xlabel('Pixel Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
-
+    ax1.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))  # alternative syntax
     # Add a second y-axis for normalized portion
     ax2 = ax1.twinx()
     ax2.plot(x_indices, normalized_counts, color='orange', marker='o', linestyle='-', label='Normalized Portion')
@@ -100,18 +115,16 @@ def get_image_histogram(image_data: np.ndarray,
     # Replace x-ticks with the actual pixel values
     plt.xticks(x_indices, labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values], rotation=45)
 
-    # Add grid, legend, and title
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.title(f'Histogram of {title}')
+    # plt.title(f'Histogram of {title}')
     fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
 
-    # Adjust layout for better spacing
     fig.tight_layout()
     
     # Save the figure if saveflag is True
     if saveflag:
-        save_path = output_dir / f'Histogram_{title}.png'
-        fig.savefig(save_path, dpi=300)
+        save_path = output_dir / f'Histogram_{title}.pdf'
+        fig.savefig(save_path, bbox_inches='tight', dpi=300)
         print(f'Histogram saved to {save_path}')
     
     if visualize:
@@ -246,9 +259,9 @@ def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
         unique_values = np.unique(data)
         
         # Determine binning strategy
-        if len(unique_values) > 20:
-            # Use 20 bins for continuous data
-            bins = 20
+        if len(unique_values) > 10:
+            # Use 10 bins for continuous data
+            bins = 10
             hist_values, bin_edges = np.histogram(data, bins=bins)
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Midpoints of bins
             normalized_counts = hist_values / hist_values.sum()  # Normalize counts
@@ -397,12 +410,12 @@ def display_single_band_img_wt_discrete_values(
         colors = [jet(i) for i in range(jet.N)] + ['gray']
     elif type(color_map) == dict:
         colors = [color_map[str(i)] for i in range(num_unique_values)]
-    cmap = ListedColormap(colors)
-    norm = BoundaryNorm(boundaries, ncolors=cmap.N)
+    color_map = ListedColormap(colors)
+    bnd_norm = BoundaryNorm(boundaries, ncolors=color_map.N)
     
 
     # --- Display the image ---
-    im = ax.imshow(image_data, cmap=cmap, norm=norm)
+    im = ax.imshow(image_data, cmap=color_map, norm=bnd_norm)
 
     # --- Compute frequencies and cumulative proportions for proportional colorbar ---
     flat_data = image_data.flatten()
@@ -418,7 +431,7 @@ def display_single_band_img_wt_discrete_values(
     cb = ColorbarBase(
         cax,
         cmap=ListedColormap(colors),
-        norm=BoundaryNorm(cumulative, cmap.N),
+        norm=BoundaryNorm(cumulative, color_map.N),
         ticks=(cumulative[:-1] + cumulative[1:]) / 2,
         spacing='proportional',
         orientation='vertical'
@@ -430,8 +443,8 @@ def display_single_band_img_wt_discrete_values(
  
     if saveflag:
         # Save the raw image without labels or colorbars
-        normalized_data = norm(image_data)
-        rgba_image = cmap(normalized_data)
+        normalized_data = bnd_norm(image_data)
+        rgba_image = color_map(normalized_data)
         plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
         print(f'Images saved to {output_dir} directory')
 
@@ -439,7 +452,8 @@ def display_single_band_img_wt_discrete_values(
                         title=title, 
                         saveflag=saveflag, 
                         output_dir=output_dir,
-                        visualize=visualize
+                        visualize=visualize,
+                        cmap=color_map,
                         )
     if visualize:
         smart_image_pie_chart(image_data)

@@ -24,8 +24,6 @@ def get_color_map(input_base_dir):
 
 def load_config_mangrove(config):
     """Load the JSON config and dynamically generate paths."""
-    # with open(config_path, "r") as f:
-    #     config = json.load(f)
 
     global_params = config["global"]
     output_base_dir = Path(global_params["output_base_dir"])
@@ -50,6 +48,8 @@ def load_config_mangrove(config):
         input_path_ls.append(input_path)
 
     # Add computed paths to global config
+    color_map = get_color_map(input_base_dir/input_folder_parent)
+    global_params["color_map"] = color_map
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
     config["global"] = global_params
@@ -81,14 +81,12 @@ def load_config_inlut3d(config, selected_scans = [1,30]):
         create_dir_if_not_exists(output_dir, ask_user=False)
         output_dir_ls.append(output_dir)
 
-    # color_map_file = input_base_dir / "colormap.json"
-    # with open(color_map_file, 'r') as f:
-    #         color_map = json.load(f)
-    # Add computed paths to global config
+
     color_map = get_color_map(input_base_dir)
+    global_params["color_map"] = color_map
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
-    global_params["color_map"] = color_map
+    
     config["global"] = global_params
 
     return config
@@ -139,12 +137,13 @@ def load_config_semantic3d(config, selected_scans = [1,30]):
     return config
 
 # config_path = './input_params/3D_to_2D_config_harvard_forest.json'
-config_path = './input_params/3D_to_2D_config_semantic3d.json'
+config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
+# config_path = './input_params/3D_to_2D_config_semantic3d.json'
 with open(config_path, "r") as f:
     config = json.load(f)
-# config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
-# CONFIG = load_config_inlut3d(config_path, selected_scans=[122, 321])
-# CONFIG = load_config(config_path)
-CONFIG = load_config_semantic3d(config, selected_scans=[0, 1])
+
+# CONFIG = load_config_inlut3d(config, selected_scans=[122, 321])
+CONFIG = load_config_mangrove(config)
+# CONFIG = load_config_semantic3d(config, selected_scans=[0, 1])
 pprint("🔹 Loaded configuration:"
        f"\n{CONFIG}")

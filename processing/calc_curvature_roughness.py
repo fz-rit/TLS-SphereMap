@@ -123,6 +123,9 @@ class CalcCurvatureRoughness:
         normal_vectors = rough_eigenvec[:, :, 0]
         roughness = torch.abs((centered_neighbors * mask.unsqueeze(2)).matmul(normal_vectors.unsqueeze(2)).squeeze()).mean(dim=1)
 
+        # Planularity estimation (optional, can be added if needed)
+        # planarity = (curv_eigenval[:, 1] - curv_eigenval[:, 2]) / curv_eigenval[:, 0]
+
         return curvatures.cpu().numpy(), roughness.cpu().numpy()
 
     def process_batches(self, dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

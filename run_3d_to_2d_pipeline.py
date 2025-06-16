@@ -1,7 +1,7 @@
 import subprocess
 
 scripts = [
-        "processing.calc_pt_cloud_normal", 
+        # "processing.calc_pt_cloud_normal", 
         # "processing.calc_curvature_roughness", # To be revised for calculating eigen-based scalar fields like curvature, roughness, and so on.
         "processing.spherical_projection",
         # "processing.spherical_back_projection",
