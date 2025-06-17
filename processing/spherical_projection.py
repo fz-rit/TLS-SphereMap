@@ -87,11 +87,11 @@ def equirectangular_projection_multi(filename: str,
     tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: A tuple containing the density image, adjusted intensity image, adjusted range image, and adjusted range-xy image.
     """
     ## Load and Preprocess the point cloud data
+
     df_filtered_ncolored = load_and_preprocess_point_cloud(filename,
                                                            canvas_size=canvas_size,
                                                            angular_res=angular_res)
 
-    # Convert to float for accurate calculations
     if dataset_name == 'SEMANTIC3D':
         cols_to_convert = ['rangemeter', 'r', 'g', 'b']
         for col in cols_to_convert:
@@ -103,6 +103,8 @@ def equirectangular_projection_multi(filename: str,
             Intensity=('Intensity', 'mean'),
             Z=('Z', 'min'),
             rangemeter=('rangemeter', 'mean'),
+            curvature=('curvature', 'mean'),
+            roughness=('roughness', 'mean'),
             r=('r', 'mean'),  # Add r, g, b to the aggregation
             g=('g', 'mean'),
             b=('b', 'mean'),
@@ -119,6 +121,8 @@ def equirectangular_projection_multi(filename: str,
             Intensity=('Intensity', 'mean'),
             Z=('Z', 'min'),
             rangemeter=('rangemeter', 'mean'),
+            curvature=('curvature', 'mean'),
+            roughness=('roughness', 'mean'),
             pts_per_pixel=('y_pix', 'size')  # Use any column to count points per pixel
         )
     else:
@@ -128,7 +132,8 @@ def equirectangular_projection_multi(filename: str,
     range_image = np.zeros(canvas_size, dtype=np.float32)
     z_image = np.zeros(canvas_size, dtype=np.float32)
     density_image = np.zeros(canvas_size, dtype=np.float32)
-
+    curvature_image = np.zeros(canvas_size, dtype=np.float32)
+    roughness_image = np.zeros(canvas_size, dtype=np.float32)
     # Use vectorized assignment to map the computed values to the image arrays
     y_indices = grouped.index.get_level_values(0)
     x_indices = grouped.index.get_level_values(1)
@@ -137,29 +142,41 @@ def equirectangular_projection_multi(filename: str,
     z_image[y_indices, x_indices] = grouped['Z'].values
     range_image[y_indices, x_indices] = grouped['rangemeter'].values
     density_image[y_indices, x_indices] = grouped['pts_per_pixel'].values
-    
+    curvature_image[y_indices, x_indices] = grouped['curvature'].values
+    roughness_image[y_indices, x_indices] = grouped['roughness'].values
+
 
     # Apply HDR adjustment to intensity and range images
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
+    curvature_image_adjusted = contrast_enhancement(curvature_image, stretch_percentile=0.1)
+    roughness_image_adjusted = contrast_enhancement(roughness_image, stretch_percentile=0.1)
 
     image_names = ['Density Map',
                     'Intensity Map (adjusted)',
                     'Z-Inv Map (adjusted)',
                     'Range Map (adjusted)',
+                    'Curvature Map (adjusted)',
+                    'Roughness Map (adjusted)',
                     'Intensity Map (raw)',
                     'Z Map (raw)',
                     'Range Map (raw)',
+                    'Curvature Map (raw)',
+                    'Roughness Map (raw)',
                     ]
 
     output_images = [density_image,
                      intensity_image_adjusted,
                      z_image_adjusted,
                      range_image_adjusted,
+                     curvature_image_adjusted,
+                     roughness_image_adjusted,
                      intensity_image,
                      z_image,
                      range_image,
+                     curvature_image,
+                     roughness_image,
                      ]
 
     output_images_dict = {image_name: image for image_name, image in zip(image_names, output_images)}
@@ -498,7 +515,7 @@ def generate_2D_projection_images(output_dir: Path,
     img_out_dir = output_dir / 'img'
     
     create_dir_if_not_exists(img_out_dir, ask_user=False)
-    filename = next(pcd_dir.glob("*_normaled*"), None)
+    filename = next(pcd_dir.glob("*_ncr_0.05*"), None)
     if filename is None:
         raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
 
@@ -508,6 +525,10 @@ def generate_2D_projection_images(output_dir: Path,
             'Intensity Map (raw)', 
             'Z Map (raw)',
             'Range Map (raw)', 
+            'Curvature Map (adjusted)',
+            'Curvature Map (raw)',
+            'Roughness Map (adjusted)',
+            'Roughness Map (raw)',
             ]
     
     key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]

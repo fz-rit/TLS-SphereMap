@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import time
 import torch
+import random
 from torch import Tensor
 from pathlib import Path
 from tqdm import tqdm
@@ -28,6 +29,34 @@ from typing import List, Tuple, Dict, Any
 from tools.pcd_utils import check_and_clean_for_nans, interactive_visualize_pcd, export_results, MemoryProfiler
 from tools.config_loader import CONFIG # Configuration dictionary read from a .json file
 from tools.pcd_utils import create_dir_if_not_exists
+import matplotlib.pyplot as plt
+
+
+import gc
+
+def clear_memory(*vars_to_delete):
+    """
+    Frees up GPU and CPU memory between batches.
+
+    Parameters
+    ----------
+    *vars_to_delete : list of variables
+        Any large tensors or objects you want to explicitly delete.
+
+    Example
+    -------
+    clear_memory(dist_matrix, neighbors_list)
+    """
+    for var in vars_to_delete:
+        try:
+            del var
+        except Exception as e:
+            print(f"[Warning] Could not delete variable: {e}")
+    
+    gc.collect()  # Force Python garbage collection
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()  # Clear unused GPU memory
+
 
 class CalcCurvatureRoughness:
     def __init__(self, device: str = 'cuda'):
@@ -38,25 +67,95 @@ class CalcCurvatureRoughness:
         """Set the points_xyz array as a tensor on the GPU."""
         self.points_xyz = torch.tensor(points_xyz, dtype=torch.float32, device=self.device)
 
-    def batch_neighborhood_search(self, radius: float, max_neighbors: int) -> List[Tensor]:
-        """Perform neighborhood search on the GPU in batches.
+    # def batch_neighborhood_search(self, radius: float, max_neighbors: int) -> List[Tensor]:
+    #     """Perform neighborhood search on the GPU in batches.
 
-        Args:
-            radius (float): Radius for neighborhood search.
-            max_neighbors (int): Maximum number of neighbors to consider.
+    #     Args:
+    #         radius (float): Radius for neighborhood search.
+    #         max_neighbors (int): Maximum number of neighbors to consider.
+
+    #     Returns:
+    #         List[Tensor]: List of neighbor indices for each point.
+    #     """
+    #     dist_matrix = torch.cdist(self.points_xyz, self.points_xyz)
+    #     neighbors_list = []
+
+    #     for i in range(len(self.points_xyz)):
+    #         neighbors = (dist_matrix[i] <= radius).nonzero(as_tuple=True)[0]
+    #         if len(neighbors) > max_neighbors:
+    #             neighbors = neighbors[:max_neighbors]
+    #         neighbors_list.append(neighbors)
+    #     return neighbors_list
+    
+
+    def adaptive_radius(self, 
+                    base_radius=0.05, 
+                    min_pts=20, 
+                    scale=1.5, 
+                    adaptive_r_max=0.3, 
+                    debug=True, 
+                    n_debug_samples=5,
+                    visualize=True):
+        """
+        Estimate adaptive neighborhood radius per point based on local density.
+
+        Parameters:
+        -----------
+        base_radius : float
+            Minimum allowable radius (fallback for sparse regions).
+        min_pts : int
+            Minimum number of neighbors to define local density.
+        scale : float
+            Multiplier for the adaptive radius.
+        adaptive_r_max : float
+            Maximum allowable adaptive radius.
+        debug : bool
+            If True, logs radius info for a few random points.
+        n_debug_samples : int
+            Number of points to log in debug mode (default 5).
+        visualize : bool
+            If True, plots a histogram of adaptive radii (log scale).
 
         Returns:
-            List[Tensor]: List of neighbor indices for each point.
+        --------
+        neighbors_list : List[Tensor]
+            List of neighbor indices for each point.
+        adaptive_radii : List[float]
+            List of adaptive radii used for each point.
         """
         dist_matrix = torch.cdist(self.points_xyz, self.points_xyz)
         neighbors_list = []
+        adaptive_radii = []
 
-        for i in range(len(self.points_xyz)):
-            neighbors = (dist_matrix[i] <= radius).nonzero(as_tuple=True)[0]
-            if len(neighbors) > max_neighbors:
-                neighbors = neighbors[:max_neighbors]
+        num_points = self.points_xyz.shape[0]
+        sample_indices = random.sample(range(num_points), min(n_debug_samples, num_points)) if debug else []
+
+        for i in range(num_points):
+            dists = dist_matrix[i]
+            sorted_dists, _ = torch.sort(dists)
+
+            # Compute adaptive radius and clamp
+            raw_adaptive_r = sorted_dists[min_pts] * scale
+            adaptive_r = torch.clamp(raw_adaptive_r, min=base_radius, max=adaptive_r_max)
+
+            neighbors = (dists <= adaptive_r).nonzero(as_tuple=True)[0]
             neighbors_list.append(neighbors)
-        return neighbors_list
+            adaptive_radii.append(adaptive_r.item())
+
+            if i in sample_indices:
+                print(f"[Debug] Point {i}: raw={raw_adaptive_r.item():.4f}, clamped={adaptive_r.item():.4f}, neighbors={len(neighbors)}")
+
+        if visualize:
+            plt.figure(figsize=(6, 4))
+            plt.hist(adaptive_radii, bins=50, color='skyblue', edgecolor='gray')
+            plt.yscale('log')
+            plt.xlabel("Clamped Adaptive Radius (m)")
+            plt.ylabel("Log-scaled Count")
+            plt.title("Distribution of Adaptive Radii (Log Y-scale)")
+            plt.tight_layout()
+            plt.show()
+
+        return neighbors_list, adaptive_radii
 
     def pad_neighbors(self, neighbors_list: List[Tensor], max_neighbors: int) -> Tuple[Tensor, Tensor]:
         """Ensure that each point has the same number of 
@@ -94,14 +193,18 @@ class CalcCurvatureRoughness:
         Returns:
             Tuple[Tensor, Tensor, Tuple[Tensor, Tensor]]: Eigenvalues, eigenvectors, and centered neighbors.
         """
-        neighbors_list = self.batch_neighborhood_search(nn_radius, max_neighbors)
+        # neighbors_list = self.batch_neighborhood_search(nn_radius, max_neighbors)
+        # Use adaptive radius for neighborhood search
+        neighbors_list, _ = self.adaptive_radius(base_radius=nn_radius, visualize=False, debug=False, n_debug_samples=0)
         padded_neighbors, mask = self.pad_neighbors(neighbors_list, max_neighbors)
+        
         
         centroids = padded_neighbors.sum(dim=1) / mask.sum(dim=1, keepdim=True)
         centered_neighbors = padded_neighbors - centroids.unsqueeze(1)
         covariances = torch.matmul(centered_neighbors.transpose(1, 2), centered_neighbors * mask.unsqueeze(2)) / (mask.sum(dim=1) - 1).view(-1, 1, 1)
         eigenvalues, eigenvectors = torch.linalg.eigh(covariances)
         
+        clear_memory(neighbors_list, padded_neighbors, centroids, covariances)
         return eigenvalues, eigenvectors, (centered_neighbors, mask)
 
     def estimate_curvature_roughness_batched(self, neighbor_radius: float = 0.05, max_neighbors: int = 10) -> Tuple[np.ndarray, np.ndarray]:
@@ -125,6 +228,8 @@ class CalcCurvatureRoughness:
 
         # Planularity estimation (optional, can be added if needed)
         # planarity = (curv_eigenval[:, 1] - curv_eigenval[:, 2]) / curv_eigenval[:, 0]
+
+        
 
         return curvatures.cpu().numpy(), roughness.cpu().numpy()
 
@@ -154,7 +259,35 @@ class CalcCurvatureRoughness:
         return all_points_xyz, all_curvatures, all_roughness
 
 
-def process_point_cloud_curvature_roughness(params: Dict[str, Any], output_dir) -> pd.DataFrame:
+def infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch: int = 10_000) -> Tuple[int, int]:
+    """Infer the number of azimuth and elevation batches based on the point cloud size, azimuth, and elevation ranges.
+    First, calculate the range of azimuth and elevation angles in the point cloud.
+    Second, calculate the number of batches needed for azimuth and elevation based on the ratio of their ranges.
+
+    Args:
+        points_df (pd.DataFrame): DataFrame containing point cloud data.
+        pts_num_per_batch (int, optional): Number of points per batch. Defaults to 10_000.
+
+    Returns:
+        Tuple[int, int]: Number of azimuth (x) and elevation batches (y).
+    """
+    azimuth_range = points_df['azimuth'].max() - points_df['azimuth'].min()
+    elevation_range = points_df['elevation'].max() - points_df['elevation'].min()
+    
+    total_points = points_df.shape[0]
+    x2y_ratio = azimuth_range / elevation_range if elevation_range != 0 else 1.0
+    total_batches = int(np.ceil(total_points / pts_num_per_batch))
+    # Calculate the number of batches for azimuth and elevation based on the ratio
+    batch_num_x = int(np.ceil(np.sqrt(total_batches * x2y_ratio)))
+    batch_num_y = int(np.ceil(total_batches / batch_num_x))
+
+    print(f"Total points: {total_points}, Azimuth range: {azimuth_range}, Elevation range: {elevation_range}")
+    print(f"Total batches: {batch_num_x*batch_num_y}, Batch num azimuth: {batch_num_x}, Batch num elevation: {batch_num_y}")
+
+    return batch_num_x, batch_num_y
+
+
+def generate_geom_feat_from_pcd(params: Dict[str, Any], output_dir) -> pd.DataFrame:
     """Process the point cloud, estimate curvature and roughness, and combine results.
 
     Args:
@@ -165,24 +298,23 @@ def process_point_cloud_curvature_roughness(params: Dict[str, Any], output_dir) 
     input_path = Path(output_dir / 'pcd' / f"{input_file_stem}_filtered_normaled.txt")
     neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for both curvature and roughness
     max_neighbors = params["max_neighbors"]
-    batch_num_elevation = params.get("batch_num_elevation", 2)
-    batch_num_azimuth = params.get("batch_num_azimuth", 2)
+    pts_num_per_batch = params.get("pts_num_per_batch", 10_000)
     histogram_saveflag = params.get("histogram_saveflag", True)
     visualize = params.get("interactive_visualize", True)
     export = params.get("export", True)
     delete_intermediate_file = params.get("delete_intermediate_file", False)
 
-    # Load the point cloud dataframe
     points_df = pd.read_csv(input_path, sep=',')
     print(f"The point cloud dataframe shape: {points_df.shape}")
+    batch_num_x, batch_num_y = infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch)
 
     # Calculate curvature and roughness
     num_points = points_df.shape[0]
     calc_curv_rough = CalcCurvatureRoughness(device='cuda')
     if num_points > 30_000:
         print("*********Large dataset detected. Processing in batches...*********")
-        df_grouped = points_df.groupby([pd.cut(points_df['azimuth'], batch_num_azimuth), 
-                                        pd.cut(points_df['elevation'], batch_num_elevation)], 
+        df_grouped = points_df.groupby([pd.cut(points_df['azimuth'], batch_num_x), 
+                                        pd.cut(points_df['elevation'], batch_num_y)], 
                                         observed=False,
                                         sort=False)
         dfs = [group for _, group in df_grouped]
@@ -238,15 +370,15 @@ def main() -> None:
     profiler = MemoryProfiler()
     with profiler.cpu_memory_monitoring() as peak_memory:
         with profiler.gpu_memory_monitoring():
-            print("-----------Calculating curvature and roughness...----------")
+            print("-----------Calculating geometric features such as curvature, roughness...----------")
             print("Configuration:")
             global_params = CONFIG["global"]
-            current_file_params = CONFIG["calc_curvature_roughness"]
+            current_file_params = CONFIG["calc_geom_feature"]
             output_dir_ls = global_params["output_dir_ls"]
             for output_dir in output_dir_ls:
                 input_path_stem = output_dir.parent.name 
                 print(f'#######Processing {input_path_stem}...########')
-                process_point_cloud_curvature_roughness(current_file_params, output_dir)
+                generate_geom_feat_from_pcd(current_file_params, output_dir)
     
     # Monitor memory usage and elapsed time
     elapsed_time = time.time() - start_time

@@ -18,15 +18,15 @@
         "flip_mangrove": true,
         "radius": 0.05
     },
-    "calc_curvature_roughness": {
-        "batch_num_elevation": 5,
-        "batch_num_azimuth": 6,
-        "neighbor_radius": 0.10,
-        "max_neighbors": 200,
-        "histogram_saveflag": false,
+    "calc_geom_feature": {
+        "pts_num_per_batch": 50000,
+        "batch_buffer_pix": 10,
+        "neighbor_radius": 0.05,
+        "max_neighbors": 2000,
+        "histogram_saveflag": true,
         "interactive_visualize": false,
         "export": true,
-        "delete_intermediate_file": true
+        "delete_intermediate_file": false
     },
     "spherical_projection": {
         "visualize" : false,

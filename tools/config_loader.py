@@ -22,7 +22,7 @@ def get_color_map(input_base_dir):
 
     return color_map
 
-def load_config_mangrove(config):
+def load_config_mangrove(config, selected_scans = [1,30]):
     """Load the JSON config and dynamically generate paths."""
 
     global_params = config["global"]
@@ -34,11 +34,12 @@ def load_config_mangrove(config):
 
     output_root_dir  = output_base_dir / input_folder_parent / input_folder
     create_dir_if_not_exists(output_root_dir, ask_user=False)
-    output_sub_folder = [p for p in output_root_dir.iterdir() if p.is_dir() and p.name != "forest"]
-    output_sub_folder.sort()
-    output_sub_folder_names = [p.name for p in output_sub_folder]
+    output_sub_folders = [p for p in output_root_dir.iterdir() if p.is_dir() and p.name != "forest"]
+    output_sub_folders.sort()
+    output_sub_folders = output_sub_folders[selected_scans[0]:selected_scans[1]]
+    output_sub_folder_names = [p.name for p in output_sub_folders]
     print(f"🔹 Found output sub-folders: {output_sub_folder_names}")
-    output_dir_ls = [p / "outputs" for p in output_sub_folder]
+    output_dir_ls = [p / "outputs" for p in output_sub_folders]
     
     input_path_ls = []
     for output_sub_folder_name in output_sub_folder_names:
@@ -101,19 +102,6 @@ def load_config_semantic3d(config, selected_scans = [1,30]):
     output_base_dir = Path(global_params["output_base_dir"])
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params["input_suffix"]
-
-    # input_paths = sorted(list(input_base_dir.glob(f"*{input_suffix}")))
-    # if not input_paths:
-    #     raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
-    # output_dir_ls = []
-    # input_path_ls = []
-    # for input_path in input_paths[selected_scans[0]:selected_scans[1]]:
-    #     if not input_path.exists():
-    #         raise FileNotFoundError(f"❗ Input file {input_path} does not exist.")
-    #     input_path_ls.append(input_path)
-    #     output_dir = output_base_dir / input_path.stem
-    #     create_dir_if_not_exists(output_dir, ask_user=False)
-    #     output_dir_ls.append(output_dir)
     input_folders = list(input_base_dir.iterdir())
     input_folders = [p for p in input_folders if p.is_dir()]
     input_folders.sort()
@@ -143,7 +131,7 @@ with open(config_path, "r") as f:
     config = json.load(f)
 
 # CONFIG = load_config_inlut3d(config, selected_scans=[122, 321])
-CONFIG = load_config_mangrove(config)
+CONFIG = load_config_mangrove(config, selected_scans=[0, 1])
 # CONFIG = load_config_semantic3d(config, selected_scans=[0, 1])
 pprint("🔹 Loaded configuration:"
        f"\n{CONFIG}")

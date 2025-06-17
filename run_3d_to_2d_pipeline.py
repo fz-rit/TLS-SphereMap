@@ -2,7 +2,7 @@ import subprocess
 
 scripts = [
         # "processing.calc_pt_cloud_normal", 
-        # "processing.calc_curvature_roughness", # To be revised for calculating eigen-based scalar fields like curvature, roughness, and so on.
+        "processing.calc_geom_feature", # To be revised for calculating eigen-based scalar fields like curvature, roughness, and so on.
         "processing.spherical_projection",
         # "processing.spherical_back_projection",
         # "data_annotation.seg_map_tools.convert_color_to_mask", # Only if 2D segmentation map (color) is available.
