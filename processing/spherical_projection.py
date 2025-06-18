@@ -2,9 +2,6 @@
 import pandas as pd
 import numpy as np
 from tools.hdr_adjustments import contrast_enhancement
-import matplotlib.pyplot as plt
-from skimage import io
-from matplotlib.colors import ListedColormap, BoundaryNorm
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from typing import Union, List, Dict, Any
 from pathlib import Path
@@ -17,10 +14,7 @@ from tools.pcd_utils import create_dir_if_not_exists
 import yaml
 from PIL import Image
 
-# Ignore warnings
 pd.options.mode.chained_assignment = None
-
-
 
 def load_and_preprocess_point_cloud(filename: Union[str, Path], 
                                     canvas_size: tuple[int, int],
@@ -136,9 +130,7 @@ def equirectangular_projection_multi(filename: str,
     z_image = np.zeros(canvas_size, dtype=np.float32)
     density_image = np.zeros(canvas_size, dtype=np.float32)
     curvature_image = np.zeros(canvas_size, dtype=np.float32)
-    # roughness_image = np.zeros(canvas_size, dtype=np.float32)
     anisotropy_image = np.zeros(canvas_size, dtype=np.float32)
-    # surface_variation_image = np.zeros(canvas_size, dtype=np.float32)
     planarity_image = np.zeros(canvas_size, dtype=np.float32)
     # Use vectorized assignment to map the computed values to the image arrays
     y_indices = grouped.index.get_level_values(0)
@@ -168,18 +160,11 @@ def equirectangular_projection_multi(filename: str,
                     'Intensity (adjusted)',
                     'Z-Inv (adjusted)',
                     'Range (adjusted)',
-                    # 'Curvature (adjusted)',
-                    # 'Roughness (adjusted)',
-                    # 'Anisotropy (adjusted)',
-                    # 'Surface Variation (adjusted)',
-                    # 'Planarity (adjusted)',
                     'Intensity (raw)',
                     'Z (raw)',
                     'Range (raw)',
                     'Curvature',
-                    # 'Roughness (raw)',
                     'Anisotropy',
-                    # 'Surface Variation (raw)',
                     'Planarity',
                     ]
 
@@ -187,18 +172,11 @@ def equirectangular_projection_multi(filename: str,
                      intensity_image_adjusted,
                      z_image_adjusted,
                      range_image_adjusted,
-                    #  curvature_image_adjusted,
-                    #  roughness_image_adjusted,
-                    #  anisotropy_image_adjusted,
-                    #  surface_variation_image_adjusted,
-                    #  planarity_image_adjusted,
                      intensity_image,
                      z_image,
                      range_image,
                      curvature_image,
-                    #  roughness_image,
                      anisotropy_image,
-                    #  surface_variation_image,
                      planarity_image,
                      ]
 
@@ -281,7 +259,6 @@ def save_image_cube_and_meta(
     - normals_rgb_image: A numpy array representing the RGB image of normal vectors.
     - output_dir: The directory where the output files will be saved.
     - key_str: A string to be included in the filenames for the saved files.
-    - input_folder: Another string that will be included in the metadata.
 
     Returns:
     - None
@@ -539,13 +516,7 @@ def generate_2D_projection_images(output_dir: Path,
             'Z (raw)',
             'Range (raw)', 
             'Curvature',
-            # 'Roughness (adjusted)',
-            # 'Roughness (raw)',
-            # 'Anisotropy (adjusted)',
             'Anisotropy',
-            # 'Surface Variation (adjusted)',
-            # 'Surface Variation (raw)',
-            # 'Planarity (adjusted)',
             'Planarity',
             ]
     
