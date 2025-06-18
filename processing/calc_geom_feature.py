@@ -381,8 +381,10 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -
     # Clean-up NaNs and assign defaults
     for feat_name in geom_feat_names:
         valid = result_df[feat_name].notna()
-        min_val = result_df.loc[valid, feat_name].min() if valid.any() else 0
+        min_val = result_df.loc[valid, feat_name].min() + (1e-4 if feat_name == 'curvature' else 0)
         result_df.loc[~valid, feat_name] = max(min_val, 0)
+        if feat_name == 'curvature':
+            result_df.loc[result_df[feat_name] < 0, feat_name] = min_val
 
     if histogram_saveflag:
         for feat_name in geom_feat_names:

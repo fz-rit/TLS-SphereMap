@@ -9,7 +9,7 @@ from tools.preprocess_point_cloud import map_angle_to_pixel
 from typing import Union, List, Dict, Any
 from pathlib import Path
 from tools.plot_tools import plot_correlation_matrix, plot_pca_components, plot_rgb_permutations
-from tools.pca_helper import compute_band_correlation, compute_pca_components, compute_mnf, compute_ica
+from tools.pca_helper import compute_band_correlation, compute_pca_components, compute_mnf, compute_ica, z_score_standardize
 from tools.plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values, histogram_to_ascii
 from tools.norm_to_hsv import attach_normal_color_to_df
 from tools.config_loader import CONFIG
@@ -159,11 +159,10 @@ def equirectangular_projection_multi(filename: str,
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
-    # curvature_image_adjusted = contrast_enhancement(curvature_image, stretch_percentile=0.1)
-    # roughness_image_adjusted = contrast_enhancement(roughness_image, stretch_percentile=0.1)
-    # anisotropy_image_adjusted = contrast_enhancement(anisotropy_image, stretch_percentile=0.1)
-    # surface_variation_image_adjusted = contrast_enhancement(surface_variation_image, stretch_percentile=0.1)
-    # planarity_image_adjusted = contrast_enhancement(planarity_image, stretch_percentile=0.1)
+    # Normalize geometric feature map to [0.0, 1.0]
+    curvature_image = (curvature_image - curvature_image.min()) / (curvature_image.max() - curvature_image.min() + 1e-8)
+    anisotropy_image = (anisotropy_image - anisotropy_image.min()) / (anisotropy_image.max() - anisotropy_image.min() + 1e-8)
+    planarity_image = (planarity_image - planarity_image.min()) / (planarity_image.max() - planarity_image.min() + 1e-8)
 
     image_names = ['Density',
                     'Intensity (adjusted)',
@@ -318,12 +317,14 @@ def save_image_cube_and_meta(
     raw_maps = np.stack(collected_maps[:3], axis=-1) # shape: (H, W, 3)
     
     adjusted_maps = np.stack(collected_maps[3:], axis=-1) # shape: (H, W, N)
-    pca_input_cube = np.concatenate([adjusted_maps, normals_rgb_image], axis=-1) # shape: (H, W, 6)
+    pca_input_cube = np.concatenate([adjusted_maps, normals_rgb_image], axis=-1) # shape: (H, W, N+3)
+    # Normalize the each channel of pca_input_cube to (0.0, 1.0)
+    pca_input_cube_standardized = z_score_standardize(pca_input_cube)
 
-    pcs, _ = compute_pca_components(pca_input_cube, n_components=3) # shape: (H, W, 3)
-    mnf_components = compute_mnf(pca_input_cube, n_components=3)
-    ica_components = compute_ica(pca_input_cube, n_components=3)
-    extended_image_cube = np.concatenate([raw_maps, pca_input_cube, pcs, mnf_components, ica_components], axis=-1) # shape: (H, W, 18)
+    pcs, _ = compute_pca_components(pca_input_cube_standardized, n_components=3) # shape: (H, W, 3)
+    mnf_components = compute_mnf(pca_input_cube_standardized, n_components=3)
+    ica_components = compute_ica(pca_input_cube_standardized, n_components=3)
+    extended_image_cube = np.concatenate([raw_maps, pca_input_cube_standardized, pcs, mnf_components, ica_components], axis=-1) # shape: (H, W, 18)
 
     if 'True-RGB' in output_images_dict:
         save_titles = ['True-R', 'True-G', 'True-B'] + save_titles
@@ -398,21 +399,6 @@ def load_image_cube_and_meta(image_cube_path: Path) -> Dict[str, Any]:
 
     Returns:
     - A dictionary containing the image cube and metadata.
-
-    # # Example usage of the load_image_cube_and_meta function
-    # # Define file paths
-    # image_cube_path = output_dir / f'{input_file_stem}_image_cube.npy'
-
-    # # Load the image cube and metadata
-    # data = load_image_cube_and_meta(image_cube_path)
-
-    # # Access the image cube and metadata separately
-    # image_cube = data['image_cube']
-    # metadata = data['metadata']
-
-    # # Example: print out the shape of the image cube and titles from the metadata
-    # print(f"Image Cube Shape: {image_cube.shape}")
-    # print("Metadata Titles: ", metadata['titles'])
     """
     
     # Load the image cube (8-channel data)
@@ -650,7 +636,6 @@ def generate_2D_projection_images(output_dir: Path,
             feat_strs = ['Intensity', 'Z-Inv', 'Range', 'Curvature', 'Anisotropy', 'Planarity']
             feature_maps = [output_images_dict[key + ' (adjusted)'] for key in feat_strs[:3]] + \
                             [output_images_dict[key] for key in feat_strs[3:]]
-            # shuffle_orders = [[0, 1, 2], [2, 1, 0], [3, 4, 5], [5, 4, 3]]
             # Create shuffle orders for the feature maps using permutations and randomly select 3 out of 6 features
             from itertools import permutations
             from random import sample
@@ -671,9 +656,9 @@ def generate_2D_projection_images(output_dir: Path,
         
         if show_pca:
             # Display PCA, MNF, and ICA components
-            pcs = image_cube[:, :, 9:12]
-            mnf_components = image_cube[:, :, 12:15]
-            ica_components = image_cube[:, :, 15:18]
+            pcs = image_cube[:, :, -9:-6]
+            mnf_components = image_cube[:, :, -6:-3]
+            ica_components = image_cube[:, :, -3:]
             for components, name in zip([pcs, mnf_components, ica_components], ['PCA', 'MNF', 'ICA']):
                 out_file = f"{output_stem}_{name}"
                 plot_pca_components(components, img_out_dir, output_stem=out_file)
