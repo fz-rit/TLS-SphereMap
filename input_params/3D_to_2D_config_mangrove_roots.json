@@ -11,19 +11,15 @@
         "h_ang_res_deg": 0.25,
         "v_ang_res_deg": 0.25
     },
-    "calc_pt_cloud_normal": {
+    "calc_geom_feature": {
         "cut_percent": 0.005,
         "clean_pc": true,
-        "visualize": false,
         "flip_mangrove": true,
-        "radius": 0.05
-    },
-    "calc_geom_feature": {
         "pts_num_per_batch": 50000,
-        "batch_buffer_pix": 10,
-        "neighbor_radius": 0.05,
+        "buffer_pts": 60,
+        "base_radius": 0.02,
         "max_neighbors": 2000,
-        "histogram_saveflag": true,
+        "histogram_saveflag": false,
         "interactive_visualize": false,
         "export": true,
         "delete_intermediate_file": false

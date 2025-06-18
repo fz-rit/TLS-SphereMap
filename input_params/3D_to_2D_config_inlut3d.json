@@ -9,22 +9,18 @@
         "h_ang_res_deg": 0.17578125,
         "v_ang_res_deg": 0.2929
     },
-    "calc_pt_cloud_normal": {
-        "clean_pc": false,
+    "calc_geom_feature": {
         "cut_percent": 0.005,
-        "visualize": false,
-        "flip_mangrove": false,
-        "radius": 0.05
-    },
-    "calc_curvature_roughness": {
-        "batch_num_elevation": 5,
-        "batch_num_azimuth": 6,
-        "neighbor_radius": 0.10,
-        "max_neighbors": 200,
-        "histogram_saveflag": false,
-        "interactive_visualize": false,
+        "clean_pc": false,
+        "flip_mangrove": true,
+        "pts_num_per_batch": 50000,
+        "buffer_pts": 60,
+        "base_radius": 0.02,
+        "max_neighbors": 2000,
+        "histogram_saveflag": true,
+        "interactive_visualize": true,
         "export": true,
-        "delete_intermediate_file": true
+        "delete_intermediate_file": false
     },
     "spherical_projection": {
         "visualize" : false,

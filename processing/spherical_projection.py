@@ -1,6 +1,3 @@
-# import os
-# import sys
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
 import numpy as np
@@ -104,7 +101,10 @@ def equirectangular_projection_multi(filename: str,
             Z=('Z', 'min'),
             rangemeter=('rangemeter', 'mean'),
             curvature=('curvature', 'mean'),
-            roughness=('roughness', 'mean'),
+            # roughness=('roughness', 'mean'),
+            anisotropy=('anisotropy', 'mean'),
+            # surface_variation=('surface_variation', 'mean'),
+            planarity=('planarity', 'mean'),
             r=('r', 'mean'),  # Add r, g, b to the aggregation
             g=('g', 'mean'),
             b=('b', 'mean'),
@@ -122,7 +122,10 @@ def equirectangular_projection_multi(filename: str,
             Z=('Z', 'min'),
             rangemeter=('rangemeter', 'mean'),
             curvature=('curvature', 'mean'),
-            roughness=('roughness', 'mean'),
+            # roughness=('roughness', 'mean'),
+            anisotropy=('anisotropy', 'mean'),
+            # surface_variation=('surface_variation', 'mean'),
+            planarity=('planarity', 'mean'),
             pts_per_pixel=('y_pix', 'size')  # Use any column to count points per pixel
         )
     else:
@@ -133,7 +136,10 @@ def equirectangular_projection_multi(filename: str,
     z_image = np.zeros(canvas_size, dtype=np.float32)
     density_image = np.zeros(canvas_size, dtype=np.float32)
     curvature_image = np.zeros(canvas_size, dtype=np.float32)
-    roughness_image = np.zeros(canvas_size, dtype=np.float32)
+    # roughness_image = np.zeros(canvas_size, dtype=np.float32)
+    anisotropy_image = np.zeros(canvas_size, dtype=np.float32)
+    # surface_variation_image = np.zeros(canvas_size, dtype=np.float32)
+    planarity_image = np.zeros(canvas_size, dtype=np.float32)
     # Use vectorized assignment to map the computed values to the image arrays
     y_indices = grouped.index.get_level_values(0)
     x_indices = grouped.index.get_level_values(1)
@@ -143,40 +149,58 @@ def equirectangular_projection_multi(filename: str,
     range_image[y_indices, x_indices] = grouped['rangemeter'].values
     density_image[y_indices, x_indices] = grouped['pts_per_pixel'].values
     curvature_image[y_indices, x_indices] = grouped['curvature'].values
-    roughness_image[y_indices, x_indices] = grouped['roughness'].values
+    # roughness_image[y_indices, x_indices] = grouped['roughness'].values
+    anisotropy_image[y_indices, x_indices] = grouped['anisotropy'].values
+    # surface_variation_image[y_indices, x_indices] = grouped['surface_variation'].values
+    planarity_image[y_indices, x_indices] = grouped['planarity'].values
 
 
     # Apply HDR adjustment to intensity and range images
     intensity_image_adjusted = contrast_enhancement(intensity_image, stretch_percentile=0.1)
     z_image_adjusted = contrast_enhancement(z_image, stretch_percentile=0)
     range_image_adjusted = contrast_enhancement(range_image, stretch_percentile=0)
-    curvature_image_adjusted = contrast_enhancement(curvature_image, stretch_percentile=0.1)
-    roughness_image_adjusted = contrast_enhancement(roughness_image, stretch_percentile=0.1)
+    # curvature_image_adjusted = contrast_enhancement(curvature_image, stretch_percentile=0.1)
+    # roughness_image_adjusted = contrast_enhancement(roughness_image, stretch_percentile=0.1)
+    # anisotropy_image_adjusted = contrast_enhancement(anisotropy_image, stretch_percentile=0.1)
+    # surface_variation_image_adjusted = contrast_enhancement(surface_variation_image, stretch_percentile=0.1)
+    # planarity_image_adjusted = contrast_enhancement(planarity_image, stretch_percentile=0.1)
 
-    image_names = ['Density Map',
-                    'Intensity Map (adjusted)',
-                    'Z-Inv Map (adjusted)',
-                    'Range Map (adjusted)',
-                    'Curvature Map (adjusted)',
-                    'Roughness Map (adjusted)',
-                    'Intensity Map (raw)',
-                    'Z Map (raw)',
-                    'Range Map (raw)',
-                    'Curvature Map (raw)',
-                    'Roughness Map (raw)',
+    image_names = ['Density',
+                    'Intensity (adjusted)',
+                    'Z-Inv (adjusted)',
+                    'Range (adjusted)',
+                    # 'Curvature (adjusted)',
+                    # 'Roughness (adjusted)',
+                    # 'Anisotropy (adjusted)',
+                    # 'Surface Variation (adjusted)',
+                    # 'Planarity (adjusted)',
+                    'Intensity (raw)',
+                    'Z (raw)',
+                    'Range (raw)',
+                    'Curvature',
+                    # 'Roughness (raw)',
+                    'Anisotropy',
+                    # 'Surface Variation (raw)',
+                    'Planarity',
                     ]
 
     output_images = [density_image,
                      intensity_image_adjusted,
                      z_image_adjusted,
                      range_image_adjusted,
-                     curvature_image_adjusted,
-                     roughness_image_adjusted,
+                    #  curvature_image_adjusted,
+                    #  roughness_image_adjusted,
+                    #  anisotropy_image_adjusted,
+                    #  surface_variation_image_adjusted,
+                    #  planarity_image_adjusted,
                      intensity_image,
                      z_image,
                      range_image,
                      curvature_image,
-                     roughness_image,
+                    #  roughness_image,
+                     anisotropy_image,
+                    #  surface_variation_image,
+                     planarity_image,
                      ]
 
     output_images_dict = {image_name: image for image_name, image in zip(image_names, output_images)}
@@ -266,12 +290,15 @@ def save_image_cube_and_meta(
 
     # Titles for the image channels
     save_titles = [
-        'Intensity Map (raw)', 
-        'Z Map (raw)',
-        'Range Map (raw)', 
-        'Intensity Map (adjusted)',
-        'Z-Inv Map (adjusted)',
-        'Range Map (adjusted)'
+        'Intensity (raw)', 
+        'Z (raw)',
+        'Range (raw)', 
+        'Intensity (adjusted)',
+        'Z-Inv (adjusted)',
+        'Range (adjusted)',
+        'Curvature',
+        'Anisotropy',
+        'Planarity',
     ]
 
     
@@ -290,7 +317,7 @@ def save_image_cube_and_meta(
 
     raw_maps = np.stack(collected_maps[:3], axis=-1) # shape: (H, W, 3)
     
-    adjusted_maps = np.stack(collected_maps[3:], axis=-1) # shape: (H, W, 3)
+    adjusted_maps = np.stack(collected_maps[3:], axis=-1) # shape: (H, W, N)
     pca_input_cube = np.concatenate([adjusted_maps, normals_rgb_image], axis=-1) # shape: (H, W, 6)
 
     pcs, _ = compute_pca_components(pca_input_cube, n_components=3) # shape: (H, W, 3)
@@ -515,20 +542,25 @@ def generate_2D_projection_images(output_dir: Path,
     img_out_dir = output_dir / 'img'
     
     create_dir_if_not_exists(img_out_dir, ask_user=False)
-    filename = next(pcd_dir.glob("*_ncr_0.05*"), None)
+    filename = next(pcd_dir.glob("*_ncr_0.02*"), None)
     if filename is None:
         raise FileNotFoundError("No file containing '_filtered_' found in output_dir.")
 
-    titles = ['Intensity Map (adjusted)', 
-            'Z-Inv Map (adjusted)',
-            'Range Map (adjusted)', 
-            'Intensity Map (raw)', 
-            'Z Map (raw)',
-            'Range Map (raw)', 
-            'Curvature Map (adjusted)',
-            'Curvature Map (raw)',
-            'Roughness Map (adjusted)',
-            'Roughness Map (raw)',
+    titles = ['Intensity (adjusted)', 
+            'Z-Inv (adjusted)',
+            'Range (adjusted)', 
+            'Intensity (raw)', 
+            'Z (raw)',
+            'Range (raw)', 
+            'Curvature',
+            # 'Roughness (adjusted)',
+            # 'Roughness (raw)',
+            # 'Anisotropy (adjusted)',
+            'Anisotropy',
+            # 'Surface Variation (adjusted)',
+            # 'Surface Variation (raw)',
+            # 'Planarity (adjusted)',
+            'Planarity',
             ]
     
     key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
@@ -541,8 +573,12 @@ def generate_2D_projection_images(output_dir: Path,
                             )
     # Plot confusion matrix of the pca_cube
     output_stem = f'{key_str}_image_cube'
-    corr_matrix = compute_band_correlation(image_cube[:, :, 3:9])
-    band_names = ['Intensity', 'Z Map Inverse', 'Range', 'Rn', 'Gn', 'Bn']
+    band_names = ['Intensity', 'Z-Inv', 'Range', 'Curvature', 'Anisotropy', 'Planarity']
+    band_keys = [name + ' (adjusted)' for name in band_names[:3]] + ['Curvature', 'Anisotropy', 'Planarity']
+    corr_matrix_input = np.stack([output_images_dict[name] for name in band_keys], axis=-1)
+    corr_matrix_input = np.concatenate([corr_matrix_input, normals_rgb_image], axis=-1)
+    corr_matrix = compute_band_correlation(corr_matrix_input)
+    band_names += ['Pseudo-Rn', 'Pseudo-Gn', 'Pseudo-Bn']
     plot_correlation_matrix(corr_matrix, band_names = band_names, output_dir=img_out_dir, output_stem=output_stem)
 
     if dataset_name == 'SEMANTIC3D' and "True-RGB" in output_images_dict:
@@ -578,7 +614,7 @@ def generate_2D_projection_images(output_dir: Path,
                                                 )
 
     if extra_maps:
-        density_image = output_images_dict['Density Map']
+        density_image = output_images_dict['Density']
         display_single_band_img_wt_discrete_values(density_image, 
                                                 title='Point Density Map', 
                                                 cb_label='Point Density',
@@ -611,9 +647,17 @@ def generate_2D_projection_images(output_dir: Path,
                                         h_fov = h_fov
                                         )
             # Create pseudo-RGB images from various combinations of intensity, range, and Z-Inv.
-            feat_strs = ['Intensity', 'Z-Inv', 'Range']
-            feature_maps = [output_images_dict[key + ' Map (adjusted)'] for key in feat_strs]
-            shuffle_orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+            feat_strs = ['Intensity', 'Z-Inv', 'Range', 'Curvature', 'Anisotropy', 'Planarity']
+            feature_maps = [output_images_dict[key + ' (adjusted)'] for key in feat_strs[:3]] + \
+                            [output_images_dict[key] for key in feat_strs[3:]]
+            # shuffle_orders = [[0, 1, 2], [2, 1, 0], [3, 4, 5], [5, 4, 3]]
+            # Create shuffle orders for the feature maps using permutations and randomly select 3 out of 6 features
+            from itertools import permutations
+            from random import sample
+            from random import seed
+            seed(617)  # For reproducibility
+            shuffle_orders = list(permutations(range(len(feature_maps)), 3))
+            shuffle_orders = sample(shuffle_orders, min(10, len(shuffle_orders)))
             figure_titles = [f'Pseudo-RGB_{feat_strs[shuffle_order[0]]}-{feat_strs[shuffle_order[1]]}-{feat_strs[shuffle_order[2]]}_{key_str}' for shuffle_order in shuffle_orders]
             for (shuffle_order, figure_title) in zip(shuffle_orders, figure_titles):
                 create_pseudo_rgb_image(feature_maps[shuffle_order[0]], 

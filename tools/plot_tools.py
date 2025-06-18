@@ -1,19 +1,3 @@
-"""
-Contributor: fzhcis@rit.edu
-Version: 1.0
-Last Updated: 04/29/2025
-Description:
-This module contains functions for generating and displaying histograms of image data and input vectors, 
-as well as displaying unwrapped images with titles and colorbars.
-Functions:
-----------
-- get_image_histogram(image_data: np.ndarray, output_dir: Path, title: str = '', saveflag: bool = False) -> None:
-- get_histogram(input_vec: np.ndarray, output_dir: Path, title: str = '', saveflag: bool = False) -> None:
-    Generate and display a histogram of values in the input vector data.
-- display_unwrapped_images(subplot_images: tuple[np.ndarray], titles: tuple[str], output_dir: Path, 
-    colormap: str = 'plasma', saveflag: bool = False) -> None:
-    Display images with titles and colorbars.
-"""
 
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -23,6 +7,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm, Normalize
 from matplotlib.colorbar import ColorbarBase
 import seaborn as sns
 from PIL import Image
+import pandas as pd
 
 plt.rcParams.update({
     'font.size': 12,         # base font size
@@ -497,44 +482,6 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
         plt.show()
 
 
-def plot_correlation_matrix(corr_matrix, 
-                            band_names=None, 
-                            title="Correlation Matrix of Feature Maps",
-                            output_dir:Path=None, 
-                            output_stem=None):
-    """
-    Plots the correlation matrix as a heatmap.
-
-    Parameters:
-    -----------
-    corr_matrix : np.ndarray
-        A (C, C) correlation matrix.
-
-    band_names : list of str, optional
-        A list of names for the spectral bands (length C). If None, band indices will be used.
-
-    title : str
-        Title of the heatmap.
-    """
-    C = corr_matrix.shape[0]
-    if band_names is None:
-        band_names = [f'Band {i}' for i in range(C)]
-
-    assert len(band_names) == C, f"Length of band names {len(band_names)} must match the number of bands {C}."
-    corr_fig = plt.figure(figsize=(8, 6))
-    sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm",
-                xticklabels=band_names, yticklabels=band_names,
-                square=True, cbar_kws={"shrink": 0.75})
-    plt.title(title)
-    plt.tight_layout()
-
-    if output_dir is None:
-        output_path = Path(f"outputs/correlation_matrix_{output_stem}.png")
-    else:
-        output_path = output_dir / f"correlation_matrix_{output_stem}.png"
-    corr_fig.savefig(output_path)
-    print(f"1️Correlation matrix saved to {output_path}")
-
 
 def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
     """
@@ -619,6 +566,92 @@ def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None
             output_path = output_dir / f"{output_stem}_PCs_permutations.png"
         fig.savefig(output_path)
         print(f"3️Saved RGB permutations plot to {output_path}")
+
+
+        
+def plot_correlation_matrix(corr_matrix, 
+                            band_names=None, 
+                            output_dir: Path = None, 
+                            output_stem: str = None,
+                            dpi: int = 300):
+    """
+    Plots a hybrid-style correlation matrix using Seaborn heatmap + bubble overlay.
+
+    Parameters
+    ----------
+    corr_matrix : np.ndarray or pd.DataFrame
+        Correlation matrix of shape (C, C).
+    band_names : list of str, optional
+        Labels for axes. If None, band indices are used.
+    output_dir : Path, optional
+        Directory to save the figure.
+    output_stem : str, optional
+        File name stem for saving.
+    dpi : int
+        Resolution for saved figure.
+    """
+    corr = corr_matrix if isinstance(corr_matrix, pd.DataFrame) else pd.DataFrame(corr_matrix)
+    C = corr.shape[0]
+    
+    if band_names is None:
+        band_names = [f'Band {i}' for i in range(C)]
+
+    assert len(band_names) == C, f"Length of band names {len(band_names)} must match number of bands {C}."
+
+    # ─────────────────────────────────────────────
+    # Setup
+    fig, ax = plt.subplots(figsize=(5.5, 5.5), dpi=dpi)
+    mask_upper = np.triu(np.ones_like(corr, dtype=bool), k=1)
+    norm = Normalize(vmin=-1, vmax=1)
+    cmap = plt.colormaps["coolwarm"]
+
+    # ─────────────────────────────────────────────
+    # Lower triangle: heatmap with annotations
+    sns.heatmap(corr,
+                mask=mask_upper,
+                cmap=cmap,
+                vmin=-1, vmax=1,
+                annot=True, fmt=".2f",
+                square=True,
+                linewidths=0.5,
+                xticklabels=band_names,
+                yticklabels=band_names,
+                cbar_kws={"shrink": 0.75, "label": "Correlation coefficient"},
+                annot_kws={"size": 7},
+                ax=ax)
+
+    # ─────────────────────────────────────────────
+    # Upper triangle: bubble glyph overlay
+    max_bubble_area = 1200
+    for i in range(C):
+        for j in range(i+1, C):
+            val = corr.iloc[i, j]
+            radius = abs(val)  # perceptual scaling
+            area = max_bubble_area * radius ** 2
+            ax.scatter(j + 0.5, i + 0.5,
+                       s=area,
+                       color=cmap(norm(val)),
+                       edgecolor='white',
+                       linewidth=0.5,
+                       alpha=0.8)
+
+    # ─────────────────────────────────────────────
+    # Aesthetics
+    ax.set_xticklabels(band_names, rotation=45, ha="right", fontsize=9)
+    ax.set_yticklabels(band_names, rotation=0, fontsize=9)
+    ax.tick_params(length=0)
+    plt.tight_layout()
+
+    # ─────────────────────────────────────────────
+    # Save to file
+    if output_stem is None:
+        output_stem = "corr"
+    if output_dir is None:
+        output_dir = Path("outputs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"correlation_matrix_{output_stem}.png"
+    fig.savefig(output_path)
+    print(f"✅ Correlation matrix saved to: {output_path}")
 
 
 def histogram_to_ascii(hist, width=30, style="blocks"):

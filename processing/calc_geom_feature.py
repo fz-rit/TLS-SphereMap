@@ -26,10 +26,12 @@ from pathlib import Path
 from tqdm import tqdm
 from tools.plot_tools import get_vector_histogram
 from typing import List, Tuple, Dict, Any
+from tools.preprocess_point_cloud import read_and_clean_pcd
 from tools.pcd_utils import check_and_clean_for_nans, interactive_visualize_pcd, export_results, MemoryProfiler
 from tools.config_loader import CONFIG # Configuration dictionary read from a .json file
 from tools.pcd_utils import create_dir_if_not_exists
 import matplotlib.pyplot as plt
+from sklearn.neighbors import KDTree
 
 
 import gc
@@ -58,41 +60,20 @@ def clear_memory(*vars_to_delete):
         torch.cuda.empty_cache()  # Clear unused GPU memory
 
 
-class CalcCurvatureRoughness:
+class GeometricFeatureCalculator:
     def __init__(self, device: str = 'cuda'):
         self.device = device
         self.points_xyz = None
 
-    def set_points(self, points_xyz: np.ndarray):
+    def set_points_on_gpu(self, points_xyz: np.ndarray):
         """Set the points_xyz array as a tensor on the GPU."""
         self.points_xyz = torch.tensor(points_xyz, dtype=torch.float32, device=self.device)
-
-    # def batch_neighborhood_search(self, radius: float, max_neighbors: int) -> List[Tensor]:
-    #     """Perform neighborhood search on the GPU in batches.
-
-    #     Args:
-    #         radius (float): Radius for neighborhood search.
-    #         max_neighbors (int): Maximum number of neighbors to consider.
-
-    #     Returns:
-    #         List[Tensor]: List of neighbor indices for each point.
-    #     """
-    #     dist_matrix = torch.cdist(self.points_xyz, self.points_xyz)
-    #     neighbors_list = []
-
-    #     for i in range(len(self.points_xyz)):
-    #         neighbors = (dist_matrix[i] <= radius).nonzero(as_tuple=True)[0]
-    #         if len(neighbors) > max_neighbors:
-    #             neighbors = neighbors[:max_neighbors]
-    #         neighbors_list.append(neighbors)
-    #     return neighbors_list
-    
 
     def adaptive_radius(self, 
                     base_radius=0.05, 
                     min_pts=20, 
                     scale=1.5, 
-                    adaptive_r_max=0.3, 
+                    adaptive_r_max=0.2, 
                     debug=True, 
                     n_debug_samples=5,
                     visualize=True):
@@ -153,7 +134,7 @@ class CalcCurvatureRoughness:
             plt.ylabel("Log-scaled Count")
             plt.title("Distribution of Adaptive Radii (Log Y-scale)")
             plt.tight_layout()
-            plt.show()
+            # plt.show()
 
         return neighbors_list, adaptive_radii
 
@@ -207,56 +188,123 @@ class CalcCurvatureRoughness:
         clear_memory(neighbors_list, padded_neighbors, centroids, covariances)
         return eigenvalues, eigenvectors, (centered_neighbors, mask)
 
-    def estimate_curvature_roughness_batched(self, neighbor_radius: float = 0.05, max_neighbors: int = 10) -> Tuple[np.ndarray, np.ndarray]:
-        """Estimate curvature and roughness for a batch of points_xyz with GPU-based neighborhood search.
+    def estimate_geometric_features_batched(
+                                            self,
+                                            neighbor_radius: float = 0.05,
+                                            max_neighbors: int = 10
+                                        ) -> Dict[str, np.ndarray]:
+        """
+        Estimate curvature, roughness, anisotropy, and surface variation for a batch of points.
 
         Args:
-            neighbor_radius (float, optional): Radius for curvature & roughness estimation. Defaults to 0.05.
-            max_neighbors (int, optional): Maximum number of neighbors to consider. Defaults to 10.
+            neighbor_radius (float, optional): Radius for neighborhood search. Defaults to 0.05.
+            max_neighbors (int, optional): Max number of neighbors to consider. Defaults to 10.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Curvature and roughness arrays.
+            Dict[str, np.ndarray]: A dictionary containing the estimated geometric features.
         """
-        # Curvature estimation
-        curv_eigenval, rough_eigenvec, neighbor_tuple = self.calculate_neighbor_eigens(neighbor_radius, max_neighbors)
-        curvatures = curv_eigenval[:, 0] / curv_eigenval.sum(dim=1)
+        eigenvals, eigenvecs, (centered_neighbors, mask) = self.calculate_neighbor_eigens(
+            neighbor_radius, max_neighbors
+        )
 
-        # Roughness estimation
-        centered_neighbors, mask = neighbor_tuple
-        normal_vectors = rough_eigenvec[:, :, 0]
-        roughness = torch.abs((centered_neighbors * mask.unsqueeze(2)).matmul(normal_vectors.unsqueeze(2)).squeeze()).mean(dim=1)
+        # Sort eigenvalues in ascending order: lambda1 ≤ lambda2 ≤ lambda3
+        lambda1 = eigenvals[:, 0]
+        lambda2 = eigenvals[:, 1]
+        lambda3 = eigenvals[:, 2]
+        lambda_sum = eigenvals.sum(dim=1)
 
-        # Planularity estimation (optional, can be added if needed)
-        # planarity = (curv_eigenval[:, 1] - curv_eigenval[:, 2]) / curv_eigenval[:, 0]
+        # -- Feature 1: Curvature
+        curvature = lambda1 / lambda_sum
 
-        
+        # # -- Feature 2: Roughness (transformed)
+        # normal_vectors = eigenvecs[:, :, 0]  # smallest eigenvalue's eigenvector
+        # dot_prods = (centered_neighbors * mask.unsqueeze(2)).matmul(normal_vectors.unsqueeze(2)).squeeze()
+        # roughness = torch.abs(dot_prods).mean(dim=1)
+        # roughness_trans = torch.sqrt(roughness)  # optional transformation for visualization
 
-        return curvatures.cpu().numpy(), roughness.cpu().numpy()
+        # -- Feature 3: Anisotropy
+        anisotropy = (lambda3 - lambda2) / lambda3.clamp(min=1e-9)
 
-    def process_batches(self, dfs: List[pd.DataFrame], neighbor_radius: float, max_neighbors: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Process point cloud batches to calculate curvature and roughness.
+        # # -- Feature 4: Surface Variation
+        # surface_variation = lambda3 / lambda_sum
 
-        Args:
-            dfs (List[pd.DataFrame]): A list of DataFrame batches.
-            neighbor_radius (float): Radius for curvature & roughness estimation.
-            max_neighbors (int): Maximum number of neighbors to consider.
+        # -- Feature 5: Planarity
+        planarity = (lambda2 - lambda1) / lambda3.clamp(min=1e-9)
 
-        Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, curvature, and roughness arrays.
+        # -- Normals at x, y, z directions
+        # Normal vectors (smallest eigenvector direction)
+        normals = eigenvecs[:, :, 0]  # Shape: [N, 3]
+
+        # Ensure normals point toward origin (0, 0, 0)
+        to_origin = -self.points_xyz  # Shape: [N, 3]
+        flip_mask = (normals * to_origin).sum(dim=1) < 0
+        normals[flip_mask] *= -1
+        normals = normals.cpu().numpy()
+        nx, ny, nz = normals[:, 0], normals[:, 1], normals[:, 2]
+
+        out_feat_dict = {
+            'curvature': curvature.cpu().numpy(),
+            # 'roughness': roughness.cpu().numpy(),
+            'anisotropy': anisotropy.cpu().numpy(),
+            # 'surface_variation': surface_variation.cpu().numpy(),
+            'planarity': planarity.cpu().numpy(),
+            'nx': nx,
+            'ny': ny,
+            'nz': nz
+        }
+        return out_feat_dict
+
+
+
+    def process_batches_with_buffer(self, 
+                                dfs: List[pd.DataFrame], 
+                                all_df: pd.DataFrame, 
+                                buffer_pts: int,
+                                neighbor_radius: float, 
+                                max_neighbors: int
+                               ) -> pd.DataFrame:
         """
-        all_points_xyz, all_curvatures, all_roughness = [], [], []
-        for df_batch in tqdm(dfs, desc="Processing Batches", unit="batch"):
-            points_xyz = df_batch[['X', 'Y', 'Z']].to_numpy()
-            self.set_points(points_xyz)
-            curvatures, roughness = self.estimate_curvature_roughness_batched(neighbor_radius, max_neighbors=max_neighbors)
-            all_points_xyz.append(points_xyz)
-            all_curvatures.append(curvatures)
-            all_roughness.append(roughness)
-        
-        all_points_xyz = np.vstack(all_points_xyz)
-        all_curvatures = np.hstack(all_curvatures)
-        all_roughness = np.hstack(all_roughness)
-        return all_points_xyz, all_curvatures, all_roughness
+        Process spatial batches with buffered neighborhoods using pandas DataFrames.
+
+        Returns a single DataFrame with geometric features added to the core points.
+        """
+        from sklearn.neighbors import KDTree
+
+        def extract_buffered_batch_by_knn(core_df, all_df, buffer_k=30):
+            all_points = all_df[['X', 'Y', 'Z']].to_numpy()
+            core_points = core_df[['X', 'Y', 'Z']].to_numpy()
+
+            kdtree = KDTree(all_points)
+            indices = kdtree.query(core_points, k=buffer_k, return_distance=False)
+            neighbor_indices = set(indices.flatten())
+
+            buffered_df = all_df.iloc[list(neighbor_indices)].copy()
+            core_mask = buffered_df.index.isin(core_df.index)
+            return buffered_df, core_mask
+
+        result_dfs = []
+
+        for df_batch in tqdm(dfs, desc="Processing Batches with Buffer", unit="batch"):
+            buffered_df, core_mask = extract_buffered_batch_by_knn(df_batch, all_df, buffer_pts)
+            points_xyz = buffered_df[['X', 'Y', 'Z']].to_numpy()
+            self.set_points_on_gpu(points_xyz)
+
+            geom_feat_dict = self.estimate_geometric_features_batched(
+                neighbor_radius, max_neighbors
+            )
+
+            core_df = buffered_df.loc[core_mask].copy()
+            for feat_name, feat_values in geom_feat_dict.items():
+                if feat_name in core_df.columns:
+                    print(f"Warning: {feat_name} already exists in core_df. Overwriting.")
+                    print(f"Before overwriting, range of {feat_name}: {core_df[feat_name].min()} to {core_df[feat_name].max()}")
+                core_df[feat_name] = feat_values[core_mask]
+
+            result_dfs.append(core_df)
+
+        geom_feat_names = ['curvature', 'anisotropy', 'planarity']
+        return pd.concat(result_dfs), geom_feat_names
+
 
 
 def infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch: int = 10_000) -> Tuple[int, int]:
@@ -286,83 +334,89 @@ def infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch: int = 10_000
 
     return batch_num_x, batch_num_y
 
-
-def generate_geom_feat_from_pcd(params: Dict[str, Any], output_dir) -> pd.DataFrame:
-    """Process the point cloud, estimate curvature and roughness, and combine results.
-
-    Args:
-        config (Dict[str, Any]): Configuration dictionary.
-    """
-    # Load configuration parameters
+def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -> pd.DataFrame:
+    """Process the point cloud, estimate curvature and roughness, and combine results."""
     input_file_stem = output_dir.parent.name
-    input_path = Path(output_dir / 'pcd' / f"{input_file_stem}_filtered_normaled.txt")
-    neighbor_radius = params["neighbor_radius"] # Radius for neighborhood search for both curvature and roughness
+    # input_path = Path(output_dir / 'pcd' / f"{input_file_stem}_filtered_normaled.txt")
+
+    # Load config
+    neighbor_radius = params["base_radius"]
+    buffer_pts = params.get("buffer_pts", 30)  # Default to 30 neighbors for buffer
     max_neighbors = params["max_neighbors"]
     pts_num_per_batch = params.get("pts_num_per_batch", 10_000)
     histogram_saveflag = params.get("histogram_saveflag", True)
     visualize = params.get("interactive_visualize", True)
     export = params.get("export", True)
-    delete_intermediate_file = params.get("delete_intermediate_file", False)
+    # delete_intermediate_file = params.get("delete_intermediate_file", False)
 
-    points_df = pd.read_csv(input_path, sep=',')
-    print(f"The point cloud dataframe shape: {points_df.shape}")
-    batch_num_x, batch_num_y = infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch)
-
-    # Calculate curvature and roughness
     num_points = points_df.shape[0]
-    calc_curv_rough = CalcCurvatureRoughness(device='cuda')
+    geom_feature_calculator = GeometricFeatureCalculator(device='cuda')
+
     if num_points > 30_000:
-        print("*********Large dataset detected. Processing in batches...*********")
-        df_grouped = points_df.groupby([pd.cut(points_df['azimuth'], batch_num_x), 
-                                        pd.cut(points_df['elevation'], batch_num_y)], 
-                                        observed=False,
-                                        sort=False)
+        print("Large dataset detected. Processing in batches...")
+        batch_num_x, batch_num_y = infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch)
+        df_grouped = points_df.groupby([
+            pd.cut(points_df['azimuth'], batch_num_x), 
+            pd.cut(points_df['elevation'], batch_num_y)
+        ], observed=False, sort=False)
         dfs = [group for _, group in df_grouped]
-        all_points_allinone = pd.concat(dfs, ignore_index=True)  # Ignore the index when concatenating
-        all_points_xyz, all_curvatures, all_roughness = calc_curv_rough.process_batches(dfs, neighbor_radius, max_neighbors)
+        result_df, geom_feat_names = geom_feature_calculator.process_batches_with_buffer(
+            dfs=dfs,
+            all_df=points_df,
+            buffer_pts=buffer_pts,
+            neighbor_radius=neighbor_radius,
+            max_neighbors=max_neighbors
+        )
     else:
-        print("*********Small dataset detected. Processing all at once...*********")
-        all_points_allinone = points_df.copy()
-        all_points_xyz = points_df[['X', 'Y', 'Z']].to_numpy()
-        all_curvatures, all_roughness = calc_curv_rough.estimate_curvature_roughness_batched(all_points_xyz, neighbor_radius, max_neighbors)
+        print("Small dataset. Processing all at once...")
+        result_df = points_df.copy()
+        all_xyz = result_df[['X', 'Y', 'Z']].to_numpy()
+        geom_feat_dict = geom_feature_calculator.estimate_geometric_features_batched(all_xyz, 
+                                                                  neighbor_radius=neighbor_radius, 
+                                                                  max_neighbors=max_neighbors)
+        geom_feat_names = list(geom_feat_dict.keys())
+        for feat_name, feat_values in geom_feat_dict.items():
+            result_df[feat_name] = feat_values
 
-    # Post-processing
-    valid_mask_curv = check_and_clean_for_nans(all_curvatures)
-    valid_mask_rough = check_and_clean_for_nans(all_roughness)
+    # Clean-up NaNs and assign defaults
+    for feat_name in geom_feat_names:
+        valid = result_df[feat_name].notna()
+        min_val = result_df.loc[valid, feat_name].min() if valid.any() else 0
+        result_df.loc[~valid, feat_name] = max(min_val, 0)
 
-    min_curvature = all_curvatures[valid_mask_curv].min() + 1e-4
-    min_roughness = all_roughness[valid_mask_rough].min()
+    if histogram_saveflag:
+        for feat_name in geom_feat_names:
+            if feat_name in result_df.columns:
+                print(f"Generating histogram for {feat_name}...")
+                get_vector_histogram(result_df[feat_name].values, output_dir, title=feat_name)
 
-    all_curvatures[~valid_mask_curv] = max(min_curvature, 0) 
-    all_roughness[~valid_mask_rough] = max(min_roughness, 0)
-    all_curvatures[all_curvatures<0] = min_curvature # Assign min values (instead of 0) to invalid points, so that they are not lost in visualization
+    if visualize:
+        print("Normalizing geometric features for visualization...")
+        all_geom_features = []
+        for feat_name in geom_feat_names:
+            normalized_feat = (result_df[feat_name] - result_df[feat_name].min()) / (result_df[feat_name].max() - result_df[feat_name].min())
+            normalized_feat.to_numpy()
+            all_geom_features.append(normalized_feat)
 
-    all_points_allinone['curvature'] = all_curvatures
-    all_points_allinone['roughness'] = all_roughness
+        all_points_xyz = result_df[['X', 'Y', 'Z']].to_numpy()
+        if len(all_geom_features) != len(geom_feat_names):
+            raise ValueError("Mismatch between number of geometric features and their names.")
+        print("Visualizing point cloud with geometric features...")
+        interactive_visualize_pcd(all_points_xyz, 
+                                  all_geom_features=all_geom_features, 
+                                  geom_feature_names=geom_feat_names)
 
-    # Optional steps: Make histograms, Visualization, Export, and Delete intermediate file.
-    if histogram_saveflag: # Display and save histograms of curvature and roughness
-        get_vector_histogram(all_curvatures, output_dir, title="Curvature")
-        get_vector_histogram(all_roughness, output_dir, title="Roughness")
-
-    if visualize: # Interactive visualization with Open3D
-        normalized_curvatures = (all_curvatures - all_curvatures.min()) / (all_curvatures.max() - all_curvatures.min())
-        normalized_roughness = (all_roughness - all_roughness.min()) / (all_roughness.max() - all_roughness.min())
-        interactive_visualize_pcd(all_points_xyz, normalized_curvatures, normalized_roughness, neighbor_radius)
-        
-    if export: # Export results to disk
+    if export:
         save_dir = output_dir / 'pcd'
         create_dir_if_not_exists(save_dir)
-        export_results(all_points_allinone, 
-                       neighbor_radius, 
-                       save_dir, 
-                       input_file_stem)
-    
-    if delete_intermediate_file:
-        input_path.unlink()
-        print(f"Deleted intermediate file: {input_path}")
+        export_results(result_df, neighbor_radius, save_dir, input_file_stem)
 
-    return all_points_allinone
+    # if delete_intermediate_file:
+    #     input_path.unlink()
+    #     print(f"Deleted intermediate file: {input_path}")
+
+    return result_df
+
 
 
 def main() -> None:
@@ -370,16 +424,26 @@ def main() -> None:
     profiler = MemoryProfiler()
     with profiler.cpu_memory_monitoring() as peak_memory:
         with profiler.gpu_memory_monitoring():
-            print("-----------Calculating geometric features such as curvature, roughness...----------")
+            print("-----------Calculating geometric features such as curvature, anisotropy, and planarity.----------")
             print("Configuration:")
             global_params = CONFIG["global"]
             current_file_params = CONFIG["calc_geom_feature"]
             output_dir_ls = global_params["output_dir_ls"]
-            for output_dir in output_dir_ls:
-                input_path_stem = output_dir.parent.name 
-                print(f'#######Processing {input_path_stem}...########')
-                generate_geom_feat_from_pcd(current_file_params, output_dir)
-    
+            input_path_ls = global_params["input_path_ls"]
+            cut_percent = current_file_params["cut_percent"]
+            clean_pc = current_file_params["clean_pc"]
+            flip_mangrove = current_file_params["flip_mangrove"]
+            dataset_name = global_params["dataset"]
+            # for output_dir in output_dir_ls:
+            for input_path, output_dir in zip(input_path_ls, output_dir_ls):
+                print(f'#######Processing {input_path.stem}...########')
+                points_df = read_and_clean_pcd(input_path, 
+                                                cut_percent=cut_percent,
+                                                clean_pc=clean_pc,
+                                                dataset_name=dataset_name,
+                                                flip_mangrove=flip_mangrove)
+                generate_geom_feat_from_pcd(current_file_params, points_df, output_dir)
+
     # Monitor memory usage and elapsed time
     elapsed_time = time.time() - start_time
     peak_cpu_memory_mb = peak_memory[0] / (1024 * 1024)

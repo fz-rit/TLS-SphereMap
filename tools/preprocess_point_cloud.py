@@ -245,7 +245,7 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
     print("---------Before preprocessing:----------")
     print(f"Number of points: {len(df)}")
     for col in df.columns:
-        print(f"Range of {col}: {df[col].min():.3f} to {df[col].max():.3f}")
+        print(f"Range of {col}: {df[col].min():.3f} to {df[col].max():.3f}; dtype: {df[col].dtype}")
 
     
     return df
@@ -284,10 +284,10 @@ def clean_pcd_df_based_on_ir(df: pd.DataFrame, cut_percent: float=0.006) -> pd.D
 
 
 def read_and_clean_pcd(filename: Path, 
-                            cut_percent: float = 0.005,
-                           clean_pc: bool = False,
-                           dataset_name: str = 'MANGROVE',
-                           flip_mangrove: bool = True) -> pd.DataFrame:
+                        cut_percent: float = 0.005,
+                        clean_pc: bool = False,
+                        dataset_name: str = 'MANGROVE',
+                        flip_mangrove: bool = True) -> pd.DataFrame:
     """
     Preprocess a point cloud data file and map scalar field values to pixel coordinates.
     
@@ -326,8 +326,12 @@ def read_and_clean_pcd(filename: Path,
     else:
         df_filtered = df.copy()
 
+    # Drop the Return Number column if it exists
+    if 'Return Number' in df_filtered.columns:
+        df_filtered = df_filtered.drop(columns=['Return Number'])
+        print("Dropped 'Return Number' column.")
     # Normalize the intensity values: first, convert to float32, then normalize to (0.1, 1.0)
-    intensity = df_filtered['Intensity'].to_numpy().astype('float64')
+    intensity = df_filtered['Intensity'].to_numpy().astype('float32')
     intensity = (intensity - intensity.min()) / (intensity.max() - intensity.min())
     df_filtered['Intensity'] = intensity
     print(f"!!Intensity normalized to range: {intensity.min()} to {intensity.max()}!!")
@@ -337,8 +341,11 @@ def read_and_clean_pcd(filename: Path,
 
     print("---------After preprocessing:----------")
     print(f"Number of points: {len(df_filtered_na_free)}")
+    # Convert all columns to float32 for consistency
+    df_filtered_na_free = df_filtered_na_free.astype('float32')
     for col in df_filtered_na_free.columns:
-        print(f"Range of {col}: {df_filtered_na_free[col].min()} to {df_filtered_na_free[col].max()}")
+        print(f"Range of {col}: {df_filtered_na_free[col].min()} to {df_filtered_na_free[col].max()}, dtype: {df_filtered_na_free[col].dtype}")
+    
     return df_filtered_na_free
 
 # Example usage
