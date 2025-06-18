@@ -9,7 +9,7 @@ from random import sample, seed
 import pandas as pd
 
 from tools.plot_tools import (
-    plot_correlation_matrix, plot_pca_components, plot_rgb_permutations,
+    plot_correlation_matrix, plot_pca_components, plot_components_permutations,
     display_unwrapped_single_band_images, display_unwrapped_rgb_image, 
     display_single_band_img_wt_discrete_values, histogram_to_ascii
 )
@@ -308,46 +308,22 @@ def load_image_cube_and_meta(image_cube_path: Path) -> Tuple[np.ndarray, Dict[st
     return image_cube, metadata
 
 
-def normalize_and_stack_images(
-    image_list: List[np.ndarray], 
-    method: str = "global"
-) -> np.ndarray:
-    """Normalize and stack multiple image channels.
+def normalize_and_stack_images(image_list: List[np.ndarray]) -> np.ndarray:
+    """Normalize each image to [0, 1] independently and stack as channels.
 
     Args:
-        image_list: List of 2D image arrays to normalize and stack
-        method: Normalization method ('global' or 'per_channel')
+        image_list: List of 2D image arrays (H, W) to normalize and stack
 
     Returns:
-        Normalized and stacked 3D array with shape (H, W, C)
-        
-    Raises:
-        ValueError: If method is not 'global' or 'per_channel'
+        A 3D array (H, W, C) with each channel normalized to [0, 1]
     """
-    if method not in ["global", "per_channel"]:
-        raise ValueError("Method must be 'global' or 'per_channel'")
-
     normalized_images = []
-    
     for img in image_list:
-        img_mean = img.mean()
-        img_std = img.std() + 1e-8  # Avoid division by zero
-        img_normalized = (img - img_mean) / img_std
-        normalized_images.append(img_normalized)
+        min_val, max_val = img.min(), img.max()
+        norm_img = (img - min_val) / (max_val - min_val + 1e-8)
+        normalized_images.append(norm_img)
 
     stacked_image = np.stack(normalized_images, axis=-1)
-
-    if method == "per_channel":
-        # Normalize each channel to [0, 1] independently
-        for i in range(stacked_image.shape[-1]):
-            channel = stacked_image[:, :, i]
-            channel_min, channel_max = channel.min(), channel.max()
-            stacked_image[:, :, i] = (channel - channel_min) / (channel_max - channel_min + 1e-8)
-    else:  # global normalization
-        # Normalize entire stack to [0, 1]
-        stack_min, stack_max = stacked_image.min(), stacked_image.max()
-        stacked_image = (stacked_image - stack_min) / (stack_max - stack_min + 1e-8)
-
     return stacked_image
 
 
@@ -375,7 +351,7 @@ def create_pseudo_rgb_image(
         Normalized pseudo-RGB image array
     """
     image_list = [img_ch1, img_ch2, img_ch3]
-    pseudo_rgb_image = normalize_and_stack_images(image_list, method="global")
+    pseudo_rgb_image = normalize_and_stack_images(image_list)
     
     display_unwrapped_rgb_image(
         pseudo_rgb_image, 
@@ -603,7 +579,7 @@ def generate_extra_visualizations(
         for components, name in components_data:
             output_stem = f"{key_str}_image_cube_{name}"
             plot_pca_components(components, img_out_dir, output_stem=output_stem)
-            plot_rgb_permutations(components, img_out_dir, output_stem=output_stem)
+            plot_components_permutations(components, img_out_dir, output_stem=output_stem)
 
 
 def generate_pseudo_rgb_combinations(
@@ -646,8 +622,11 @@ def generate_pseudo_rgb_combinations(
     # Generate random combinations
     seed(617)  # For reproducibility
     all_combinations = list(permutations(range(len(available_maps)), 3))
-    selected_combinations = sample(all_combinations, min(10, len(all_combinations)))
-
+    selected_combinations = sample(all_combinations, min(3, len(all_combinations)))
+    selected_combinations += [
+        (0, 1, 2),  # Ensure the first three are always included
+        (3, 4, 5),  # Additional combinations for diversity
+    ]
     for combo in selected_combinations:
         feature_combo = [available_names[i] for i in combo]
         figure_title = f"Pseudo-RGB_{'_'.join(feature_combo)}_{key_str}"

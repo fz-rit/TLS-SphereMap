@@ -5,7 +5,7 @@ from tools.hdr_adjustments import contrast_enhancement
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from typing import Union, List, Dict, Any
 from pathlib import Path
-from tools.plot_tools import plot_correlation_matrix, plot_pca_components, plot_rgb_permutations
+from tools.plot_tools import plot_correlation_matrix, plot_pca_components, plot_components_permutations
 from tools.pca_helper import compute_band_correlation, compute_pca_components, compute_mnf, compute_ica, z_score_standardize
 from tools.plot_tools import display_unwrapped_single_band_images, display_unwrapped_rgb_image, display_single_band_img_wt_discrete_values, histogram_to_ascii
 from tools.norm_to_hsv import attach_normal_color_to_df
@@ -633,7 +633,7 @@ def generate_2D_projection_images(output_dir: Path,
             for components, name in zip([pcs, mnf_components, ica_components], ['PCA', 'MNF', 'ICA']):
                 out_file = f"{output_stem}_{name}"
                 plot_pca_components(components, img_out_dir, output_stem=out_file)
-                plot_rgb_permutations(components, img_out_dir, output_stem=out_file)
+                plot_components_permutations(components, img_out_dir, output_stem=out_file)
 def main():
     params = CONFIG['spherical_projection']
     color_map = CONFIG['global']['color_map']

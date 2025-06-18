@@ -410,11 +410,6 @@ def generate_2D_projection_images(
     )
     normals_rgb_image = equirectangular_projection_normals(df_filtered, canvas_size)
 
-    # Save projection data as NetCDF (xarray native format)
-    projection_path = img_out_dir / f'{key_str}_projections.nc'
-    projection_xr.to_netcdf(projection_path)
-    print(f"Projection data saved: {projection_path}")
-    
     # Generate visualizations using xarray directly
     # Save image cube and metadata
     image_cube, _ = save_image_cube_and_meta(

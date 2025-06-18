@@ -520,7 +520,7 @@ def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
     print(f"2️PCA/MNF/ICA components saved to {output_path}")
     
 
-def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None):
+def plot_components_permutations(components, output_dir:Path=None, output_stem:str=None):
     """
     Plots RGB images from all permutations of the first 3 components.
 
@@ -546,13 +546,16 @@ def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None
 
         # save rgb image
         rgb = (rgb * 255).astype(np.uint8)
-        rgb_img = Image.fromarray(rgb)
-        if output_dir is None:
-            output_path = Path(f"outputs/{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png")
-        else:
-            output_path = output_dir / f"{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png"   
-        rgb_img.save(output_path)
-        print(f"3️Saved RGB image to {output_path}")
+        
+        if perm == (1, 2, 0):
+            rgb_img = Image.fromarray(rgb)
+            if output_dir is None:
+                output_path = Path(f"outputs/{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png")
+            else:
+                output_path = output_dir / f"{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png"
+        
+            rgb_img.save(output_path)
+            print(f"3️Saved RGB image to {output_path}")
         ax.imshow(rgb)
         ax.set_title(f"{output_stem} rgb permutations\nR:Comp{perm[0]+1} G:Comp{perm[1]+1} B:Comp{perm[2]+1}")
         ax.axis('off')
