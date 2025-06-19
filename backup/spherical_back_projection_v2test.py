@@ -12,7 +12,6 @@ import pandas as pd
 from tools.config_loader import CONFIG
 from pathlib import Path
 from tools.preprocess_point_cloud import map_angle_to_pixel
-from plyfile import PlyData, PlyElement
 from tools.spherical_projection_helper import load_image_cube_and_meta
 from numpy.typing import NDArray
 from math import ceil
@@ -22,7 +21,9 @@ def image_preprocess(image, img_size):
     Preprocess the image for spherical projection.
     Resizes the image to img_size and converts it to RGB format.
     """
-
+    print("Image Shape:", image.shape)
+    print("Image Dtype:", image.dtype)
+    print("Image range:", image.max(), image.min())
     if isinstance(image, Image.Image):
         image = np.array(image)
 
@@ -34,7 +35,7 @@ def image_preprocess(image, img_size):
     # Resize to (271, 720) if needed (zenith: 0–135 at 0.5° → 271 rows)
     if image.dtype == np.float64:
         if image.max() > 1.0 or image.min() < 0.0:
-            image = (image - image.min()) / (image.max() - image.min())
+            image = (image - np.min(image, axis=(0, 1), keepdims=True)) / (np.max(image, axis=(0, 1), keepdims=True) - np.min(image, axis=(0, 1), keepdims=True))
         image_uint8 = (image * 255).astype(np.uint8)
         img_resized = Image.fromarray(image_uint8).resize((img_size[1], img_size[0]))
     elif image.dtype == np.uint8:
@@ -53,7 +54,7 @@ def image_preprocess(image, img_size):
 
     print("Image Shape:", image.shape)
     print("Image Dtype:", image.dtype)
-    print("Image Max:", image.max())
+    print("Image range:", image.max(), image.min())
     return image
 
 
@@ -61,14 +62,12 @@ def image_preprocess(image, img_size):
 def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), inverse_zenith=False):
     """
     Assigns image color to df_ball using azimuth and zenith angles.
-    Assumes image shape (271, 720), angular res = 0.5°, azimuth 0–360, zenith 0–135.
+    Assumes image shape (271, 720), angular res = 0.5°, azimuth 0-360, zenith 0-135.
     """
     img_size = int((zenith_range[1] - zenith_range[0]) // 0.5 + 1), 720  # (271, 720) for zenith range (0, 135)
-    print("Image Size:", img_size)
-    print("Image Shape:", image.shape)
-    print("Image Dtype:", image.dtype)
+    print("Image resize Size:", img_size)
+    
     image = image_preprocess(image, img_size)
-
     # Compute row, col indices
     zenith_deg_shifted = df_ball['zenith_deg'] - df_ball['zenith_deg'].min()
     row = (zenith_deg_shifted / 0.5).astype(int)
@@ -116,11 +115,35 @@ def get_a_colorized_ball_from_img(rgb_img: NDArray,
                                 output_prefix=key_str)
 
 
-def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, input_pcd_key: str,
-                               canvas_size: tuple[int, int],
-                                angular_res: tuple[int, int],
-                                channel_names=['r', 'g', 'b'],
-                                delete_intermediate: bool = False):
+def read_pcd_file(pcd_out_dir: Path, 
+                  input_pcd_key:str, 
+                  canvas_size: tuple[int, int] = (271, 720),
+                  angular_res: tuple[int, int] = (0.5, 0.5),
+                  delete_intermediate: bool = False) -> pd.DataFrame:
+    point_cloud_file = next(pcd_out_dir.glob(f"*{input_pcd_key}*"), None)
+    pc_df = pd.read_csv(point_cloud_file, sep=',')
+    x_pix, y_pix = map_angle_to_pixel(pc_df['azimuth'], 
+                                      pc_df['elevation'], 
+                                      canvas_size=canvas_size,
+                                      angular_res=angular_res)
+    pc_df['x_pix'] = x_pix.astype(int)
+    pc_df['y_pix'] = y_pix.astype(int)
+    if delete_intermediate:
+            point_cloud_file.unlink()
+            print(f"Deleted intermediate file: {point_cloud_file}")
+    return pc_df
+
+def write_pcd_file(extended_pc_df: pd.DataFrame,
+                  output_file: Path,
+                  drop_columns: list[str] = ['x_pix', 'y_pix']):
+    
+    extended_pc_df.drop(columns=drop_columns, inplace=True)
+    extended_pc_df.to_csv(output_file, index=False)
+    print(f"✅ Colors {channel_names} attached to point cloud successfully. \nOutput file saved to: {output_file}")
+
+def attach_image_colors_to_pcd(rgb_image, 
+                               pc_df,
+                                channel_names=['r', 'g', 'b']):
     """
     Attach RGB or arbitrary 3-channel color values from a 2D image to a point cloud based on pixel mapping.
 
@@ -131,32 +154,10 @@ def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, input_pcd_key: str,
     Returns:
         pd.DataFrame: Point cloud DataFrame with additional color columns.
     """
-
-    point_cloud_file = next(pcd_out_dir.glob(f"*_color*"), None)
-    if point_cloud_file is None:
-        point_cloud_file = next(pcd_out_dir.glob(f"*{input_pcd_key}*"), None)
-
-    pc_df = pd.read_csv(point_cloud_file, sep=',')
-
-    if "_color" in point_cloud_file.stem:
-        output_file = pcd_out_dir / (point_cloud_file.stem + '.csv')
-    else:
-        file_str = str(point_cloud_file.stem).split(input_pcd_key)[0]
-        output_file = pcd_out_dir / (f"{file_str}_color" + '.csv')
-        if delete_intermediate:
-            point_cloud_file.unlink()
-            print(f"Deleted intermediate file: {point_cloud_file}")
+        
         
     assert rgb_image.ndim == 3 and rgb_image.shape[2] == 3, "Image must have 3 channels"
     assert len(channel_names) == 3, "Exactly 3 channel names must be provided"
-
-    # Map angles to image pixel coordinates
-    x_pix, y_pix = map_angle_to_pixel(pc_df['azimuth'], 
-                                      pc_df['elevation'], 
-                                      canvas_size=canvas_size,
-                                      angular_res=angular_res)
-    pc_df['x_pix'] = x_pix.astype(int)
-    pc_df['y_pix'] = y_pix.astype(int)
 
     height, width, _ = rgb_image.shape
     colors = []
@@ -169,13 +170,31 @@ def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, input_pcd_key: str,
         colors.append(color)
 
     color_df = pd.DataFrame(colors, columns=channel_names, index=pc_df.index)
-    pc_df = pd.concat([pc_df, color_df], axis=1)
+    extended_pc_df = pd.concat([pc_df, color_df], axis=1)
 
-    # Drop extra columns used for processing
-    pc_df.drop(columns=['x_pix', 'y_pix'], inplace=True)
-    pc_df.to_csv(output_file, index=False)
-    print(f"✅ Colors {channel_names} attached to point cloud successfully. \nOutput file saved to: {output_file}")
+    return extended_pc_df
 
+
+def prepare_color_group(channel_names, color_group):
+    
+
+    paint_pcd_color_group_dict = {'izr': ['intensity_adjusted', 'z_adjusted', 'range_adjusted'],
+                                  'normals': ['Pseudo-Rn', 'Pseudo-Gn', 'Pseudo-Bn'],
+                                  'pca': ['PCA1', 'PCA2', 'PCA3'],
+                                  'true_rgb': ['True-R', 'True-G', 'True-B']}
+
+    for color in color_group:
+        if color not in paint_pcd_color_group_dict:
+            raise ValueError(f"Color group {color} not recognized. Available groups: {list(paint_pcd_color_group_dict.keys())}")
+    paint_pcd_color_groups = [paint_pcd_color_group_dict[group] for group in color_group]
+
+    for group in paint_pcd_color_groups:
+        for name in group:
+            if name not in channel_names:
+                raise ValueError(f"Channel name {name} not found in image cube metadata. Available channels: {channel_names}")
+
+    print(f"Using color groups: {paint_pcd_color_groups}")
+    return paint_pcd_color_groups
 
 if __name__ == "__main__":
 
@@ -196,6 +215,7 @@ if __name__ == "__main__":
     generate_virtual_ball = CONFIG['back_projection']['generate_virtual_ball']
     paint_pcd_color_groups = CONFIG['back_projection']['paint_pcd_color_groups']
 
+
     for output_dir in out_dir_ls:
         input_file_stem = output_dir.parent.name
         print(f'#######Processing {input_file_stem}...########')
@@ -205,37 +225,27 @@ if __name__ == "__main__":
         
         key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
         image_cube_path = image_dir / f'{key_str}_image_cube.npy'
+        output_file = pcd_out_dir / f'{key_str}_color.csv'
         image_cube, metadata = load_image_cube_and_meta(image_cube_path)
-
+        pc_df = read_pcd_file(pcd_out_dir, out_signature_str, delete_intermediate=delete_intermediate_file)
         channel_names = metadata['channel_names']
-        paint_pcd_color_groups = [
-            ['intensity_adjusted', 'z_adjusted', 'range_adjusted'],
-            ['Pseudo-Rn', 'Pseudo-Gn', 'Pseudo-Bn'],
-            ['PCA1', 'PCA2', 'PCA3']
-        ]
-        if 'True-R' in channel_names:
-            paint_pcd_color_groups.append(['True-R', 'True-G', 'True-B'])
-        # check if all the names in the paint_pcd_color_groups are in channel_names
-        for group in paint_pcd_color_groups:
-            for name in group:
-                if name not in channel_names:
-                    raise ValueError(f"Channel name {name} not found in image cube metadata. Available channels: {channel_names}")
+        paint_pcd_color_groups = prepare_color_group(channel_names, paint_pcd_color_groups)
 
+        extended_pc_df = pc_df.copy()
         # Paint the point cloud with different color groups
         for color_group in paint_pcd_color_groups:
             rgb_image = image_cube[:, :, [channel_names.index(name) for name in color_group]]
-            attach_image_colors_to_pcd(rgb_image, pcd_out_dir, out_signature_str,
-                                       channel_names=color_group, 
-                                       canvas_size=canvas_size,
-                                       angular_res=angular_res,
-                                       delete_intermediate=delete_intermediate_file)
-
+            extended_pc_df = attach_image_colors_to_pcd(rgb_image, 
+                                                        extended_pc_df, 
+                                                        channel_names=color_group)
+            # Generate virtual balls from the image cube
             if generate_virtual_ball:
-                ball_key_str = f"{input_file_stem}_{'_'.join(color_group)}"
-                rgb_image = image_cube[:, :, [channel_names.index(name) for name in color_group]]
+                key_str = f"{input_file_stem}_{'_'.join(color_group)}"
                 get_a_colorized_ball_from_img(rgb_image,
-                                        ball_key_str,
+                                        key_str,
                                         zenith_range=zenith_range, 
                                         save_dir=pcd_out_dir,
                                         inverse_zenith=inverse_zenith)
-        
+
+        write_pcd_file(extended_pc_df, output_file, 
+                       drop_columns=['x_pix', 'y_pix', 'zenith', 'azimuth', 'rangemeter', 'elevation'])

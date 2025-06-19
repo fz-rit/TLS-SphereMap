@@ -41,7 +41,7 @@ def attach_segmentation_to_points():
     root_dir = CONFIG["global"]["output_dir"] / 'pcd'
     # input_file_stem = CONFIG["global"]["input_file_stem"]
     # point_cloud_file = root_dir / f"{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt"
-    point_cloud_file = next(root_dir.glob(f"*_ncr_*"), None)
+    point_cloud_file = next(root_dir.glob(f"*_color*"), None)
 
     segmap_file = root_dir / params["segmap"]
     dataset_name = params["dataset"]

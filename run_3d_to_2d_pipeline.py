@@ -1,7 +1,6 @@
 import subprocess
 
 scripts = [
-        # "processing.calc_pt_cloud_normal", 
         # "processing.calc_geom_feature",
         # "processing.spherical_projection",
         "processing.spherical_back_projection",

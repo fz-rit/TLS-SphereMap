@@ -33,12 +33,16 @@
         "show_pseudo_rgb" : true,
         "show_pca" : true        
     },
+    "back_projection": {
+        "generate_virtual_ball": true,
+        "paint_pcd_color_groups": ["izr", "normals", "pca"]
+    },
     "convert_color_to_mask": {
         "color_seg_map": "seg_map_ALRSET2_9979.png",
         "dataset": "MANGROVE_ROOTS"
     },
     "attach_segmap_to_points": {
-        "segmap": "seg_map_ALRSET2_9979_mask.png",
+        "segmap": "seg_map_ALRSET1_7489_mask.png",
         "dataset": "MANGROVE_ROOTS",
         "output_formats": [".ply", ".csv"]
     }
