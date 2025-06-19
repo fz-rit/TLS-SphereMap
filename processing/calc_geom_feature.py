@@ -341,6 +341,7 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -
 
     # Load config
     neighbor_radius = params["base_radius"]
+    out_signature_str = params.get("out_signature_str", "geom_feat")
     buffer_pts = params.get("buffer_pts", 30)  # Default to 30 neighbors for buffer
     max_neighbors = params["max_neighbors"]
     pts_num_per_batch = params.get("pts_num_per_batch", 10_000)
@@ -411,11 +412,8 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -
     if export:
         save_dir = output_dir / 'pcd'
         create_dir_if_not_exists(save_dir)
-        export_results(result_df, neighbor_radius, save_dir, input_file_stem)
+        export_results(result_df, out_signature_str, save_dir, input_file_stem)
 
-    # if delete_intermediate_file:
-    #     input_path.unlink()
-    #     print(f"Deleted intermediate file: {input_path}")
 
     return result_df
 

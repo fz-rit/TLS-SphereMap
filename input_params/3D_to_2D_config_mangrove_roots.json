@@ -9,7 +9,8 @@
         "h_fov": [0, 360],
         "v_fov": [0, 135],
         "h_ang_res_deg": 0.25,
-        "v_ang_res_deg": 0.25
+        "v_ang_res_deg": 0.25,
+        "delete_intermediate_file": false
     },
     "calc_geom_feature": {
         "cut_percent": 0.005,
@@ -22,7 +23,7 @@
         "histogram_saveflag": false,
         "interactive_visualize": false,
         "export": true,
-        "delete_intermediate_file": false
+        "out_signature_str": "_geom_feat"
     },
     "spherical_projection": {
         "visualize" : false,

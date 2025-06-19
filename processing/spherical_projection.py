@@ -358,6 +358,7 @@ def generate_2D_projection_images(
     canvas_size: Tuple[int, int], 
     angular_res: Tuple[int, int], 
     dataset_name: str = 'MANGROVE',
+    out_key_str: str = '_geom_feat_',
     color_map: Optional[Dict[str, tuple]] = None,
     saveflag: bool = False,
     visualize: bool = True,
@@ -399,9 +400,9 @@ def generate_2D_projection_images(
     create_dir_if_not_exists(img_out_dir, ask_user=False)
     
     # Find input file
-    filename = next(pcd_dir.glob("*_ncr_0.02*"), None)
+    filename = next(pcd_dir.glob(f"*{out_key_str}*"), None)
     if filename is None:
-        raise FileNotFoundError(f"No file matching '*_ncr_0.02*' found in {pcd_dir}")
+        raise FileNotFoundError(f"No file matching '*{out_key_str}*' found in {pcd_dir}")
 
     # Generate projections
     key_str = f"{input_file_stem.split('_')[0]}_{input_file_stem.split('_')[-1]}"
@@ -457,6 +458,7 @@ def main() -> None:
             canvas_size=canvas_size, 
             angular_res=angular_res, 
             dataset_name=global_config['dataset'],
+            out_key_str=CONFIG['calc_geom_feature']['out_signature_str'],
             color_map=global_config['color_map'],
             saveflag=params['save_extra_maps'],
             visualize=params['visualize'],

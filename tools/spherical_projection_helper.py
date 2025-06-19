@@ -136,11 +136,11 @@ def save_image_cube_and_meta(
         'curvature', 'anisotropy', 'planarity',
     ]
     
-    save_titles = [
-        'Intensity (raw)', 'Z (raw)', 'Range (raw)', 
-        'Intensity (adjusted)', 'Z-Inv (adjusted)', 'Range (adjusted)',
-        'Curvature', 'Anisotropy', 'Planarity',
-    ]
+    # save_titles = [
+    #     'Intensity (raw)', 'Z (raw)', 'Range (raw)', 
+    #     'Intensity (adjusted)', 'Z-Inv (adjusted)', 'Range (adjusted)',
+    #     'Curvature', 'Anisotropy', 'Planarity',
+    # ]
 
     # Validate and collect maps
     collected_maps = []
@@ -173,17 +173,17 @@ def save_image_cube_and_meta(
 
     # Build extended image cube
     extended_cube = np.concatenate([
-        raw_maps, pca_input_standardized, pcs, mnf_components, ica_components
+        raw_maps, pca_input_cube, pcs, mnf_components, ica_components
     ], axis=-1)
 
     # Handle optional True-RGB data
     if 'true_r' in projection_xr.coords['channel'].values:
         true_rgb = get_rgb_channels(projection_xr, 'true')
         extended_cube = np.concatenate([true_rgb, extended_cube], axis=-1)
-        save_titles = ['True-R', 'True-G', 'True-B'] + save_titles
+        save_channels = ['True-R', 'True-G', 'True-B'] + save_channels
 
     # Add component labels
-    save_titles.extend([
+    save_channels.extend([
         'Pseudo-Rn', 'Pseudo-Gn', 'Pseudo-Bn',
         'PCA1', 'PCA2', 'PCA3', 
         'MNF1', 'MNF2', 'MNF3',
@@ -196,7 +196,7 @@ def save_image_cube_and_meta(
     print(f"Image cube saved: {cube_path}, shape: {extended_cube.shape}")
 
     # Generate metadata
-    metadata = _generate_cube_metadata(extended_cube, save_titles, key_str)
+    metadata = _generate_cube_metadata(extended_cube, save_channels, key_str)
     
     # Save metadata
     meta_path = output_dir / f'{key_str}_image_cube_meta.yaml'
@@ -228,12 +228,13 @@ def _generate_cube_metadata(
     
     for i, title in enumerate(channel_names):
         channel_data = image_cube[:, :, i]
-        histogram, _ = np.histogram(channel_data, bins=20)
-        hist_visual = histogram_to_ascii(histogram, style="blocks")
+        histogram, bin_edges = np.histogram(channel_data, bins=20)
+        histogram_20_bins_ls = [list(pair) for pair in zip(np.round(bin_edges[:-1], decimals=4).tolist(), histogram.tolist())]
         hist_visuals[title] = {
-            'histogram_20_bins': histogram.tolist(),
-            'visual': hist_visual
+            'histogram_20_bins': histogram_20_bins_ls,
+            'visual': histogram_to_ascii(histogram, style="blocks")
         }
+
         
         # Generate channel descriptions
         channel_notes[title] = _get_channel_description(title, i + 1)
