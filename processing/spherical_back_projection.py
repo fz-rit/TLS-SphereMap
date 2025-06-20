@@ -177,6 +177,36 @@ def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, input_pcd_key: str,
     print(f"✅ Colors {channel_names} attached to point cloud successfully. \nOutput file saved to: {output_file}")
 
 
+def prepare_color_group(channel_names, color_group):
+    """
+    Prepare color groups for painting the point cloud.
+
+    Args:
+        channel_names (list): List of channel names in the image cube.
+        color_group (list): List of color groups to prepare.
+
+    Returns:
+        list: List of prepared color groups.
+    """
+
+    paint_pcd_color_group_dict = {'izr': ['intensity_adjusted', 'z_adjusted', 'range_adjusted'],
+                                  'normals': ['Pseudo-Rn', 'Pseudo-Gn', 'Pseudo-Bn'],
+                                  'pca': ['PCA1', 'PCA2', 'PCA3'],
+                                  'true_rgb': ['True-R', 'True-G', 'True-B']}
+
+    for color in color_group:
+        if color not in paint_pcd_color_group_dict:
+            raise ValueError(f"Color group {color} not recognized. Available groups: {list(paint_pcd_color_group_dict.keys())}")
+    paint_pcd_color_groups = [paint_pcd_color_group_dict[group] for group in color_group]
+
+    for group in paint_pcd_color_groups:
+        for name in group:
+            if name not in channel_names:
+                raise ValueError(f"Channel name {name} not found in image cube metadata. Available channels: {channel_names}")
+
+    print(f"Using color groups: {paint_pcd_color_groups}")
+    return paint_pcd_color_groups
+
 if __name__ == "__main__":
 
     # Load configuration
@@ -184,11 +214,8 @@ if __name__ == "__main__":
     v_fov = global_params['v_fov']
     h_fov = global_params['h_fov']
     angular_res = (global_params['v_ang_res_deg'], global_params['h_ang_res_deg'])
-    canvas_width = int(ceil((h_fov[1]-h_fov[0]) / angular_res[1]))
-    canvas_height = int(ceil((v_fov[1]-v_fov[0]) / angular_res[0]))
-    canvas_size = (canvas_height, canvas_width)
-    print(f"Canvas Size: {canvas_size}, Angular Resolution: {angular_res}")
-    zenith_range = global_params['v_fov']
+    canvas_size = global_params['canvas_size']
+    # zenith_range = global_params['v_fov']
     delete_intermediate_file = global_params['delete_intermediate_file']
     out_dir_ls = global_params['output_dir_ls']
     out_signature_str = CONFIG['calc_geom_feature']['out_signature_str']
@@ -206,20 +233,8 @@ if __name__ == "__main__":
         key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
         image_cube_path = image_dir / f'{key_str}_image_cube.npy'
         image_cube, metadata = load_image_cube_and_meta(image_cube_path)
-
         channel_names = metadata['channel_names']
-        paint_pcd_color_groups = [
-            ['intensity_adjusted', 'z_adjusted', 'range_adjusted'],
-            ['Pseudo-Rn', 'Pseudo-Gn', 'Pseudo-Bn'],
-            ['PCA1', 'PCA2', 'PCA3']
-        ]
-        if 'True-R' in channel_names:
-            paint_pcd_color_groups.append(['True-R', 'True-G', 'True-B'])
-        # check if all the names in the paint_pcd_color_groups are in channel_names
-        for group in paint_pcd_color_groups:
-            for name in group:
-                if name not in channel_names:
-                    raise ValueError(f"Channel name {name} not found in image cube metadata. Available channels: {channel_names}")
+        paint_pcd_color_groups = prepare_color_group(channel_names, paint_pcd_color_groups)
 
         # Paint the point cloud with different color groups
         for color_group in paint_pcd_color_groups:
@@ -232,10 +247,9 @@ if __name__ == "__main__":
 
             if generate_virtual_ball:
                 ball_key_str = f"{input_file_stem}_{'_'.join(color_group)}"
-                rgb_image = image_cube[:, :, [channel_names.index(name) for name in color_group]]
                 get_a_colorized_ball_from_img(rgb_image,
                                         ball_key_str,
-                                        zenith_range=zenith_range, 
+                                        zenith_range=v_fov, 
                                         save_dir=pcd_out_dir,
                                         inverse_zenith=inverse_zenith)
         

@@ -442,13 +442,14 @@ def main() -> None:
     params = CONFIG['spherical_projection']
     global_config = CONFIG['global']
     
-    # Extract parameters
-    v_fov = global_config['v_fov']
-    h_fov = global_config['h_fov']
-    canvas_size = (
-        int((v_fov[1] - v_fov[0]) / global_config['v_ang_res_deg']),
-        int((h_fov[1] - h_fov[0]) / global_config['h_ang_res_deg'])
-    )
+    # # Extract parameters
+    # v_fov = global_config['v_fov']
+    # h_fov = global_config['h_fov']
+    # canvas_size = (
+    #     int((v_fov[1] - v_fov[0]) / global_config['v_ang_res_deg']),
+    #     int((h_fov[1] - h_fov[0]) / global_config['h_ang_res_deg'])
+    # )
+    canvas_size = global_config['canvas_size']
     angular_res = (global_config['v_ang_res_deg'], global_config['h_ang_res_deg'])
     
     # Process each output directory

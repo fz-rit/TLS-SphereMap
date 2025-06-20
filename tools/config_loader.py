@@ -3,7 +3,6 @@ from pathlib import Path
 from pprint import pprint
 import numpy as np
 from tools.pcd_utils import create_dir_if_not_exists
-# from pcd_utils import create_dir_if_not_exists
 
 
 def get_color_map(input_base_dir):
@@ -53,6 +52,15 @@ def load_config_mangrove(config, selected_scans = [1,30]):
     global_params["color_map"] = color_map
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
+
+    v_fov = global_params['v_fov']
+    h_fov = global_params['h_fov']
+    canvas_size = (
+        int((v_fov[1] - v_fov[0]) / global_params['v_ang_res_deg']),
+        int((h_fov[1] - h_fov[0]) / global_params['h_ang_res_deg'])
+    )
+    global_params["canvas_size"] = canvas_size
+
     config["global"] = global_params
 
     return config
@@ -87,7 +95,13 @@ def load_config_inlut3d(config, selected_scans = [1,30]):
     global_params["color_map"] = color_map
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
-    
+    v_fov = global_params['v_fov']
+    h_fov = global_params['h_fov']
+    canvas_size = (
+        int((v_fov[1] - v_fov[0]) / global_params['v_ang_res_deg']),
+        int((h_fov[1] - h_fov[0]) / global_params['h_ang_res_deg'])
+    )
+    global_params["canvas_size"] = canvas_size
     config["global"] = global_params
 
     return config
@@ -120,6 +134,13 @@ def load_config_semantic3d(config, selected_scans = [1,30]):
     global_params["output_dir_ls"] = output_dir_ls
     global_params["input_path_ls"] = input_path_ls
     global_params["color_map"] = color_map
+    v_fov = global_params['v_fov']
+    h_fov = global_params['h_fov']
+    canvas_size = (
+        int((v_fov[1] - v_fov[0]) / global_params['v_ang_res_deg']),
+        int((h_fov[1] - h_fov[0]) / global_params['h_ang_res_deg'])
+    )
+    global_params["canvas_size"] = canvas_size
     config["global"] = global_params
 
     return config
