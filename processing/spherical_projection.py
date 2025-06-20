@@ -443,8 +443,8 @@ def main() -> None:
     global_config = CONFIG['global']
     
     # # Extract parameters
-    # v_fov = global_config['v_fov']
-    # h_fov = global_config['h_fov']
+    v_fov = global_config['v_fov']
+    h_fov = global_config['h_fov']
     # canvas_size = (
     #     int((v_fov[1] - v_fov[0]) / global_config['v_ang_res_deg']),
     #     int((h_fov[1] - h_fov[0]) / global_config['h_ang_res_deg'])

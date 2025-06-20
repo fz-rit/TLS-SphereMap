@@ -194,9 +194,10 @@ def prepare_color_group(channel_names, color_group):
                                   'pca': ['PCA1', 'PCA2', 'PCA3'],
                                   'true_rgb': ['True-R', 'True-G', 'True-B']}
 
+    c_keys = list(paint_pcd_color_group_dict.keys())
     for color in color_group:
-        if color not in paint_pcd_color_group_dict:
-            raise ValueError(f"Color group {color} not recognized. Available groups: {list(paint_pcd_color_group_dict.keys())}")
+        if color not in c_keys:
+            raise ValueError(f"Color group {color} not recognized. Available groups: {c_keys}")
     paint_pcd_color_groups = [paint_pcd_color_group_dict[group] for group in color_group]
 
     for group in paint_pcd_color_groups:
@@ -221,7 +222,7 @@ if __name__ == "__main__":
     out_signature_str = CONFIG['calc_geom_feature']['out_signature_str']
     inverse_zenith = CONFIG['calc_geom_feature']['flip_mangrove']
     generate_virtual_ball = CONFIG['back_projection']['generate_virtual_ball']
-    paint_pcd_color_groups = CONFIG['back_projection']['paint_pcd_color_groups']
+    paint_color_groups = CONFIG['back_projection']['paint_pcd_color_groups']
 
     for output_dir in out_dir_ls:
         input_file_stem = output_dir.parent.name
@@ -234,7 +235,7 @@ if __name__ == "__main__":
         image_cube_path = image_dir / f'{key_str}_image_cube.npy'
         image_cube, metadata = load_image_cube_and_meta(image_cube_path)
         channel_names = metadata['channel_names']
-        paint_pcd_color_groups = prepare_color_group(channel_names, paint_pcd_color_groups)
+        paint_pcd_color_groups = prepare_color_group(channel_names, paint_color_groups)
 
         # Paint the point cloud with different color groups
         for color_group in paint_pcd_color_groups:

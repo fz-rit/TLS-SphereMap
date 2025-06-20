@@ -21,7 +21,7 @@ def get_color_map(input_base_dir):
 
     return color_map
 
-def load_config_mangrove(config, selected_scans = [1,30]):
+def load_config_mangrove(config):
     """Load the JSON config and dynamically generate paths."""
 
     global_params = config["global"]
@@ -30,7 +30,7 @@ def load_config_mangrove(config, selected_scans = [1,30]):
     input_folder = global_params["input_folder"]
     input_suffix = global_params.get("input_suffix", ".txt")  # Default to .txt if not specified
     input_folder_parent = global_params["input_folder_parent"]
-
+    selected_scans = global_params['selected_scans']
     output_root_dir  = output_base_dir / input_folder_parent / input_folder
     create_dir_if_not_exists(output_root_dir, ask_user=False)
     output_sub_folders = [p for p in output_root_dir.iterdir() if p.is_dir() and p.name != "forest"]
@@ -66,7 +66,7 @@ def load_config_mangrove(config, selected_scans = [1,30]):
     return config
 
 
-def load_config_inlut3d(config, selected_scans = [1,30]):
+def load_config_inlut3d(config):
     """Load the JSON config and dynamically generate paths."""
     # with open(config_path, "r") as f:
     #     config = json.load(f)
@@ -75,7 +75,7 @@ def load_config_inlut3d(config, selected_scans = [1,30]):
     output_base_dir = Path(global_params["output_base_dir"])
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params.get("input_suffix", ".las")  # Default to .txt if not specified
-
+    selected_scans = global_params['selected_scans']
     input_folders = list(input_base_dir.iterdir())
     input_folders = [p for p in input_folders if p.is_dir()]
     input_folders_sort = sorted(input_folders, key=lambda p: int(p.name.split('_')[1]))
@@ -107,7 +107,7 @@ def load_config_inlut3d(config, selected_scans = [1,30]):
     return config
 
 
-def load_config_semantic3d(config, selected_scans = [1,30]):
+def load_config_semantic3d(config):
     """Load the JSON config and dynamically generate paths."""
     # with open(config_path, "r") as f:
     #     config = json.load(f)
@@ -116,6 +116,7 @@ def load_config_semantic3d(config, selected_scans = [1,30]):
     output_base_dir = Path(global_params["output_base_dir"])
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params["input_suffix"]
+    selected_scans = global_params['selected_scans']
     input_folders = list(input_base_dir.iterdir())
     input_folders = [p for p in input_folders if p.is_dir()]
     input_folders.sort()
@@ -152,7 +153,7 @@ with open(config_path, "r") as f:
     config = json.load(f)
 
 # CONFIG = load_config_inlut3d(config, selected_scans=[122, 321])
-CONFIG = load_config_mangrove(config, selected_scans=[0, 1])
+CONFIG = load_config_mangrove(config)
 # CONFIG = load_config_semantic3d(config, selected_scans=[0, 1])
 pprint("🔹 Loaded configuration:"
        f"\n{CONFIG}")
