@@ -141,8 +141,8 @@ def attach_image_colors_to_pcd(rgb_image, pcd_out_dir, input_pcd_key: str,
     if "_color" in point_cloud_file.stem:
         output_file = pcd_out_dir / (point_cloud_file.stem + '.csv')
     else:
-        file_str = str(point_cloud_file.stem).split(input_pcd_key)[0]
-        output_file = pcd_out_dir / (f"{file_str}_color" + '.csv')
+        file_str = point_cloud_file.stem.split(input_pcd_key)[0]
+        output_file = pcd_out_dir / (f"{file_str}color" + '.csv')
         if delete_intermediate:
             point_cloud_file.unlink()
             print(f"Deleted intermediate file: {point_cloud_file}")
@@ -216,7 +216,6 @@ if __name__ == "__main__":
     h_fov = global_params['h_fov']
     angular_res = (global_params['v_ang_res_deg'], global_params['h_ang_res_deg'])
     canvas_size = global_params['canvas_size']
-    # zenith_range = global_params['v_fov']
     delete_intermediate_file = global_params['delete_intermediate_file']
     out_dir_ls = global_params['output_dir_ls']
     out_signature_str = CONFIG['calc_geom_feature']['out_signature_str']
@@ -247,7 +246,9 @@ if __name__ == "__main__":
                                        delete_intermediate=delete_intermediate_file)
 
             if generate_virtual_ball:
-                ball_key_str = f"{input_file_stem}_{'_'.join(color_group)}"
+                str_ls = input_file_stem.split('_')
+                pcd_signature_str = f"pcd_{str_ls[2]}_{str_ls[-1][-4:]}"
+                ball_key_str = f"{pcd_signature_str}_{'_'.join(color_group)}"
                 get_a_colorized_ball_from_img(rgb_image,
                                         ball_key_str,
                                         zenith_range=v_fov, 

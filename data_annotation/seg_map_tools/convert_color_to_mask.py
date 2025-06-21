@@ -66,16 +66,6 @@ def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
         print(f"  {idx}: {name}")
 
 if __name__ == "__main__":
-    # # Load available datasets from JSON
-    # with open(current_file_dir / "label_maps.json", "r") as file:
-    #     available_datasets = json.load(file)["DATASETS"].keys()
-
-    # parser = argparse.ArgumentParser(description="Convert a colorful segmentation PNG to a grayscale class index mask.")
-    # parser.add_argument("-i", "--input", required=True, help="Path to the input colorful segmentation PNG.")
-    # parser.add_argument("-o", "--output", required=True, help="Path to save the output grayscale class index mask PNG.")
-    # parser.add_argument("-d", "--dataset", required=True, choices=available_datasets, help="Dataset name to select the appropriate colormap and class names.")
-
-    # args = parser.parse_args()
     dataset_name = CONFIG["convert_color_to_mask"]["dataset"]
     output_dir_ls = CONFIG["global"]["output_dir_ls"]
     for directory in output_dir_ls:

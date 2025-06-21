@@ -68,8 +68,6 @@ def load_config_mangrove(config):
 
 def load_config_inlut3d(config):
     """Load the JSON config and dynamically generate paths."""
-    # with open(config_path, "r") as f:
-    #     config = json.load(f)
 
     global_params = config["global"]
     output_base_dir = Path(global_params["output_base_dir"])
@@ -109,8 +107,6 @@ def load_config_inlut3d(config):
 
 def load_config_semantic3d(config):
     """Load the JSON config and dynamically generate paths."""
-    # with open(config_path, "r") as f:
-    #     config = json.load(f)
 
     global_params = config["global"]
     output_base_dir = Path(global_params["output_base_dir"])
@@ -152,8 +148,8 @@ config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
 with open(config_path, "r") as f:
     config = json.load(f)
 
-# CONFIG = load_config_inlut3d(config, selected_scans=[122, 321])
+# CONFIG = load_config_inlut3d(config)
 CONFIG = load_config_mangrove(config)
-# CONFIG = load_config_semantic3d(config, selected_scans=[0, 1])
+# CONFIG = load_config_semantic3d(config)
 pprint("🔹 Loaded configuration:"
        f"\n{CONFIG}")

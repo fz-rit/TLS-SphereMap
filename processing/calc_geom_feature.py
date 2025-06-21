@@ -337,7 +337,6 @@ def infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch: int = 10_000
 def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -> pd.DataFrame:
     """Process the point cloud, estimate curvature and roughness, and combine results."""
     input_file_stem = output_dir.parent.name
-    # input_path = Path(output_dir / 'pcd' / f"{input_file_stem}_filtered_normaled.txt")
 
     # Load config
     neighbor_radius = params["base_radius"]
@@ -348,7 +347,6 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -
     histogram_saveflag = params.get("histogram_saveflag", True)
     visualize = params.get("interactive_visualize", True)
     export = params.get("export", True)
-    # delete_intermediate_file = params.get("delete_intermediate_file", False)
 
     num_points = points_df.shape[0]
     geom_feature_calculator = GeometricFeatureCalculator(device='cuda')

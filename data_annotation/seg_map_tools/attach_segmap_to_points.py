@@ -25,7 +25,6 @@ def load_label_maps(dataset_name):
 
     # Convert string keys to tuple format for colors
     color_to_index = {tuple(map(int, k.split(","))): v for k, v in label_maps[dataset_name]["COLOR_TO_INDEX"].items()}
-    
     class_names = {int(k): v for k, v in label_maps[dataset_name]["CLASS_NAMES"].items()}
     index_to_color = {v: k for k, v in color_to_index.items()}
 
@@ -35,23 +34,17 @@ def load_label_maps(dataset_name):
 def attach_segmentation_to_points(image_dir, pcd_out_dir, canvas_size, angular_res):
     """Attach segmentation map class IDs and colors to the point cloud using parameters from JSON."""
     params = CONFIG["attach_segmap_to_points"]
-    # root_dir = CONFIG["global"]["output_dir"]
-    # pcd_dir = root_dir/ 'pcd'
-    # input_file_stem = CONFIG["global"]["input_file_stem"]
-    # point_cloud_file = root_dir / f"{input_file_stem}_filtered_normaled_curvature_0.06_roughness_0.06.txt"
     point_cloud_file = next(pcd_out_dir.glob(f"*_color*"), None)
 
-    segmap_file = image_dir / params["segmap"]
+    # segmap_file = image_dir / params["segmap"]
+    segmap_file = next(image_dir.glob(f"*_mask.png"), None)
     dataset_name = params["dataset"]
     output_formats = params["output_formats"]
-
-    # Load point cloud
     pc_df = pd.read_csv(point_cloud_file, sep=',')
     
     # Rename "Return Number" to "return_number" to avoid space issues
     # pc_df.rename(columns={"Return Number": "return_number"}, inplace=True)
     pc_df.rename(columns={"rangemeter": "range"}, inplace=True)
-
     azimuth, elevation = pc_df['azimuth'], pc_df['elevation']
 
     # Map angles to segmentation map pixels
@@ -60,8 +53,6 @@ def attach_segmentation_to_points(image_dir, pcd_out_dir, canvas_size, angular_r
                                       canvas_size=canvas_size)
     pc_df['x_pix'] = x_pix.astype(int)
     pc_df['y_pix'] = y_pix.astype(int)
-
-    # Load segmentation map
     segmap = np.array(Image.open(segmap_file))  # Shape: (H, W)
 
     # Load label maps
@@ -85,48 +76,49 @@ def attach_segmentation_to_points(image_dir, pcd_out_dir, canvas_size, angular_r
     pc_df['class_id'] = class_ids
     pc_df[['r', 'g', 'b']] = pd.DataFrame(colors, index=pc_df.index)
 
-    # # Rescale Intensity values to 0-65535 to ensure compatibility with las format, astype uint16
-    # if pc_df['Intensity'].max() <= 1.0:
-    #     pc_df['Intensity'] = (pc_df['Intensity'] * 65535).astype(np.uint16)
+    # Rescale Intensity values to 0-65535 to ensure compatibility with las format, astype uint16
+    if pc_df['Intensity'].max() <= 1.0:
+        pc_df['Intensity'] = (pc_df['Intensity'] * 65535).astype(np.uint16)
 
-
-    # Drop extra columns used for processing
-    pc_df.drop(columns=['x_pix', 'y_pix'], inplace=True)
+    # pc_df.drop(columns=['x_pix', 'y_pix'], inplace=True)
 
     # Reorder columns
     pc_df = pc_df[['X', 'Y', 'Z', 
-                #    'azimuth', 'nx', 'ny', 'nz', 
-                   'class_id', 'r', 'g', 'b']]
+                   'Intensity',
+                #    'azimuth', 
+                'nx', 'ny', 'nz', 
+                'class_id', 
+                'r', 'g', 'b']]
 
     # Save as various output formats
     for output_format in output_formats:
-        file_str = str(point_cloud_file.stem).split("_filtered")[0]
+        file_str = str(point_cloud_file.stem).split("_color")[0]
         output_file = pcd_out_dir / (f"{file_str}_seg" + output_format)
-        if output_format == ".csv":
-            pc_df.to_csv(output_file, index=False)
-        elif output_format == ".ply":
+        # if output_format == ".csv":
+        #     pc_df.to_csv(output_file, index=False)
+        # elif output_format == ".ply":
+        if output_format == ".ply":
             # Convert DataFrame to structured array
             dtype_list = [
                 ('X', 'f4'), ('Y', 'f4'), ('Z', 'f4'),
-                # ('Intensity', 'u2'), # ensure las compatibility
+                ('Intensity', 'u2'), # ensure las compatibility
                 # ('return_number', 'u1'),
                 # ('azimuth', 'f4'), 
                 # ('elevation', 'f4'), ('zenith', 'f4'),
                 # ('range', 'f4'), 
-                # ('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4'),
+                ('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4'),
                 # ('curvature', 'f4'), ('roughness', 'f4'), 
                 ('class_id', 'u1'),
                 ('r', 'u1'), ('g', 'u1'), ('b', 'u1')
             ]
 
             data_np = np.array([tuple(row) for row in pc_df.to_numpy()], dtype=dtype_list)
-
-            # Create PLY element
             vertex = PlyElement.describe(data_np, 'vertex')
-
-            # Write to file
             ply_data = PlyData([vertex], text=False)
             ply_data.write(output_file) 
+        elif output_format == ".label":
+            class_ids = pc_df['class_id']
+            class_ids.to_csv(output_file, index=False, header=False)
         else:
             raise ValueError(f"!!Output format '{output_format}' not supported.") 
 
