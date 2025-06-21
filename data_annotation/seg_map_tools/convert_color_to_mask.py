@@ -32,13 +32,25 @@ def load_dataset_info(dataset_name):
 def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
     """Convert a colorful segmentation map to a grayscale class index mask."""
     
-    pattern = re.compile(r"seg_map_.*_(\d{4})\.png")
-    input_map = [p for p in seg_map_dir.glob("seg_map*.png") if pattern.fullmatch(p.name)]
+    # pattern = re.compile(r"seg_map_.*_(\d{4})\.png")
+    # # Check if the directory contains any file with the pattern "_mask", delete it if exists
+    # mask_files = list(seg_map_dir.glob("*_mask*"))
+    # for mask_file in mask_files:
+    #     if mask_file.is_file():
+    #         print(f"Deleting existing mask file: {mask_file}")
+    #         mask_file.unlink()
+
+
+    input_map = next((p for p in seg_map_dir.glob("seg_map*.png") 
+                     if "_mask" not in p.stem), None)
     if not input_map:
         raise FileNotFoundError(f"No segmentation map found in {seg_map_dir} matching the pattern.")
-    elif len(input_map) > 1:
-        raise ValueError(f"Multiple segmentation maps found in {seg_map_dir}. Please ensure only one matches the pattern.")
-    input_map = input_map[0]
+    # input_map = [p for p in seg_map_dir.glob("seg_map*.png") if pattern.fullmatch(p.name)]
+    # if not input_map:
+    #     raise FileNotFoundError(f"No segmentation map found in {seg_map_dir} matching the pattern.")
+    # elif len(input_map) > 1:
+    #     raise ValueError(f"Multiple segmentation maps found in {seg_map_dir}. Please ensure only one matches the pattern.")
+    # input_map = input_map[0]
 
     save_path = seg_map_dir / f"{input_map.stem}_mask.png"
     color_to_index, class_names = load_dataset_info(dataset_name)
@@ -51,7 +63,7 @@ def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
 
     # Convert RGB colors to class indices
     for color, class_id in color_to_index.items():
-        mask = np.all(img_np == np.array(color), axis=-1)
+        mask = np.all(np.abs(img_np - np.array(color)) <= 3, axis=-1)
         class_map[mask] = class_id
 
     # Convert to PIL Image and save the class index mask
