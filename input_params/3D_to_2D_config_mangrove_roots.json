@@ -14,12 +14,12 @@
         "delete_intermediate_file": true
     },
     "calc_geom_feature": {
-        "cut_percent": 0.005,
-        "clean_pc": false,
+        "cut_percent": 0.0001,
+        "clean_pc": true,
         "flip_mangrove": true,
         "pts_num_per_batch": 10000,
-        "buffer_pts": 60,
-        "base_radius": 0.02,
+        "buffer_pts": 100,
+        "base_radius": 0.01,
         "max_neighbors": 2000,
         "histogram_saveflag": false,
         "interactive_visualize": false,

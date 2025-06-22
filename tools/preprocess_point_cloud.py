@@ -265,7 +265,7 @@ def clean_pcd_df_based_on_ir(df: pd.DataFrame, cut_percent: float=0.006) -> pd.D
     """
     print(f"❗ Cleaning point cloud data based on {cut_percent * 100}% cut-off.")
     col_names = ['rangemeter', 'Intensity']
-    bottom_values = [0.1, 0.001]
+    bottom_values = [0.01, 0.001]
     # Calculate the cut-off values for each column
     cut_off_values = {}
     for col, bottom in zip(col_names, bottom_values):
