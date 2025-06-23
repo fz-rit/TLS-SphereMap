@@ -1,7 +1,0 @@
-{
-    "root_dir": "D:/mylab/pointcloud_segmentation_from_spherical_projection/Harvard_forest_33/Harvard_forest_33_01/",  
-    "pointcloud": "33_01_filtered_normaled_curvature_0.06_roughness_0.06.txt",
-    "segmap": "seg_map_harvard_33_01_mask.png",
-    "dataset": "HARVARD_FOREST",
-    "output_format": ".ply"
-}
