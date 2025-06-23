@@ -3,10 +3,18 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from pathlib import Path
-
+plt.rcParams.update({
+    'font.size': 12,         # base font size
+    'axes.titlesize': 12,    # title size
+    'axes.labelsize': 10,    # x/y label size
+    'xtick.labelsize': 9,
+    'ytick.labelsize': 9,
+    'legend.fontsize': 9,
+    'figure.titlesize': 12
+})
 CLASS_MAP = {
     0: 'Void',
-    1: 'Ground',
+    1: 'Ground&Water',
     2: 'Stem',
     3: 'Canopy',
     4: 'Roots',
@@ -65,14 +73,14 @@ def plot_class_id_hist(class_id_vec, class_map, save_path):
     counts = np.array([(class_id_vec == cid).sum() for cid in class_ids])
     ratios = counts / counts.sum()
 
-    fig, ax1 = plt.subplots(figsize=(12, 8))
+    fig, ax1 = plt.subplots(figsize=(10, 6))
 
     # Histogram (left y-axis)
     bars = ax1.bar(class_ids, counts, width=0.6, edgecolor='black', align='center', color='skyblue')
     ax1.set_ylabel('Number of Points', color='blue', fontsize=FONTSIZE)
     ax1.tick_params(axis='y', labelcolor='blue', labelsize=FONTSIZE)
     ax1.set_xticks(class_ids)
-    ax1.set_xticklabels([class_map[i] for i in class_ids], rotation=45, fontsize=FONTSIZE)
+    ax1.set_xticklabels([class_map[i] for i in class_ids], rotation=0, fontsize=FONTSIZE)
     # ax1.set_title(f'Histogram of Classes ({prefix})\n ', fontsize=FONTSIZE)
     ax1.grid(axis='y', alpha=0.3)
 
@@ -87,7 +95,7 @@ def plot_class_id_hist(class_id_vec, class_map, save_path):
 
     # Ratio line (right y-axis)
     ax2 = ax1.twinx()
-    ax2.plot(class_ids, ratios, 'o--', color='darkred', label='Ratio')
+    ax2.plot(class_ids, ratios, 'o', color='darkred', label='Ratio')
     ax2.set_ylabel('Ratio (%)', color='darkred', fontsize=FONTSIZE)
     ax2.tick_params(axis='y', labelcolor='darkred', labelsize=FONTSIZE)
     ax2.set_ylim(0, max(ratios) * 1.2)
@@ -96,13 +104,13 @@ def plot_class_id_hist(class_id_vec, class_map, save_path):
 
     # Add ratio text next to each dot
     for x, y in zip(class_ids, ratios):
-        ax2.annotate(f'{y*100:.2f}%',
+        ax2.annotate(f'{y*100:.1f}%',
                      xy=(x, y),
                      xytext=(5, 0),
                      textcoords='offset points',
                      ha='left', va='center', fontsize=FONTSIZE, color='darkred')
 
-    # fig.tight_layout()
+    fig.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.show()
 
