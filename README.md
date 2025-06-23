@@ -122,6 +122,3 @@ pip install seaborn
 | ![Harvard Forest Segmented Point Cloud](examples/HarvardForestSegmentPC.gif) | ![Mangrove Segmented Point Cloud](examples/MangroveRootsSegmentPC.gif) | 
 
 <!-- (Note: URL-encode spaces (%20) and parentheses (%28, %29)) -->
-
-## To Do
-- [ ] Fix the obvious pattern cause by batch processing in Curvature map and Roughness map. (possibly by introducing the [`KDTree`](calc_curvature_roughness_kdtree.py))
