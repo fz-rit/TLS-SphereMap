@@ -12,37 +12,30 @@ from typing import List, Generator
 import os
 
 def interactive_visualize_pcd(all_points_xyz: np.ndarray, 
-                      all_curvatures: np.ndarray, 
-                      all_roughness: np.ndarray,
-                      neighbor_radius: float,
+                        all_geom_features: tuple,
+                        geom_feature_names: List[str],
                       ) -> None:
     """Visualize curvature and roughness with Open3D.
 
     Args:
-        all_points_xyz (np.ndarray): Array of points_xyz.
-        all_curvatures (np.ndarray): Array of curvature values.
-        all_roughness (np.ndarray): Array of roughness values.
-        neighbor_radius (float): Radius for curvature & roughness estimation.
+        all_points_xyz (np.ndarray): Array of point cloud coordinates.
+        all_geom_features (tuple): Tuple containing curvature and roughness arrays.
+        geom_feature_names (List[str]): Names of the geometric features for visualization.
     """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(all_points_xyz)
     colormap = plt.get_cmap('plasma')
-    all_curvatures_colors = colormap(all_curvatures)[:, :3]
-    all_roughness_colors = colormap(all_roughness)[:, :3]
-    
-    pcd.colors = o3d.utility.Vector3dVector(all_curvatures_colors)
-    print("Displaying curvature visualization...")
-    o3d.visualization.draw_geometries([pcd], window_name=f"Curvature Visualization (r={neighbor_radius})")
-
-    pcd.colors = o3d.utility.Vector3dVector(all_roughness_colors)
-    print("Displaying roughness visualization...")
-    o3d.visualization.draw_geometries([pcd], window_name=f"Roughness Visualization (r={neighbor_radius})")
+    for geom_feature, geom_feature_name in zip(all_geom_features, geom_feature_names):
+        geom_feature_colors = colormap(geom_feature)[:, :3]  # Convert to RGB colors
+        pcd.colors = o3d.utility.Vector3dVector(geom_feature_colors)
+        print(f"Displaying {geom_feature_name} visualization...")
+        o3d.visualization.draw_geometries([pcd], window_name=f"{geom_feature_name} Visualization")
 
 
 
 
 def export_results(all_points_allinone: pd.DataFrame, 
-                   neighbor_radius: float, 
+                   out_signature_str: str, 
                    output_dir: Path, 
                    input_file_stem: str) -> None:
     """Append curvature and roughness to points and export.
@@ -52,8 +45,9 @@ def export_results(all_points_allinone: pd.DataFrame,
         output_dir (Path): Output directory.
         input_path (Path): Filename for the exported file.
     """
-
-    export_path = output_dir / f"{input_file_stem}_ncr_{neighbor_radius:.2f}.txt"
+    str_ls = input_file_stem.split('_')
+    pcd_signature_str = f"pcd_{str_ls[2]}_{str_ls[-1][-4:]}_{out_signature_str}"
+    export_path = output_dir / f"{pcd_signature_str}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 

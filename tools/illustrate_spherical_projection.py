@@ -88,9 +88,9 @@ def create_colored_cube(center=[0, 0, 0], size=1.0):
     return mesh
 
 
-def generate_lidar_ball(radius=20.0, zenith_range = [0, 135], res_deg=AZIMUTH_RES):
+def generate_geometric_lidar_ball(radius=20.0, zenith_range = [0, 135], res_deg=AZIMUTH_RES):
     """
-    Generate a dense LiDAR-like point cloud with one point per angular bin.
+    Generate a dense LiDAR-like point cloud with one point per angular bin. Colorize points based on azimuth and zenith angles.
     Output columns: x, y, z, azimuth_deg, zenith_deg, r, g, b
     Group color every 5° and add distinguishable lat/lon lines.
     """
@@ -359,7 +359,7 @@ def visualize_and_save_point_cloud(df_in, zenith_range=[0, 135], visualize=True,
 def main():
     # Generate a dense LiDAR-like point cloud
     visualize = True
-    df_ball = generate_lidar_ball(radius=10.0)
+    df_ball = generate_geometric_lidar_ball(radius=10.0)
     visualize_and_save_point_cloud(df_ball, visualize=visualize, output_prefix="ball")
 
     df_cube = create_colored_cube_points(center=[3, 3, 3], size=5.0, samples_per_face=50)

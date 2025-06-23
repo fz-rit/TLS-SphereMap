@@ -32,13 +32,25 @@ def load_dataset_info(dataset_name):
 def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
     """Convert a colorful segmentation map to a grayscale class index mask."""
     
-    pattern = re.compile(r"seg_map_.*_(\d{4})\.png")
-    input_map = [p for p in seg_map_dir.glob("seg_map*.png") if pattern.fullmatch(p.name)]
+    # pattern = re.compile(r"seg_map_.*_(\d{4})\.png")
+    # # Check if the directory contains any file with the pattern "_mask", delete it if exists
+    # mask_files = list(seg_map_dir.glob("*_mask*"))
+    # for mask_file in mask_files:
+    #     if mask_file.is_file():
+    #         print(f"Deleting existing mask file: {mask_file}")
+    #         mask_file.unlink()
+
+
+    input_map = next((p for p in seg_map_dir.glob("seg_map*.png") 
+                     if "_mask" not in p.stem), None)
     if not input_map:
         raise FileNotFoundError(f"No segmentation map found in {seg_map_dir} matching the pattern.")
-    elif len(input_map) > 1:
-        raise ValueError(f"Multiple segmentation maps found in {seg_map_dir}. Please ensure only one matches the pattern.")
-    input_map = input_map[0]
+    # input_map = [p for p in seg_map_dir.glob("seg_map*.png") if pattern.fullmatch(p.name)]
+    # if not input_map:
+    #     raise FileNotFoundError(f"No segmentation map found in {seg_map_dir} matching the pattern.")
+    # elif len(input_map) > 1:
+    #     raise ValueError(f"Multiple segmentation maps found in {seg_map_dir}. Please ensure only one matches the pattern.")
+    # input_map = input_map[0]
 
     save_path = seg_map_dir / f"{input_map.stem}_mask.png"
     color_to_index, class_names = load_dataset_info(dataset_name)
@@ -51,7 +63,7 @@ def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
 
     # Convert RGB colors to class indices
     for color, class_id in color_to_index.items():
-        mask = np.all(img_np == np.array(color), axis=-1)
+        mask = np.all(np.abs(img_np - np.array(color)) <= 3, axis=-1)
         class_map[mask] = class_id
 
     # Convert to PIL Image and save the class index mask
@@ -66,16 +78,6 @@ def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
         print(f"  {idx}: {name}")
 
 if __name__ == "__main__":
-    # # Load available datasets from JSON
-    # with open(current_file_dir / "label_maps.json", "r") as file:
-    #     available_datasets = json.load(file)["DATASETS"].keys()
-
-    # parser = argparse.ArgumentParser(description="Convert a colorful segmentation PNG to a grayscale class index mask.")
-    # parser.add_argument("-i", "--input", required=True, help="Path to the input colorful segmentation PNG.")
-    # parser.add_argument("-o", "--output", required=True, help="Path to save the output grayscale class index mask PNG.")
-    # parser.add_argument("-d", "--dataset", required=True, choices=available_datasets, help="Dataset name to select the appropriate colormap and class names.")
-
-    # args = parser.parse_args()
     dataset_name = CONFIG["convert_color_to_mask"]["dataset"]
     output_dir_ls = CONFIG["global"]["output_dir_ls"]
     for directory in output_dir_ls:

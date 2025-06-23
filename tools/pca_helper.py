@@ -121,3 +121,28 @@ def compute_ica(image, n_components=3):
     ica_components = ica_result.reshape(H, W, n_components)
 
     return ica_components # shape (H, W, n_components)
+
+def z_score_standardize(image_cube):
+    """
+    Perform Z-score standardization on a multi-channel image cube.
+
+    Parameters:
+        image_cube (np.ndarray): Input array of shape (H, W, C)
+
+    Returns:
+        np.ndarray: Z-score standardized cube with same shape
+    """
+    if image_cube.ndim != 3:
+        raise ValueError("Input must be a 3D array of shape (H, W, C)")
+
+    H, W, C = image_cube.shape
+    flattened = image_cube.reshape(-1, C)
+
+    mean = flattened.mean(axis=0)
+    std = flattened.std(axis=0)
+
+    # Avoid division by zero
+    std[std == 0] = 1e-8
+
+    standardized = (flattened - mean) / std
+    return standardized.reshape(H, W, C)

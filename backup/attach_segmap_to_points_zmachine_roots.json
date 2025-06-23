@@ -1,7 +1,0 @@
-{
-    "root_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/palau_2024/ALRSET2/UMBCBL009_2024-03-28-02-21-37_ALRSET2North_060180_000159.800_1959269979/outputs",  
-    "pointcloud": "UMBCBL009_2024-03-28-02-21-37_ALRSET2North_060180_000159.800_1959269979_filtered_normaled_curvature_0.06_roughness_0.06.txt",
-    "segmap": "seg_map_9979_mask.png",
-    "dataset": "MANGROVE_ROOTS",
-    "output_formats": [".ply", ".csv"]
-}

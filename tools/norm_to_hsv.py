@@ -2,7 +2,6 @@ import open3d as o3d
 import numpy as np
 from matplotlib.colors import hsv_to_rgb
 from pandas import DataFrame
-
 def normals_to_color(normals: np.ndarray) -> np.ndarray:
     normals = np.round(normals, decimals=5)
     # Step 2: Convert normals to spherical coordinates (azimuth and elevation)
@@ -29,16 +28,21 @@ def normals_to_color(normals: np.ndarray) -> np.ndarray:
     # Normalize azimuth and elevation to [0, 1] for HSV mapping
     hue = (azimuth + np.pi) / (2 * np.pi)  # Map azimuth from [-pi, pi] to [0, 1]
     value = (elevation + np.pi / 2) / np.pi  # Map elevation from [-pi/2, pi/2] to [0, 1]
-    saturation = np.ones_like(hue).astype(float) / 2  # 0.5 produces smoother, more balanced histograms than 1.0
+    saturation = np.ones_like(hue).astype(float) * 0.6  # 0.6 produces smoother, more balanced histograms than 1.0
+    # saturation = np.clip((elevation + np.pi / 2) / np.pi, 0.1, 0.8)  # Map elevation to [0, 1]
+    # value = np.ones_like(hue) * 0.8  # Keep value constant for brightness
 
-    # Combine into HSV format
     hsv_colors = np.stack([hue, saturation, value], axis=1)
+    rgb = hsv_to_rgb(hsv_colors)
 
-    # Convert HSV to RGB
-    rgb_colors = hsv_to_rgb(hsv_colors)
+    # #Option3:
+    # h = (azimuth + np.pi) / (2 * np.pi) * 360  # degrees
+    # L = 30 + 60 * (elevation + np.pi / 2) / np.pi  # keep within safe band
+    # C = 50  # fixed chroma
+    # rgb = lch_to_rgb(L, C, h)
 
     # Convert RGB to a format Open3D accepts
-    colors = rgb_colors.astype(np.float64)
+    colors = rgb.astype(np.float64)
     return colors
 
 def attach_normal_color_to_df(df: DataFrame) -> DataFrame:

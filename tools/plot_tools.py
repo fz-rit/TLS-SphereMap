@@ -1,19 +1,3 @@
-"""
-Contributor: fzhcis@rit.edu
-Version: 1.0
-Last Updated: 04/29/2025
-Description:
-This module contains functions for generating and displaying histograms of image data and input vectors, 
-as well as displaying unwrapped images with titles and colorbars.
-Functions:
-----------
-- get_image_histogram(image_data: np.ndarray, output_dir: Path, title: str = '', saveflag: bool = False) -> None:
-- get_histogram(input_vec: np.ndarray, output_dir: Path, title: str = '', saveflag: bool = False) -> None:
-    Generate and display a histogram of values in the input vector data.
-- display_unwrapped_images(subplot_images: tuple[np.ndarray], titles: tuple[str], output_dir: Path, 
-    colormap: str = 'plasma', saveflag: bool = False) -> None:
-    Display images with titles and colorbars.
-"""
 
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -23,7 +7,17 @@ from matplotlib.colors import ListedColormap, BoundaryNorm, Normalize
 from matplotlib.colorbar import ColorbarBase
 import seaborn as sns
 from PIL import Image
+import pandas as pd
 
+plt.rcParams.update({
+    'font.size': 12,         # base font size
+    'axes.titlesize': 12,    # title size
+    'axes.labelsize': 10,    # x/y label size
+    'xtick.labelsize': 9,
+    'ytick.labelsize': 9,
+    'legend.fontsize': 9,
+    'figure.titlesize': 12
+})
 # HORIZONTAL_FOV = 360.0
 # # ======For TLS data======
 # VERTICAL_FOV = 135.0
@@ -43,8 +37,10 @@ def get_image_histogram(image_data: np.ndarray,
                         output_dir: Path, 
                         title: str = '', 
                         saveflag: bool = False,
-                        visualize: bool = True
+                        visualize: bool = True,
+                        cmap: ListedColormap = None
                         ) -> None:
+
     """
     Generate and display a histogram of pixel values in the image data,
     distributing bars evenly along the x-axis based on unique pixel values.
@@ -83,14 +79,18 @@ def get_image_histogram(image_data: np.ndarray,
     x_indices = np.arange(len(values))
 
     # Create the bar plot
-    fig, ax1 = plt.subplots(figsize=(12, 6))
+    fig, ax1 = plt.subplots(figsize=(4.5, 2.5), dpi=300)
 
-    # Absolute count bars
-    ax1.bar(x_indices, counts, color='blue', alpha=0.7, label='Absolute Count')
+    if cmap:
+        colors = [cmap(i / (len(x_indices)-1)) for i in x_indices]
+    else:
+        colors = 'blue'
+
+    ax1.bar(x_indices, counts, color=colors, alpha=0.7, label='Absolute Count')
     ax1.set_xlabel('Pixel Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
-
+    ax1.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))  # alternative syntax
     # Add a second y-axis for normalized portion
     ax2 = ax1.twinx()
     ax2.plot(x_indices, normalized_counts, color='orange', marker='o', linestyle='-', label='Normalized Portion')
@@ -100,18 +100,16 @@ def get_image_histogram(image_data: np.ndarray,
     # Replace x-ticks with the actual pixel values
     plt.xticks(x_indices, labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values], rotation=45)
 
-    # Add grid, legend, and title
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.title(f'Histogram of {title}')
+    # plt.title(f'Histogram of {title}')
     fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
 
-    # Adjust layout for better spacing
     fig.tight_layout()
     
     # Save the figure if saveflag is True
     if saveflag:
-        save_path = output_dir / f'Histogram_{title}.png'
-        fig.savefig(save_path, dpi=300)
+        save_path = output_dir / f'Histogram_{title}.pdf'
+        fig.savefig(save_path, bbox_inches='tight', dpi=300)
         print(f'Histogram saved to {save_path}')
     
     if visualize:
@@ -246,9 +244,9 @@ def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
         unique_values = np.unique(data)
         
         # Determine binning strategy
-        if len(unique_values) > 20:
-            # Use 20 bins for continuous data
-            bins = 20
+        if len(unique_values) > 10:
+            # Use 10 bins for continuous data
+            bins = 10
             hist_values, bin_edges = np.histogram(data, bins=bins)
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Midpoints of bins
             normalized_counts = hist_values / hist_values.sum()  # Normalize counts
@@ -397,12 +395,12 @@ def display_single_band_img_wt_discrete_values(
         colors = [jet(i) for i in range(jet.N)] + ['gray']
     elif type(color_map) == dict:
         colors = [color_map[str(i)] for i in range(num_unique_values)]
-    cmap = ListedColormap(colors)
-    norm = BoundaryNorm(boundaries, ncolors=cmap.N)
+    color_map = ListedColormap(colors)
+    bnd_norm = BoundaryNorm(boundaries, ncolors=color_map.N)
     
 
     # --- Display the image ---
-    im = ax.imshow(image_data, cmap=cmap, norm=norm)
+    im = ax.imshow(image_data, cmap=color_map, norm=bnd_norm)
 
     # --- Compute frequencies and cumulative proportions for proportional colorbar ---
     flat_data = image_data.flatten()
@@ -418,7 +416,7 @@ def display_single_band_img_wt_discrete_values(
     cb = ColorbarBase(
         cax,
         cmap=ListedColormap(colors),
-        norm=BoundaryNorm(cumulative, cmap.N),
+        norm=BoundaryNorm(cumulative, color_map.N),
         ticks=(cumulative[:-1] + cumulative[1:]) / 2,
         spacing='proportional',
         orientation='vertical'
@@ -430,8 +428,8 @@ def display_single_band_img_wt_discrete_values(
  
     if saveflag:
         # Save the raw image without labels or colorbars
-        normalized_data = norm(image_data)
-        rgba_image = cmap(normalized_data)
+        normalized_data = bnd_norm(image_data)
+        rgba_image = color_map(normalized_data)
         plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
         print(f'Images saved to {output_dir} directory')
 
@@ -439,7 +437,8 @@ def display_single_band_img_wt_discrete_values(
                         title=title, 
                         saveflag=saveflag, 
                         output_dir=output_dir,
-                        visualize=visualize
+                        visualize=visualize,
+                        cmap=color_map,
                         )
     if visualize:
         smart_image_pie_chart(image_data)
@@ -483,44 +482,6 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
         plt.show()
 
 
-def plot_correlation_matrix(corr_matrix, 
-                            band_names=None, 
-                            title="Correlation Matrix of Feature Maps",
-                            output_dir:Path=None, 
-                            output_stem=None):
-    """
-    Plots the correlation matrix as a heatmap.
-
-    Parameters:
-    -----------
-    corr_matrix : np.ndarray
-        A (C, C) correlation matrix.
-
-    band_names : list of str, optional
-        A list of names for the spectral bands (length C). If None, band indices will be used.
-
-    title : str
-        Title of the heatmap.
-    """
-    C = corr_matrix.shape[0]
-    if band_names is None:
-        band_names = [f'Band {i}' for i in range(C)]
-
-    assert len(band_names) == C, f"Length of band names {len(band_names)} must match the number of bands {C}."
-    corr_fig = plt.figure(figsize=(8, 6))
-    sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm",
-                xticklabels=band_names, yticklabels=band_names,
-                square=True, cbar_kws={"shrink": 0.75})
-    plt.title(title)
-    plt.tight_layout()
-
-    if output_dir is None:
-        output_path = Path(f"outputs/correlation_matrix_{output_stem}.png")
-    else:
-        output_path = output_dir / f"correlation_matrix_{output_stem}.png"
-    corr_fig.savefig(output_path)
-    print(f"1️Correlation matrix saved to {output_path}")
-
 
 def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
     """
@@ -559,7 +520,7 @@ def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
     print(f"2️PCA/MNF/ICA components saved to {output_path}")
     
 
-def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None):
+def plot_components_permutations(components, output_dir:Path=None, output_stem:str=None):
     """
     Plots RGB images from all permutations of the first 3 components.
 
@@ -585,13 +546,16 @@ def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None
 
         # save rgb image
         rgb = (rgb * 255).astype(np.uint8)
-        rgb_img = Image.fromarray(rgb)
-        if output_dir is None:
-            output_path = Path(f"outputs/{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png")
-        else:
-            output_path = output_dir / f"{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png"   
-        rgb_img.save(output_path)
-        print(f"3️Saved RGB image to {output_path}")
+        
+        if perm == (1, 2, 0):
+            rgb_img = Image.fromarray(rgb)
+            if output_dir is None:
+                output_path = Path(f"outputs/{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png")
+            else:
+                output_path = output_dir / f"{output_stem}_rgb_{perm[0]}_{perm[1]}_{perm[2]}.png"
+        
+            rgb_img.save(output_path)
+            print(f"3️Saved RGB image to {output_path}")
         ax.imshow(rgb)
         ax.set_title(f"{output_stem} rgb permutations\nR:Comp{perm[0]+1} G:Comp{perm[1]+1} B:Comp{perm[2]+1}")
         ax.axis('off')
@@ -605,6 +569,92 @@ def plot_rgb_permutations(components, output_dir:Path=None, output_stem:str=None
             output_path = output_dir / f"{output_stem}_PCs_permutations.png"
         fig.savefig(output_path)
         print(f"3️Saved RGB permutations plot to {output_path}")
+
+
+        
+def plot_correlation_matrix(corr_matrix, 
+                            band_names=None, 
+                            output_dir: Path = None, 
+                            output_stem: str = None,
+                            dpi: int = 300):
+    """
+    Plots a hybrid-style correlation matrix using Seaborn heatmap + bubble overlay.
+
+    Parameters
+    ----------
+    corr_matrix : np.ndarray or pd.DataFrame
+        Correlation matrix of shape (C, C).
+    band_names : list of str, optional
+        Labels for axes. If None, band indices are used.
+    output_dir : Path, optional
+        Directory to save the figure.
+    output_stem : str, optional
+        File name stem for saving.
+    dpi : int
+        Resolution for saved figure.
+    """
+    corr = corr_matrix if isinstance(corr_matrix, pd.DataFrame) else pd.DataFrame(corr_matrix)
+    C = corr.shape[0]
+    
+    if band_names is None:
+        band_names = [f'Band {i}' for i in range(C)]
+
+    assert len(band_names) == C, f"Length of band names {len(band_names)} must match number of bands {C}."
+
+    # ─────────────────────────────────────────────
+    # Setup
+    fig, ax = plt.subplots(figsize=(5.5, 5.5), dpi=dpi)
+    mask_upper = np.triu(np.ones_like(corr, dtype=bool), k=1)
+    norm = Normalize(vmin=-1, vmax=1)
+    cmap = plt.colormaps["coolwarm"]
+
+    # ─────────────────────────────────────────────
+    # Lower triangle: heatmap with annotations
+    sns.heatmap(corr,
+                mask=mask_upper,
+                cmap=cmap,
+                vmin=-1, vmax=1,
+                annot=True, fmt=".2f",
+                square=True,
+                linewidths=0.5,
+                xticklabels=band_names,
+                yticklabels=band_names,
+                cbar_kws={"shrink": 0.75, "label": "Correlation coefficient"},
+                annot_kws={"size": 7},
+                ax=ax)
+
+    # ─────────────────────────────────────────────
+    # Upper triangle: bubble glyph overlay
+    max_bubble_area = 1200
+    for i in range(C):
+        for j in range(i+1, C):
+            val = corr.iloc[i, j]
+            radius = abs(val)  # perceptual scaling
+            area = max_bubble_area * radius ** 2
+            ax.scatter(j + 0.5, i + 0.5,
+                       s=area,
+                       color=cmap(norm(val)),
+                       edgecolor='white',
+                       linewidth=0.5,
+                       alpha=0.8)
+
+    # ─────────────────────────────────────────────
+    # Aesthetics
+    ax.set_xticklabels(band_names, rotation=45, ha="right", fontsize=9)
+    ax.set_yticklabels(band_names, rotation=0, fontsize=9)
+    ax.tick_params(length=0)
+    plt.tight_layout()
+
+    # ─────────────────────────────────────────────
+    # Save to file
+    if output_stem is None:
+        output_stem = "corr"
+    if output_dir is None:
+        output_dir = Path("outputs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"correlation_matrix_{output_stem}.png"
+    fig.savefig(output_path)
+    print(f"✅ Correlation matrix saved to: {output_path}")
 
 
 def histogram_to_ascii(hist, width=30, style="blocks"):

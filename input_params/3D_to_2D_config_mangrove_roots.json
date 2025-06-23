@@ -1,48 +1,48 @@
 {
     "global": {
-        "input_folder": "ALRSET1",
+        "input_folder": "ALRSET2",
         "input_folder_parent": "palau_2024",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
         "output_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs",
+        "selected_scans": [1, 2],
         "input_suffix": ".txt",
         "dataset": "MANGROVE",
-        "h_fov": 360,
-        "v_fov": 135,
+        "h_fov": [0, 360],
+        "v_fov": [0, 135],
         "h_ang_res_deg": 0.25,
-        "v_ang_res_deg": 0.25
+        "v_ang_res_deg": 0.25,
+        "delete_intermediate_file": true
     },
-    "calc_pt_cloud_normal": {
-        "cut_percent": 0.005,
+    "calc_geom_feature": {
+        "cut_percent": 0.0001,
         "clean_pc": true,
-        "visualize": false,
         "flip_mangrove": true,
-        "radius": 0.05
-    },
-    "calc_curvature_roughness": {
-        "batch_num_elevation": 5,
-        "batch_num_azimuth": 6,
-        "neighbor_radius": 0.10,
-        "max_neighbors": 200,
+        "pts_num_per_batch": 10000,
+        "buffer_pts": 100,
+        "base_radius": 0.01,
+        "max_neighbors": 2000,
         "histogram_saveflag": false,
         "interactive_visualize": false,
         "export": true,
-        "delete_intermediate_file": true
+        "out_signature_str": "geom_feat"
     },
     "spherical_projection": {
         "visualize" : false,
-        "extra_maps" : false,
-        "save_extra_maps" : false,
+        "extra_maps" : true,
+        "save_extra_maps" : true,
         "show_single_band" : false,
-        "show_pseudo_rgb" : false,
+        "show_pseudo_rgb" : true,
         "show_pca" : false        
     },
+    "back_projection": {
+        "generate_virtual_ball": false,
+        "paint_pcd_color_groups": ["izr", "normals", "pca"]
+    },
     "convert_color_to_mask": {
-        "color_seg_map": "seg_map_ALRSET2_9979.png",
         "dataset": "MANGROVE_ROOTS"
     },
     "attach_segmap_to_points": {
-        "segmap": "seg_map_ALRSET2_9979_mask.png",
         "dataset": "MANGROVE_ROOTS",
-        "output_formats": [".ply", ".csv"]
+        "output_formats": [".ply", ".label"]
     }
 }
