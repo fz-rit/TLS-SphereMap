@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from scipy.stats import binned_statistic_2d
 from skimage.feature import blob_log
 from pathlib import Path
-from tools.illustrate_spherical_projection import create_colored_cube_points
 
 def compute_density_map(points, bins=512):
     """Compute 2D density map from point cloud."""

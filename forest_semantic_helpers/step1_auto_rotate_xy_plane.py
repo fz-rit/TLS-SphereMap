@@ -3,7 +3,7 @@ from scipy.spatial import ConvexHull
 from pathlib import Path
 import pandas as pd
 import laspy
-from forest_semantic_helpers.read_pcd import read_pcd_file, observe_df
+from forest_semantic_helpers.step0_read_pcd import read_pcd_file, observe_df
 
 
 def compute_rotation_matrix(points: np.ndarray) -> np.ndarray:

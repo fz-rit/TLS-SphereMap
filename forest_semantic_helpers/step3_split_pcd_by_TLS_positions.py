@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tools.illustrate_spherical_projection import create_colored_cube_points
-from forest_semantic_helpers.read_pcd import read_pcd_file, observe_df
+from forest_semantic_helpers.step0_read_pcd import observe_df
 
 def align_cube_df_with_points(cube_df, points_df):
     """Align cube DataFrame columns to match points DataFrame structure."""
