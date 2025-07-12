@@ -160,10 +160,10 @@ def save_image_cube_and_meta(
 
     # Organize image components
     raw_maps = np.stack(collected_maps[:3], axis=-1)
-    adjusted_maps = np.stack(collected_maps[3:], axis=-1)
+    feature_maps = np.stack(collected_maps[3:], axis=-1)
     
     # Create standardized input for dimensionality reduction
-    pca_input_cube = np.concatenate([adjusted_maps, normals_rgb_image], axis=-1)
+    pca_input_cube = np.concatenate([feature_maps, normals_rgb_image], axis=-1)
     pca_input_standardized = z_score_standardize(pca_input_cube)
 
     # Compute dimensionality reduction components
@@ -621,12 +621,12 @@ def generate_pseudo_rgb_combinations(
         return
 
     # Generate random combinations
-    seed(617)  # For reproducibility
+    seed(617)
     all_combinations = list(permutations(range(len(available_maps)), 3))
     selected_combinations = sample(all_combinations, min(3, len(all_combinations)))
     selected_combinations += [
-        (0, 1, 2),  # Ensure the first three are always included
-        (3, 4, 5),  # Additional combinations for diversity
+        (0, 1, 2),  
+        (3, 4, 5),  
     ]
     for combo in selected_combinations:
         feature_combo = [available_names[i] for i in combo]
