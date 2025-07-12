@@ -236,8 +236,16 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
         print(f"Read {len(df)} points from {filename}")
         print(df.head())
         df = add_angle_range_to_df(df)
-        
 
+    elif filename.suffix == '.csv' and dataset_name == 'ForestSemantic':
+        print("Reading a .csv file, for ForestSemantic data.")
+        # Try reading the file assuming there is a header
+        column_names = ['X', 'Y', 'Z', 'Intensity', 'Classification']
+        # df = pd.read_csv(filename, sep=',', names=column_names)
+        df = pd.read_csv(filename, sep=',', usecols=column_names)
+        print(f"Read {len(df)} points from {filename}")
+        print(df.head())
+        df = add_angle_range_to_df(df)
     else:
         raise ValueError(f"Unsupported file extension: {filename.suffix}; supported extensions are .txt, .las, .bin, and .pts")
     

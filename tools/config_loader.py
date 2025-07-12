@@ -66,6 +66,47 @@ def load_config_mangrove(config):
     return config
 
 
+def load_config_forestsemantic(config):
+    """Load the JSON config and dynamically generate paths."""
+
+    global_params = config["global"]
+    output_base_dir = Path(global_params["output_base_dir"])
+    input_base_dir = Path(global_params["input_base_dir"])
+    input_suffix = global_params.get("input_suffix", ".csv")  # Default to .txt if not specified
+    selected_scans = global_params['selected_scans']
+    create_dir_if_not_exists(output_base_dir, ask_user=False)
+
+    
+    input_path_ls = list(input_base_dir.glob(f"plot*_region*{input_suffix}"))
+    if not input_path_ls:
+        raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
+    input_path_ls.sort(key=lambda x: x.stem)
+    output_dir_ls = []
+    for input_path in input_path_ls[selected_scans[0]:selected_scans[1]]:
+        output_dir = output_base_dir / input_path.stem
+        create_dir_if_not_exists(output_dir, ask_user=False)
+        output_dir_ls.append(output_dir)
+
+    # Add computed paths to global config
+    color_map = get_color_map(input_base_dir)
+    global_params["color_map"] = color_map
+    global_params["output_dir_ls"] = output_dir_ls
+    global_params["input_path_ls"] = input_path_ls
+
+    v_fov = global_params['v_fov']
+    h_fov = global_params['h_fov']
+    canvas_size = (
+        int((v_fov[1] - v_fov[0]) / global_params['v_ang_res_deg']),
+        int((h_fov[1] - h_fov[0]) / global_params['h_ang_res_deg'])
+    )
+    global_params["canvas_size"] = canvas_size
+
+    config["global"] = global_params
+
+    return config
+
+
+
 def load_config_inlut3d(config):
     """Load the JSON config and dynamically generate paths."""
 
@@ -143,13 +184,26 @@ def load_config_semantic3d(config):
     return config
 
 # config_path = './input_params/3D_to_2D_config_harvard_forest.json'
-config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
+
+
+# config_path = './input_params/3D_to_2D_config_mangrove_roots.json'
+# with open(config_path, "r") as f:
+#     config = json.load(f)
+# CONFIG = load_config_mangrove(config)
+
+
 # config_path = './input_params/3D_to_2D_config_semantic3d.json'
+# with open(config_path, "r") as f:
+#     config = json.load(f)
+# CONFIG = load_config_semantic3d(config)
+
+
+config_path = './input_params/3D_to_2D_config_forestsemantic.json'
 with open(config_path, "r") as f:
     config = json.load(f)
 
-# CONFIG = load_config_inlut3d(config)
-CONFIG = load_config_mangrove(config)
-# CONFIG = load_config_semantic3d(config)
-pprint("🔹 Loaded configuration:"
+CONFIG = load_config_forestsemantic(config)
+
+
+pprint("🔹 Loaded configuration:" \
        f"\n{CONFIG}")
