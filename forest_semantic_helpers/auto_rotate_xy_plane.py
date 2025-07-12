@@ -87,23 +87,26 @@ def main():
     print(f"Total points: {len(pcd_df):,}")
 
     # Filter ground points and subsample
-    ground_df = pcd_df[pcd_df['Classification'] == 1]
-    sample_df = ground_df.sample(n=int(len(ground_df) * 0.01), random_state=42).reset_index(drop=True)
-    print(f"\n=====Ground points: {len(ground_df):,}, Sampled: {len(sample_df):,}======")
+    ground_df = pcd_df[pcd_df['Classification'] == 1].copy()
+    ground_sample_df = ground_df.sample(n=int(len(ground_df) * 0.01), random_state=42).reset_index(drop=True)
+    print(f"\n=====Ground points: {len(ground_df):,}, Sampled: {len(ground_sample_df):,}======")
     
-    # Compute rotation and apply
-    points = sample_df[['X', 'Y', 'Z']].values
-    rotation_matrix = compute_rotation_matrix(points)
-    rotated_points = apply_rotation(points, rotation_matrix)
+    # Compute rotation matrix from original sample points
+    ground_sample_pts = ground_sample_df[['X', 'Y', 'Z']].values
+    rotation_matrix = compute_rotation_matrix(ground_sample_pts)
     
-    # Update DataFrame and save
-    sample_df[['X', 'Y', 'Z']] = rotated_points
-    observe_df(sample_df)
-    sample_df.to_csv(output_path, index=False)
+    # Apply rotation to sample points for saving
+    rotated_sample_points = apply_rotation(ground_sample_pts, rotation_matrix)
+    ground_sample_df_rotated = ground_sample_df.copy()
+    ground_sample_df_rotated[['X', 'Y', 'Z']] = rotated_sample_points
     
-    # Apply rotation to full dataset with sampled ground points
+    # Save rotated sample points
+    observe_df(ground_sample_df_rotated)
+    ground_sample_df_rotated.to_csv(output_path, index=False)
+    
+    # Apply rotation to full dataset with original (unrotated) sampled ground points
     print(f"\n=====Processing full dataset with sampled ground points======")
-    updated_df = rotate_original_points_with_fewer_ground_points(pcd_df, sample_df, rotation_matrix)
+    updated_df = rotate_original_points_with_fewer_ground_points(pcd_df, ground_sample_df, rotation_matrix)
     updated_output_path = output_dir / f"{pcd_path.stem}_rotated_with_sampled_ground.csv"
     updated_df.to_csv(updated_output_path, index=False)
     
