@@ -3,7 +3,7 @@ from scipy.spatial import ConvexHull
 from pathlib import Path
 import pandas as pd
 import laspy
-from forest_semantic_helpers.step0_read_pcd import read_pcd_file, observe_df
+from forest_semantic_helpers.step0_read_las import read_pcd_file, observe_df
 
 
 def compute_rotation_matrix(points: np.ndarray) -> np.ndarray:
@@ -76,7 +76,7 @@ def rotate_original_points_with_fewer_ground_points(original_df, sample_ground_d
 def main():
     """Main processing function."""
     # Configuration
-    pcd_path = Path("/home/fzhcis/Downloads/ForestSemantic/Plot_1.las")
+    pcd_path = Path("/home/fzhcis/Downloads/ForestSemantic/Plot_5.las")
     output_dir = pcd_path.parent / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{pcd_path.stem}_ground_sample_points.csv"

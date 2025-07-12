@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tools.illustrate_spherical_projection import create_colored_cube_points
-from forest_semantic_helpers.step0_read_pcd import observe_df
+from forest_semantic_helpers.step0_read_las import observe_df
 
 def align_cube_df_with_points(cube_df, points_df):
     """Align cube DataFrame columns to match points DataFrame structure."""
@@ -107,7 +107,7 @@ def split_point_cloud_by_tls_scans(points_df, tls_positions_xy, generate_expande
 
 def main():
     output_dir = Path("/home/fzhcis/Downloads/ForestSemantic/output")
-    pts_path = output_dir / "Plot_1_rotated_with_sampled_ground.csv"
+    pts_path = output_dir / "Plot_5_rotated_with_sampled_ground.csv"
     # pts_path = Path("/home/fzhcis/Downloads/ForestSemantic/Plot_1.las")
     if not pts_path.exists():
         raise FileNotFoundError(f"File not found: {pts_path}")

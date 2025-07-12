@@ -21,7 +21,7 @@ def preprocess_density(density):
     return ((norm - norm.min()) / (norm.ptp() + 1e-6) * 255).astype(np.uint8)
 
 
-def detect_tls_positions(density_img, min_sigma=10, max_sigma=15, threshold=0.1):
+def detect_tls_positions(density_img, min_sigma=8, max_sigma=16, threshold=0.1):
     """Detect TLS positions using blob detection."""
     return blob_log(density_img, min_sigma=min_sigma, max_sigma=max_sigma,
                    num_sigma=10, threshold=threshold)
@@ -61,7 +61,7 @@ def visualize_results(density_img, blobs, output_dir):
 
 def main():
     output_dir = Path("/home/fzhcis/Downloads/ForestSemantic/output")
-    pts_path = output_dir / "Plot_1_ground_sample_points.csv"
+    pts_path = output_dir / "Plot_5_ground_sample_points.csv"
 
     if not pts_path.exists():
         raise FileNotFoundError(f"File not found: {pts_path}")

@@ -44,5 +44,5 @@ def read_pcd_file(file_path: Path, verbose: bool = False) -> pd.DataFrame:
 
 if __name__ == "__main__":
     pcd_dir = Path("/home/fzhcis/Downloads/ForestSemantic")
-    pcd_path = pcd_dir / "Plot_1.las"
+    pcd_path = pcd_dir / "Plot_5.las"
     pcd_df = read_pcd_file(pcd_path, verbose=True)
