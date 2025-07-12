@@ -35,9 +35,7 @@ def interactive_visualize_pcd(all_points_xyz: np.ndarray,
 
 
 def export_results(all_points_allinone: pd.DataFrame, 
-                   out_signature_str: str, 
-                   output_dir: Path, 
-                   input_file_stem: str) -> None:
+                   export_path: Path) -> None:
     """Append curvature and roughness to points and export.
 
     Args:
@@ -45,9 +43,9 @@ def export_results(all_points_allinone: pd.DataFrame,
         output_dir (Path): Output directory.
         input_path (Path): Filename for the exported file.
     """
-    str_ls = input_file_stem.split('_')
-    pcd_signature_str = f"pcd_{str_ls[2]}_{str_ls[-1][-4:]}_{out_signature_str}"
-    export_path = output_dir / f"{pcd_signature_str}.txt"
+    # str_ls = input_file_stem.split('_')
+    # pcd_signature_str = f"pcd_{str_ls[2]}_{str_ls[-1][-4:]}_{out_signature_str}"
+    # export_path = output_dir / f"{input_file_stem}_{out_signature_str}.txt"
     all_points_allinone.to_csv(export_path, sep=',', index=False)
     print(f"Exported point cloud with curvature and roughness to {export_path}")
 

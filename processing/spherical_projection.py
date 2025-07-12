@@ -13,6 +13,7 @@ from tools.spherical_projection_helper import (
     save_image_cube_and_meta, 
     generate_correlation_matrix, 
     generate_semantic3d_outputs,
+    generate_forest_semantic_outputs,
     generate_extra_visualizations, 
 )
 
@@ -132,10 +133,10 @@ def equirectangular_projection_multi(
             'g': 'mean',
             'b': 'mean',
         })
-    elif dataset_name != 'MANGROVE':
+    elif dataset_name != 'MANGROVE' and dataset_name != 'ForestSemantic':
         raise ValueError(
             f"Unsupported dataset: {dataset_name}. "
-            f"Supported datasets: 'SEMANTIC3D', 'MANGROVE'"
+            f"Supported datasets: 'SEMANTIC3D', 'MANGROVE', 'ForestSemantic'."
         )
 
     # Group by pixel coordinates and aggregate
@@ -156,6 +157,10 @@ def equirectangular_projection_multi(
         base_channels.extend(['true_r', 'true_g', 'true_b'])
         if 'class_id' in df_filtered_ncolored.columns:
             base_channels.extend(['seg_mask_raw', 'seg_mask_merged'])
+
+    if dataset_name == 'ForestSemantic':
+        if 'Classification' in df_filtered_ncolored.columns:
+            base_channels.extend(['seg_mask'])
 
     # Create coordinate arrays
     y_coords = np.arange(canvas_size[0])
@@ -237,12 +242,19 @@ def equirectangular_projection_multi(
         # Add segmentation masks if available
         if 'class_id' in df_filtered_ncolored.columns:
             seg_masks = _create_segmentation_masks(
-                df_filtered_ncolored, canvas_size, grouped
+                df_filtered_ncolored, canvas_size, dataset_name
             )
             channel_mapping.update({
                 'seg_mask_raw': seg_masks['seg_mask_raw'].astype(np.float32),
                 'seg_mask_merged': seg_masks['seg_mask_merged'].astype(np.float32),
             })
+    elif dataset_name == 'ForestSemantic':
+        # Create segmentation mask if available
+        if 'Classification' in df_filtered_ncolored.columns:
+            seg_masks = _create_segmentation_masks(
+                df_filtered_ncolored, canvas_size, dataset_name
+            )
+            channel_mapping['seg_mask'] = seg_masks['seg_mask_raw'].astype(np.float32)
 
     # Fill the projection data array
     for i, channel in enumerate(base_channels):
@@ -272,7 +284,7 @@ def equirectangular_projection_multi(
 def _create_segmentation_masks(
     df: pd.DataFrame, 
     canvas_size: Tuple[int, int], 
-    grouped: pd.core.groupby.DataFrameGroupBy
+    dataset_name: str
 ) -> Dict[str, np.ndarray]:
     """Create segmentation masks from class_id column.
     
@@ -285,7 +297,11 @@ def _create_segmentation_masks(
         Dictionary containing segmentation masks
     """
     seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
-    grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False)['class_id'].agg(
+    if dataset_name == 'ForestSemantic':
+        class_col = 'Classification'
+    else:
+        class_col = 'class_id'
+    grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False)[class_col].agg(
         lambda x: x.value_counts().idxmax()
     )
     
@@ -358,7 +374,7 @@ def generate_2D_projection_images(
     canvas_size: Tuple[int, int], 
     angular_res: Tuple[int, int], 
     dataset_name: str = 'MANGROVE',
-    out_key_str: str = '_geom_feat_',
+    out_key_str: str = 'geom_feat',
     color_map: Optional[Dict[str, tuple]] = None,
     saveflag: bool = False,
     visualize: bool = True,
@@ -427,6 +443,12 @@ def generate_2D_projection_images(
         generate_semantic3d_outputs(
             projection_xr, df_filtered, img_out_dir, key_str, 
             color_map, saveflag, visualize, canvas_size, v_fov, h_fov
+        )
+    elif dataset_name == 'ForestSemantic':
+        generate_forest_semantic_outputs(
+            projection_xr, df_filtered, img_out_dir, key_str, 
+            color_map, saveflag, visualize, 
+            # canvas_size, v_fov, h_fov
         )
 
     if extra_maps:

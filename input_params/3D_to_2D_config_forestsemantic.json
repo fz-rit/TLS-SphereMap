@@ -8,19 +8,20 @@
         "input_suffix": ".csv",
         "dataset": "ForestSemantic",
         "h_fov": [0, 360],
-        "v_fov": [1, 172],
-        "h_ang_res_deg": 0.1,
-        "v_ang_res_deg": 0.1,
+        "v_fov": [2, 178],
+        "h_ang_res_deg": 0.2,
+        "v_ang_res_deg": 0.4,
         "delete_intermediate_file": false
     },
     "calc_geom_feature": {
         "cut_percent": 0.0001,
         "clean_pc": false,
         "flip_mangrove": false,
-        "pts_num_per_batch": 2000,
-        "buffer_pts": 8,
-        "base_radius": 0.03,
-        "max_neighbors": 20,
+        "pts_num_per_batch": 30000,
+        "buffer_pts": 30,
+        "batching_method": "xyz",
+        "base_radius": 0.01,
+        "max_neighbors": 80,
         "histogram_saveflag": true,
         "interactive_visualize": true,
         "export": true,
@@ -39,10 +40,10 @@
         "paint_pcd_color_groups": ["izr", "normals", "pca"]
     },
     "convert_color_to_mask": {
-        "dataset": "MANGROVE_ROOTS"
+        "dataset": "ForestSemantic"
     },
     "attach_segmap_to_points": {
-        "dataset": "MANGROVE_ROOTS",
+        "dataset": "ForestSemantic",
         "output_formats": [".ply", ".label"]
     }
 }

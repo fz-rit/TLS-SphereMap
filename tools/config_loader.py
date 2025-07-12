@@ -77,7 +77,7 @@ def load_config_forestsemantic(config):
     create_dir_if_not_exists(output_base_dir, ask_user=False)
 
     
-    input_path_ls = list(input_base_dir.glob(f"plot*_region*{input_suffix}"))
+    input_path_ls = list(input_base_dir.glob(f"plot*_centered_subsample_scan*{input_suffix}"))
     if not input_path_ls:
         raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
     input_path_ls.sort(key=lambda x: x.stem)

@@ -37,7 +37,7 @@ def blobs_to_coords(blobs, xedges, yedges):
     return np.array(coords)
 
 
-def visualize_results(density_img, blobs, output_dir):
+def visualize_results(density_img, blobs, output_path):
     """Create visualization plots."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
@@ -54,14 +54,15 @@ def visualize_results(density_img, blobs, output_dir):
         ax2.add_patch(circle)
         ax2.plot(xpix, ypix, 'r.', markersize=8)
     plt.colorbar(im2, ax=ax2, label='Density (inverted)')
-    fig.savefig(output_dir / "density_map_with_blobs.png", dpi=300)
+    fig.savefig(output_path, dpi=300)
 
 
     
 
 def main():
+    plotnum = 1
     output_dir = Path("/home/fzhcis/Downloads/ForestSemantic/output")
-    pts_path = output_dir / "Plot_5_ground_sample_points.csv"
+    pts_path = output_dir / f"Plot_{plotnum}_ground_sample_points.csv"
 
     if not pts_path.exists():
         raise FileNotFoundError(f"File not found: {pts_path}")
@@ -78,10 +79,11 @@ def main():
     print(f"Detected {len(tls_positions)} TLS positions")
     
     # Visualize
-    visualize_results(density_img, blobs, output_dir)
+    visual_output_path = output_dir / f"Plot_{plotnum}_density_map_with_blobs.png"
+    visualize_results(density_img, blobs, visual_output_path)
 
     # Save results
-    output_path = output_dir/ "tls_positions_xy.csv"
+    output_path = output_dir/ f"Plot_{plotnum}_tls_positions_xy.csv"
     pd.DataFrame(tls_positions, columns=['X', 'Y']).to_csv(output_path, index=False)
     print(f"Results saved to: {output_path}")
             

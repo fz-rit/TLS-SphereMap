@@ -471,6 +471,53 @@ def generate_semantic3d_outputs(
                     )
 
 
+def generate_forest_semantic_outputs(
+    projection_xr: xr.DataArray,
+    df_filtered: pd.DataFrame,
+    img_out_dir: Path,
+    key_str: str,
+    color_map: Optional[Dict[str, tuple]],
+    saveflag: bool,
+    visualize: bool,
+    # canvas_size: Tuple[int, int],
+    # v_fov: Tuple[float, float],
+    # h_fov: Tuple[float, float]
+) -> None:
+    """Generate SEMANTIC3D-specific visualizations.
+    
+    Args:
+        projection_xr: Multi-channel projection DataArray
+        df_filtered: Original DataFrame with point cloud data
+        img_out_dir: Output directory for images
+        key_str: Identifier string for filenames
+        color_map: Color mapping for segmentation visualization
+        saveflag: Whether to save generated images
+        visualize: Whether to display images
+        canvas_size: Output image dimensions
+        v_fov: Vertical field of view range
+        h_fov: Horizontal field of view range
+    """
+
+    # Segmentation masks
+    if 'Classification' in df_filtered.columns:
+            mask_channel = f'seg_mask'
+            if mask_channel in projection_xr.coords['channel'].values:
+                seg_mask = get_channel_data(projection_xr, mask_channel).astype(np.uint8)
+                title = f'seg_map_{key_str}'
+                
+                # Save mask as PNG
+                Image.fromarray(seg_mask).save(img_out_dir / f"{title}_mask.png")
+                display_single_band_img_wt_discrete_values(
+                        seg_mask,
+                        title=title, 
+                        num_unique_values=7,
+                        cb_label='Class ID',
+                        output_dir=img_out_dir, 
+                        saveflag=saveflag,
+                        visualize=visualize,
+                        color_map=color_map
+                    )
+
 def generate_extra_visualizations(
     projection_xr: xr.DataArray,
     normals_rgb_image: np.ndarray,

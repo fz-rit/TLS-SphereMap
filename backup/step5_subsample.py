@@ -1,3 +1,9 @@
+"""
+Subsample point cloud data from recentered region files, and also shift the Z-axis for better visibility.
+
+"""
+
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -21,6 +27,8 @@ for i, file in enumerate(centered_region_files):
     print(f"Loaded {len(pcd_df):,} points from {file.name}")
     print("Columns:", pcd_df.columns.tolist())
 
+    # Shift pcd along the z-axis to increase visibility
+    pcd_df['Z'] -= 3
     sample_df = pcd_df.sample(n=int(len(pcd_df) * SUBSAMPLE_RATE), random_state=42).reset_index(drop=True)
 
     output_dir = parent_dir / "subsampled"

@@ -182,8 +182,15 @@ class GeometricFeatureCalculator:
 
         result_dfs = []
 
-        for df_batch in tqdm(dfs, desc="Processing Batches with Buffer", unit="batch"):
+        for df_batch in tqdm(dfs, desc="Processing Spatial Batches with Buffer", unit="batch"):
             buffered_df, core_mask = extract_buffered_batch_by_knn(df_batch, all_df, buffer_pts)
+            batch_size = len(buffered_df)
+            print(f"------Core batch: {len(df_batch)} points, Buffered batch: {batch_size} points------")
+            
+            # Safety check for extremely large batches
+            if batch_size > 30000:
+                print(f"Warning: Large batch detected ({batch_size} points). Consider reducing pts_num_per_batch or buffer_pts.")
+            
             points_xyz = buffered_df[['X', 'Y', 'Z']].to_numpy()
             self.set_points_on_gpu(points_xyz)
 
@@ -221,9 +228,106 @@ def infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch: int = 10_000
 
     return batch_num_x, batch_num_y
 
-def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -> pd.DataFrame:
+
+def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_batch_size: int = 15_000) -> List[pd.DataFrame]:
+    """Create spatial batches based on XYZ coordinates to ensure more uniform batch sizes."""
+    total_points = points_df.shape[0]
+    
+    # Calculate 3D bounding box
+    x_min, x_max = points_df['X'].min(), points_df['X'].max()
+    y_min, y_max = points_df['Y'].min(), points_df['Y'].max()
+    z_min, z_max = points_df['Z'].min(), points_df['Z'].max()
+    
+    # Calculate ranges
+    x_range = x_max - x_min
+    y_range = y_max - y_min
+    z_range = z_max - z_min
+    
+    # Estimate number of batches needed
+    target_batches = int(np.ceil(total_points / pts_num_per_batch))
+    
+    # Calculate divisions per axis based on ranges (prioritize longer axes)
+    total_range = x_range + y_range + z_range
+    if total_range == 0:
+        # Degenerate case - all points are the same
+        return [points_df]
+    
+    # Calculate approximate divisions for each axis
+    # Use cube root as starting point, then adjust based on aspect ratios
+    base_div = max(1, int(np.ceil(target_batches ** (1/3))))
+    
+    # Adjust divisions based on relative ranges
+    x_div = max(1, int(np.ceil(base_div * (x_range / total_range) * 3)))
+    y_div = max(1, int(np.ceil(base_div * (y_range / total_range) * 3)))
+    z_div = max(1, int(np.ceil(base_div * (z_range / total_range) * 3)))
+    
+    # Ensure we don't create too many tiny batches
+    total_divisions = x_div * y_div * z_div
+    if total_divisions > target_batches * 2:
+        # Scale down proportionally
+        scale_factor = (target_batches * 2 / total_divisions) ** (1/3)
+        x_div = max(1, int(x_div * scale_factor))
+        y_div = max(1, int(y_div * scale_factor))
+        z_div = max(1, int(z_div * scale_factor))
+    
+    print(f"Total points: {total_points}, Target batches: {target_batches}")
+    print(f"XYZ divisions: {x_div} x {y_div} x {z_div} = {x_div * y_div * z_div} spatial chunks")
+    print(f"3D bounding box: X[{x_min:.2f}, {x_max:.2f}], Y[{y_min:.2f}, {y_max:.2f}], Z[{z_min:.2f}, {z_max:.2f}]")
+    
+    # Create spatial bins
+    x_bins = np.linspace(x_min, x_max + 1e-6, x_div + 1)
+    y_bins = np.linspace(y_min, y_max + 1e-6, y_div + 1)
+    z_bins = np.linspace(z_min, z_max + 1e-6, z_div + 1)
+    
+    # Assign points to spatial bins
+    x_indices = np.digitize(points_df['X'], x_bins) - 1
+    y_indices = np.digitize(points_df['Y'], y_bins) - 1
+    z_indices = np.digitize(points_df['Z'], z_bins) - 1
+    
+    # Create spatial keys
+    spatial_keys = list(zip(x_indices, y_indices, z_indices))
+    points_df_copy = points_df.copy()
+    points_df_copy['spatial_key'] = spatial_keys
+    
+    # Group by spatial keys and filter out empty groups
+    batches = []
+    oversized_batches = []
+    
+    for spatial_key, group in points_df_copy.groupby('spatial_key'):
+        group_clean = group.drop('spatial_key', axis=1)
+        batch_size = len(group_clean)
+        
+        if batch_size == 0:
+            continue
+            
+        if batch_size > max_batch_size:
+            print(f"Warning: Spatial chunk {spatial_key} has {batch_size} points (>{max_batch_size}). Subdividing...")
+            oversized_batches.append(group_clean)
+        else:
+            batches.append(group_clean)
+    
+    # Recursively subdivide oversized batches
+    for oversized_batch in oversized_batches:
+        if len(oversized_batch) > max_batch_size:
+            # Recursively subdivide with smaller target batch size
+            sub_batches = create_xyz_spatial_batches(oversized_batch, 
+                                                   pts_num_per_batch=max_batch_size//2, 
+                                                   max_batch_size=max_batch_size)
+            batches.extend(sub_batches)
+        else:
+            batches.append(oversized_batch)
+    
+    # Report batch size statistics
+    batch_sizes = [len(batch) for batch in batches]
+    if batch_sizes:
+        print(f"Created {len(batches)} spatial batches")
+        print(f"Batch sizes - Min: {min(batch_sizes)}, Max: {max(batch_sizes)}, Mean: {np.mean(batch_sizes):.1f}, Median: {np.median(batch_sizes):.1f}")
+    
+    return batches
+
+def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir, input_file_stem) -> pd.DataFrame:
     """Process the point cloud and estimate geometric features."""
-    input_file_stem = output_dir.parent.name
+    # input_file_stem = output_dir.parent.name
 
     neighbor_radius = params["base_radius"]
     out_signature_str = params.get("out_signature_str", "geom_feat")
@@ -233,18 +337,26 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -
     histogram_saveflag = params.get("histogram_saveflag", True)
     visualize = params.get("interactive_visualize", True)
     export = params.get("export", True)
+    batching_method = params.get("batching_method", "angular")  # "xyz" or "angular"
 
     num_points = points_df.shape[0]
     geom_feature_calculator = GeometricFeatureCalculator(device='cuda')
 
     if num_points > 30_000:
-        print("Large dataset detected. Processing in batches...")
-        batch_num_x, batch_num_y = infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch)
-        df_grouped = points_df.groupby([
-            pd.cut(points_df['azimuth'], batch_num_x), 
-            pd.cut(points_df['elevation'], batch_num_y)
-        ], observed=False, sort=False)
-        dfs = [group for _, group in df_grouped]
+        print(f"Large dataset detected. Processing in {batching_method.upper()} spatial batches...")
+        
+        if batching_method == "xyz":
+            # Use XYZ-based spatial batching (new method)
+            dfs = create_xyz_spatial_batches(points_df, pts_num_per_batch, max_batch_size=pts_num_per_batch)
+        else:
+            # Use azimuth/elevation angular batching (original method)
+            batch_num_x, batch_num_y = infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch)
+            df_grouped = points_df.groupby([
+                pd.cut(points_df['azimuth'], batch_num_x), 
+                pd.cut(points_df['elevation'], batch_num_y)
+            ], observed=False, sort=False)
+            dfs = [group for _, group in df_grouped]
+        
         result_df, geom_feat_names = geom_feature_calculator.process_batches_with_buffer(
             dfs=dfs,
             all_df=points_df,
@@ -293,7 +405,8 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir) -
     if export:
         save_dir = output_dir / 'pcd'
         create_dir_if_not_exists(save_dir)
-        export_results(result_df, out_signature_str, save_dir, input_file_stem)
+        export_path = save_dir / f"{input_file_stem}_{out_signature_str}.txt"
+        export_results(result_df, export_path)
 
     return result_df
 
@@ -323,7 +436,7 @@ def main() -> None:
                                                 clean_pc=clean_pc,
                                                 dataset_name=dataset_name,
                                                 flip_mangrove=flip_mangrove)
-                generate_geom_feat_from_pcd(current_file_params, points_df, output_dir)
+                generate_geom_feat_from_pcd(current_file_params, points_df, output_dir, input_path.stem)
 
     elapsed_time = time.time() - start_time
     peak_cpu_memory_mb = peak_memory[0] / (1024 * 1024)
