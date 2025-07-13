@@ -1,10 +1,4 @@
-"""
-Geometric feature calculation for point clouds using PyTorch GPU acceleration.
-Calculates curvature, anisotropy, planarity, and normal vectors.
-
-Contributor: fzhcis@rit.edu
-Version: 2.1
-"""
+"""Geometric feature calculation for point clouds using PyTorch GPU acceleration."""
 import numpy as np
 import pandas as pd
 import time
@@ -16,7 +10,7 @@ from tqdm import tqdm
 from tools.plot_tools import get_vector_histogram
 from typing import List, Tuple, Dict, Any
 from tools.preprocess_point_cloud import read_and_clean_pcd
-from tools.pcd_utils import check_and_clean_for_nans, interactive_visualize_pcd, export_results, MemoryProfiler
+from tools.pcd_utils import interactive_visualize_pcd, export_results, MemoryProfiler
 from tools.config_loader import CONFIG, _auto_load_config
 from tools.pcd_utils import create_dir_if_not_exists
 import matplotlib.pyplot as plt
@@ -24,13 +18,11 @@ from sklearn.neighbors import KDTree
 import gc
 
 def clear_memory(*vars_to_delete):
-    """Frees up GPU and CPU memory between batches."""
     for var in vars_to_delete:
         try:
             del var
         except:
             pass
-    
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -45,16 +37,7 @@ class GeometricFeatureCalculator:
         """Set the points_xyz array as a tensor on the GPU."""
         self.points_xyz = torch.tensor(points_xyz, dtype=torch.float32, device=self.device)
 
-    def adaptive_radius(self, 
-                    base_radius=0.05, 
-                    min_pts=20, 
-                    scale=1.5, 
-                    adaptive_r_max=0.2, 
-                    debug=True, 
-                    n_debug_samples=5,
-                    visualize=True):
-        """Estimate adaptive neighborhood radius per point based on local density."""
-        print(f"------Size of the point cloud: {self.points_xyz.shape[0]} points------")
+    def adaptive_radius(self, base_radius=0.05, min_pts=20, scale=1.5, adaptive_r_max=0.2, debug=False, n_debug_samples=5, visualize=False):
         dist_matrix = torch.cdist(self.points_xyz, self.points_xyz)
         neighbors_list = []
         adaptive_radii = []
@@ -65,32 +48,28 @@ class GeometricFeatureCalculator:
         for i in range(num_points):
             dists = dist_matrix[i]
             sorted_dists, _ = torch.sort(dists)
-
             raw_adaptive_r = sorted_dists[min_pts] * scale
             adaptive_r = torch.clamp(raw_adaptive_r, min=base_radius, max=adaptive_r_max)
-
             neighbors = (dists <= adaptive_r).nonzero(as_tuple=True)[0]
             neighbors_list.append(neighbors)
             adaptive_radii.append(adaptive_r.item())
 
             if i in sample_indices:
-                print(f"[Debug] Point {i}: raw={raw_adaptive_r.item():.4f}, clamped={adaptive_r.item():.4f}, neighbors={len(neighbors)}")
+                print(f"Point {i}: radius={adaptive_r.item():.3f}, neighbors={len(neighbors)}")
 
         if visualize:
             plt.figure(figsize=(6, 4))
             plt.hist(adaptive_radii, bins=50, color='skyblue', edgecolor='gray')
             plt.yscale('log')
-            plt.xlabel("Clamped Adaptive Radius (m)")
-            plt.ylabel("Log-scaled Count")
-            plt.title("Distribution of Adaptive Radii (Log Y-scale)")
+            plt.xlabel("Adaptive Radius (m)")
+            plt.ylabel("Count")
+            plt.title("Distribution of Adaptive Radii")
             plt.tight_layout()
 
         return neighbors_list, adaptive_radii
 
     def pad_neighbors(self, neighbors_list: List[Tensor], max_neighbors: int) -> Tuple[Tensor, Tensor]:
-        """Ensure that each point has the same number of neighbors for batch processing."""
         padded_neighbors, mask = [], []
-        
         for idx in neighbors_list:
             neighbors = self.points_xyz[idx]
             if len(neighbors) < max_neighbors:
@@ -99,37 +78,24 @@ class GeometricFeatureCalculator:
             else:
                 padded = neighbors[:max_neighbors]
                 mask.append(torch.ones(max_neighbors, device=self.device))
-            
             padded_neighbors.append(padded)
-        
         return torch.stack(padded_neighbors), torch.stack(mask)
 
     def calculate_neighbor_eigens(self, nn_radius: float, max_neighbors: int) -> Tuple[Tensor, Tensor, Tuple[Tensor, Tensor]]:
-        """Calculate eigenvalues and eigenvectors for each point's neighborhood."""
         neighbors_list, _ = self.adaptive_radius(base_radius=nn_radius, visualize=False, debug=False, n_debug_samples=0)
         padded_neighbors, mask = self.pad_neighbors(neighbors_list, max_neighbors)
-        
         centroids = padded_neighbors.sum(dim=1) / mask.sum(dim=1, keepdim=True)
         centered_neighbors = padded_neighbors - centroids.unsqueeze(1)
         covariances = torch.matmul(centered_neighbors.transpose(1, 2), centered_neighbors * mask.unsqueeze(2)) / (mask.sum(dim=1) - 1).view(-1, 1, 1)
         eigenvalues, eigenvectors = torch.linalg.eigh(covariances)
-        
         clear_memory(neighbors_list, padded_neighbors, centroids, covariances)
         return eigenvalues, eigenvectors, (centered_neighbors, mask)
 
-    def estimate_geometric_features_batched(self,
-                                            neighbor_radius: float = 0.05,
-                                            max_neighbors: int = 10
-                                        ) -> Dict[str, np.ndarray]:
-        """Estimate curvature, anisotropy, and planarity for a batch of points."""
-        eigenvals, eigenvecs, (centered_neighbors, mask) = self.calculate_neighbor_eigens(
-            neighbor_radius, max_neighbors
-        )
+    def estimate_geometric_features_batched(self, neighbor_radius: float = 0.05, max_neighbors: int = 10) -> Dict[str, np.ndarray]:
+        eigenvals, eigenvecs, (centered_neighbors, mask) = self.calculate_neighbor_eigens(neighbor_radius, max_neighbors)
 
         # Sort eigenvalues: lambda1 ≤ lambda2 ≤ lambda3
-        lambda1 = eigenvals[:, 0]
-        lambda2 = eigenvals[:, 1]
-        lambda3 = eigenvals[:, 2]
+        lambda1, lambda2, lambda3 = eigenvals[:, 0], eigenvals[:, 1], eigenvals[:, 2]
         lambda_sum = eigenvals.sum(dim=1)
 
         # Feature calculations
@@ -139,8 +105,6 @@ class GeometricFeatureCalculator:
 
         # Normal vectors (smallest eigenvector direction)
         normals = eigenvecs[:, :, 0]
-
-        # Ensure normals point toward origin
         to_origin = -self.points_xyz
         flip_mask = (normals * to_origin).sum(dim=1) < 0
         normals[flip_mask] *= -1
@@ -151,52 +115,36 @@ class GeometricFeatureCalculator:
             'curvature': curvature.cpu().numpy(),
             'anisotropy': anisotropy.cpu().numpy(),
             'planarity': planarity.cpu().numpy(),
-            'nx': nx,
-            'ny': ny,
-            'nz': nz
+            'nx': nx, 'ny': ny, 'nz': nz
         }
 
 
 
-    def process_batches_with_buffer(self, 
-                                dfs: List[pd.DataFrame], 
-                                all_df: pd.DataFrame, 
-                                buffer_pts: int,
-                                neighbor_radius: float, 
-                                max_neighbors: int
-                               ) -> pd.DataFrame:
-        """Process spatial batches with buffered neighborhoods using pandas DataFrames."""
+    def process_batches_with_buffer(self, dfs: List[pd.DataFrame], all_df: pd.DataFrame, buffer_pts: int, neighbor_radius: float, max_neighbors: int) -> pd.DataFrame:
         from sklearn.neighbors import KDTree
 
         def extract_buffered_batch_by_knn(core_df, all_df, buffer_k=30):
             all_points = all_df[['X', 'Y', 'Z']].to_numpy()
             core_points = core_df[['X', 'Y', 'Z']].to_numpy()
-
             kdtree = KDTree(all_points)
             indices = kdtree.query(core_points, k=buffer_k, return_distance=False)
             neighbor_indices = set(indices.flatten())
-
             buffered_df = all_df.iloc[list(neighbor_indices)].copy()
             core_mask = buffered_df.index.isin(core_df.index)
             return buffered_df, core_mask
 
         result_dfs = []
-
-        for df_batch in tqdm(dfs, desc="Processing Spatial Batches with Buffer", unit="batch"):
+        for df_batch in tqdm(dfs, desc="Processing batches", unit="batch"):
             buffered_df, core_mask = extract_buffered_batch_by_knn(df_batch, all_df, buffer_pts)
             batch_size = len(buffered_df)
-            print(f"------Core batch: {len(df_batch)} points, Buffered batch: {batch_size} points------")
             
-            # Safety check for extremely large batches
             if batch_size > 30000:
-                print(f"Warning: Large batch detected ({batch_size} points). Consider reducing pts_num_per_batch or buffer_pts.")
+                print(f"Warning: Large batch ({batch_size} points)")
             
             points_xyz = buffered_df[['X', 'Y', 'Z']].to_numpy()
             self.set_points_on_gpu(points_xyz)
 
-            geom_feat_dict = self.estimate_geometric_features_batched(
-                neighbor_radius, max_neighbors
-            )
+            geom_feat_dict = self.estimate_geometric_features_batched(neighbor_radius, max_neighbors)
 
             core_df = buffered_df.loc[core_mask].copy()
             for feat_name, feat_values in geom_feat_dict.items():
@@ -212,25 +160,17 @@ class GeometricFeatureCalculator:
 
 
 def infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch: int = 10_000) -> Tuple[int, int]:
-    """Infer the number of azimuth and elevation batches based on point cloud size and angle ranges."""
     azimuth_range = points_df['azimuth'].max() - points_df['azimuth'].min()
     elevation_range = points_df['elevation'].max() - points_df['elevation'].min()
-    
     total_points = points_df.shape[0]
     x2y_ratio = azimuth_range / elevation_range if elevation_range != 0 else 1.0
     total_batches = int(np.ceil(total_points / pts_num_per_batch))
-    
     batch_num_x = int(np.ceil(np.sqrt(total_batches * x2y_ratio)))
     batch_num_y = int(np.ceil(total_batches / batch_num_x))
-
-    print(f"Total points: {total_points}, Total batches: {batch_num_x*batch_num_y}")
-    print(f"Batch num azimuth: {batch_num_x}, Batch num elevation: {batch_num_y}")
-
     return batch_num_x, batch_num_y
 
 
 def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_batch_size: int = 15_000) -> List[pd.DataFrame]:
-    """Create spatial batches based on XYZ coordinates to ensure more uniform batch sizes."""
     total_points = points_df.shape[0]
     
     # Calculate 3D bounding box
@@ -238,41 +178,27 @@ def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_b
     y_min, y_max = points_df['Y'].min(), points_df['Y'].max()
     z_min, z_max = points_df['Z'].min(), points_df['Z'].max()
     
-    # Calculate ranges
-    x_range = x_max - x_min
-    y_range = y_max - y_min
-    z_range = z_max - z_min
-    
-    # Estimate number of batches needed
-    target_batches = int(np.ceil(total_points / pts_num_per_batch))
-    
-    # Calculate divisions per axis based on ranges (prioritize longer axes)
+    x_range, y_range, z_range = x_max - x_min, y_max - y_min, z_max - z_min
     total_range = x_range + y_range + z_range
+    
     if total_range == 0:
-        # Degenerate case - all points are the same
         return [points_df]
     
-    # Calculate approximate divisions for each axis
-    # Use cube root as starting point, then adjust based on aspect ratios
+    target_batches = int(np.ceil(total_points / pts_num_per_batch))
     base_div = max(1, int(np.ceil(target_batches ** (1/3))))
     
-    # Adjust divisions based on relative ranges
+    # Calculate divisions based on ranges
     x_div = max(1, int(np.ceil(base_div * (x_range / total_range) * 3)))
     y_div = max(1, int(np.ceil(base_div * (y_range / total_range) * 3)))
     z_div = max(1, int(np.ceil(base_div * (z_range / total_range) * 3)))
     
-    # Ensure we don't create too many tiny batches
+    # Scale down if too many divisions
     total_divisions = x_div * y_div * z_div
     if total_divisions > target_batches * 2:
-        # Scale down proportionally
         scale_factor = (target_batches * 2 / total_divisions) ** (1/3)
         x_div = max(1, int(x_div * scale_factor))
         y_div = max(1, int(y_div * scale_factor))
         z_div = max(1, int(z_div * scale_factor))
-    
-    print(f"Total points: {total_points}, Target batches: {target_batches}")
-    print(f"XYZ divisions: {x_div} x {y_div} x {z_div} = {x_div * y_div * z_div} spatial chunks")
-    print(f"3D bounding box: X[{x_min:.2f}, {x_max:.2f}], Y[{y_min:.2f}, {y_max:.2f}], Z[{z_min:.2f}, {z_max:.2f}]")
     
     # Create spatial bins
     x_bins = np.linspace(x_min, x_max + 1e-6, x_div + 1)
@@ -284,12 +210,10 @@ def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_b
     y_indices = np.digitize(points_df['Y'], y_bins) - 1
     z_indices = np.digitize(points_df['Z'], z_bins) - 1
     
-    # Create spatial keys
     spatial_keys = list(zip(x_indices, y_indices, z_indices))
     points_df_copy = points_df.copy()
     points_df_copy['spatial_key'] = spatial_keys
     
-    # Group by spatial keys and filter out empty groups
     batches = []
     oversized_batches = []
     
@@ -301,7 +225,6 @@ def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_b
             continue
             
         if batch_size > max_batch_size:
-            print(f"Warning: Spatial chunk {spatial_key} has {batch_size} points (>{max_batch_size}). Subdividing...")
             oversized_batches.append(group_clean)
         else:
             batches.append(group_clean)
@@ -309,7 +232,6 @@ def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_b
     # Recursively subdivide oversized batches
     for oversized_batch in oversized_batches:
         if len(oversized_batch) > max_batch_size:
-            # Recursively subdivide with smaller target batch size
             sub_batches = create_xyz_spatial_batches(oversized_batch, 
                                                    pts_num_per_batch=max_batch_size//2, 
                                                    max_batch_size=max_batch_size)
@@ -317,18 +239,9 @@ def create_xyz_spatial_batches(points_df, pts_num_per_batch: int = 10_000, max_b
         else:
             batches.append(oversized_batch)
     
-    # Report batch size statistics
-    batch_sizes = [len(batch) for batch in batches]
-    if batch_sizes:
-        print(f"Created {len(batches)} spatial batches")
-        print(f"Batch sizes - Min: {min(batch_sizes)}, Max: {max(batch_sizes)}, Mean: {np.mean(batch_sizes):.1f}, Median: {np.median(batch_sizes):.1f}")
-    
     return batches
 
 def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir, input_file_stem) -> pd.DataFrame:
-    """Process the point cloud and estimate geometric features."""
-    # input_file_stem = output_dir.parent.name
-
     neighbor_radius = params["base_radius"]
     out_signature_str = params.get("out_signature_str", "geom_feat")
     buffer_pts = params.get("buffer_pts", 30)
@@ -337,19 +250,15 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir, i
     histogram_saveflag = params.get("histogram_saveflag", True)
     visualize = params.get("interactive_visualize", True)
     export = params.get("export", True)
-    batching_method = params.get("batching_method", "angular")  # "xyz" or "angular"
+    batching_method = params.get("batching_method", "angular")
 
     num_points = points_df.shape[0]
     geom_feature_calculator = GeometricFeatureCalculator(device='cuda')
 
     if num_points > 30_000:
-        print(f"Large dataset detected. Processing in {batching_method.upper()} spatial batches...")
-        
         if batching_method == "xyz":
-            # Use XYZ-based spatial batching (new method)
             dfs = create_xyz_spatial_batches(points_df, pts_num_per_batch, max_batch_size=pts_num_per_batch)
         else:
-            # Use azimuth/elevation angular batching (original method)
             batch_num_x, batch_num_y = infer_batch_num_azimuth_elevation(points_df, pts_num_per_batch)
             df_grouped = points_df.groupby([
                 pd.cut(points_df['azimuth'], batch_num_x), 
@@ -358,20 +267,15 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir, i
             dfs = [group for _, group in df_grouped]
         
         result_df, geom_feat_names = geom_feature_calculator.process_batches_with_buffer(
-            dfs=dfs,
-            all_df=points_df,
-            buffer_pts=buffer_pts,
-            neighbor_radius=neighbor_radius,
-            max_neighbors=max_neighbors
+            dfs=dfs, all_df=points_df, buffer_pts=buffer_pts,
+            neighbor_radius=neighbor_radius, max_neighbors=max_neighbors
         )
     else:
-        print("Small dataset. Processing all at once...")
         result_df = points_df.copy()
         all_xyz = result_df[['X', 'Y', 'Z']].to_numpy()
         geom_feature_calculator.set_points_on_gpu(all_xyz)
         geom_feat_dict = geom_feature_calculator.estimate_geometric_features_batched(
-            neighbor_radius=neighbor_radius, 
-            max_neighbors=max_neighbors
+            neighbor_radius=neighbor_radius, max_neighbors=max_neighbors
         )
         geom_feat_names = list(geom_feat_dict.keys())
         for feat_name, feat_values in geom_feat_dict.items():
@@ -391,7 +295,6 @@ def generate_geom_feat_from_pcd(params: Dict[str, Any], points_df, output_dir, i
                 get_vector_histogram(result_df[feat_name].values, output_dir, title=feat_name)
 
     if visualize:
-        print("Normalizing geometric features for visualization...")
         all_geom_features = []
         for feat_name in geom_feat_names:
             normalized_feat = (result_df[feat_name] - result_df[feat_name].min()) / (result_df[feat_name].max() - result_df[feat_name].min())
@@ -418,14 +321,10 @@ def main() -> None:
     
     with profiler.cpu_memory_monitoring() as peak_memory:
         with profiler.gpu_memory_monitoring():
-            print("Calculating geometric features: curvature, anisotropy, and planarity")
-            
-            # Check if CONFIG is loaded, try auto-load if not
             current_config = CONFIG or _auto_load_config()
             
             if current_config is None:
                 print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
-                print("   Example: python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic_rc.json")
                 return
             
             global_params = current_config["global"]
@@ -450,9 +349,9 @@ def main() -> None:
     peak_cpu_memory_mb = peak_memory[0] / (1024 * 1024)
     peak_gpu_memory_mb = torch.cuda.max_memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
 
-    print(f"Elapsed Time: {elapsed_time:.2f} seconds")
-    print(f"Peak CPU Memory: {peak_cpu_memory_mb:.2f} MB")
-    print(f"Peak GPU Memory: {peak_gpu_memory_mb:.2f} MB")
+    print(f"Elapsed Time: {elapsed_time:.2f}s")
+    print(f"Peak CPU Memory: {peak_cpu_memory_mb:.2f}MB")
+    print(f"Peak GPU Memory: {peak_gpu_memory_mb:.2f}MB")
 
 if __name__ == "__main__":
     main()
