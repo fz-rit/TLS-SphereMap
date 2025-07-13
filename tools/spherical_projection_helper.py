@@ -476,7 +476,7 @@ def generate_semantic3d_outputs(
                     )
 
 
-def generate_forest_semantic_outputs(
+def generate_forestsemantic_outputs(
     projection_xr: xr.DataArray,
     df_filtered: pd.DataFrame,
     img_out_dir: Path,
@@ -503,25 +503,27 @@ def generate_forest_semantic_outputs(
         h_fov: Horizontal field of view range
     """
 
-    # Segmentation masks
-    if 'Classification' in df_filtered.columns:
-            mask_channel = f'seg_mask'
-            if mask_channel in projection_xr.coords['channel'].values:
-                seg_mask = get_channel_data(projection_xr, mask_channel).astype(np.uint8)
-                title = f'seg_map_{key_str}'
-                
-                # Save mask as PNG
-                Image.fromarray(seg_mask).save(img_out_dir / f"{title}_mask.png")
-                display_single_band_img_wt_discrete_values(
-                        seg_mask,
-                        title=title, 
-                        num_unique_values=7,
-                        cb_label='Class ID',
-                        output_dir=img_out_dir, 
-                        saveflag=saveflag,
-                        visualize=visualize,
-                        color_map=color_map
-                    )
+    assert 'seg_mask' in projection_xr.coords['channel'].values, \
+        "Expected 'seg_mask' channel in projection_xr but not found."
+    assert 'Classification' in df_filtered.columns, \
+        "Expected 'Classification' column in df_filtered but not found."
+
+    mask_channel = f'seg_mask'
+    seg_mask = get_channel_data(projection_xr, mask_channel).astype(np.uint8)
+    title = f'seg_map_{key_str}'
+    
+    # Save mask as PNG
+    Image.fromarray(seg_mask).save(img_out_dir / f"{title}_mask.png")
+    display_single_band_img_wt_discrete_values(
+            seg_mask,
+            title=title, 
+            num_unique_values=7,
+            cb_label='Class ID',
+            output_dir=img_out_dir, 
+            saveflag=saveflag,
+            visualize=visualize,
+            color_map=color_map
+        )
 
 def generate_extra_visualizations(
     projection_xr: xr.DataArray,

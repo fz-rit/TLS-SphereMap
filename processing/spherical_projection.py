@@ -13,7 +13,7 @@ from tools.spherical_projection_helper import (
     save_image_cube_and_meta,
     generate_correlation_matrix,
     generate_semantic3d_outputs,
-    generate_forest_semantic_outputs,
+    generate_forestsemantic_outputs,
     generate_extra_visualizations,
     select_by_min_range
 )
@@ -232,7 +232,7 @@ def equirectangular_projection_multi(
 
         # Add segmentation masks if available
         if 'class_id' in df_filtered_ncolored.columns:
-            seg_masks = _create_segmentation_masks(
+            seg_masks = _create_segmentation_masks_semantic3d(
                 df_filtered_ncolored, canvas_size, dataset_name
             )
             channel_mapping.update({
@@ -242,10 +242,10 @@ def equirectangular_projection_multi(
     elif dataset_name == 'ForestSemantic':
         # Create segmentation mask if available
         if 'Classification' in df_filtered_ncolored.columns:
-            seg_masks = _create_segmentation_masks(
-                df_filtered_ncolored, canvas_size, dataset_name
+            seg_mask = _create_segmentation_masks_forestsemantic(
+                df_filtered_ncolored, canvas_size
             )
-            channel_mapping['seg_mask'] = seg_masks['seg_mask_raw'].astype(np.float32)
+            channel_mapping['seg_mask'] = seg_mask.astype(np.float32)
 
     # Fill the projection data array
     for i, channel in enumerate(base_channels):
@@ -272,7 +272,7 @@ def equirectangular_projection_multi(
     return df_filtered_ncolored, projection_xr
 
 
-def _create_segmentation_masks(
+def _create_segmentation_masks_semantic3d(
     df: pd.DataFrame, 
     canvas_size: Tuple[int, int], 
     dataset_name: str
@@ -318,6 +318,23 @@ def _create_segmentation_masks(
         'seg_mask_raw': seg_mask_raw,
         'seg_mask_merged': seg_mask_merged
     }
+
+def _create_segmentation_masks_forestsemantic(
+    df: pd.DataFrame, 
+    canvas_size: Tuple[int, int]
+) -> Dict[str, np.ndarray]:
+    """Create segmentation masks for ForestSemantic dataset."""
+    seg_mask = np.zeros(canvas_size, dtype=np.uint8)
+    
+    grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False).apply(
+        select_by_min_range, include_groups=False
+    )["Classification"]
+    
+    y_indices = grouped_class_id.index.get_level_values(0)
+    x_indices = grouped_class_id.index.get_level_values(1)
+    seg_mask[y_indices, x_indices] = grouped_class_id.values
+    
+    return seg_mask
 
 
 def equirectangular_projection_normals(
@@ -444,7 +461,7 @@ def generate_2D_projection_images(
             color_map, saveflag, visualize, canvas_size, v_fov, h_fov
         )
     elif dataset_name == 'ForestSemantic':
-        generate_forest_semantic_outputs(
+        generate_forestsemantic_outputs(
             projection_xr, df_filtered, img_out_dir, key_str, 
             color_map, saveflag, visualize, 
             # canvas_size, v_fov, h_fov

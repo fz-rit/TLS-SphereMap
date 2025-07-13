@@ -625,7 +625,7 @@ def plot_correlation_matrix(corr_matrix,
 
     # ─────────────────────────────────────────────
     # Upper triangle: bubble glyph overlay
-    max_bubble_area = 1200
+    max_bubble_area = 800
     for i in range(C):
         for j in range(i+1, C):
             val = corr.iloc[i, j]

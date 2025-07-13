@@ -28,7 +28,7 @@ def main():
         config = load_config(args.config)
         print(f"✅ Successfully loaded configuration from {args.config}")
         print(f"🔹 Dataset: {config['global'].get('dataset', 'Unknown')}")
-        print(f"🔹 Processing {len(config['global']['input_path_ls'])} scans")
+        print(f"🔹 Processing scans: {config['global']['selected_scans'][0]} - {config['global']['selected_scans'][-1]-1}")
     except Exception as e:
         print(f"❌ Error loading configuration: {e}")
         sys.exit(1)
