@@ -51,9 +51,9 @@ def image_preprocess(image, img_size):
         image = image.astype(np.float32)
 
 
-    # print("Image Shape:", image.shape)
-    # print("Image Dtype:", image.dtype)
-    # print("Image Max:", image.max())
+    print("Image Shape:", image.shape)
+    print("Image Dtype:", image.dtype)
+    print("Image Max:", image.max())
     return image
 
 
@@ -72,8 +72,8 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), ang_res=0
 
     # Compute row, col indices
     zenith_deg_shifted = df_ball['zenith_deg'] - df_ball['zenith_deg'].min()
-    row = (zenith_deg_shifted / 0.5).astype(int)
-    col = (df_ball['azimuth_deg'] / 0.5).astype(int)
+    row = (zenith_deg_shifted / ang_res).astype(int)
+    col = (df_ball['azimuth_deg'] / ang_res).astype(int)
     # Adjust for inverse zenith
     if inverse_zenith:
         row = img_size[0] - 1 - row
@@ -110,7 +110,7 @@ def get_a_colorized_ball_from_img(rgb_img: NDArray,
                                             ang_res=res_deg,
                                             inverse_zenith=inverse_zenith)
 
-    df_cube = create_colored_cube_points(center=[0, 0, 0], size=0.5, samples_per_face=50)
+    df_cube = create_colored_cube_points(center=[0, 0, 0], size=0.3, samples_per_face=50)
     df_combined = pd.concat([df_colored, df_cube], ignore_index=True)
     visualize_and_save_point_cloud(df_combined, 
                                 zenith_range=zenith_range, 
