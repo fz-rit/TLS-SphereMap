@@ -12,7 +12,7 @@ from math import ceil, floor
 from tools.illustrate_spherical_projection import (generate_geometric_lidar_ball, 
                                                    visualize_and_save_point_cloud, 
                                                    create_colored_cube_points)
-from tools.config_loader import CONFIG, _auto_load_config
+from tools.config_loader import get_config
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from tools.spherical_projection_helper import load_image_cube_and_meta
 from numpy.typing import NDArray
@@ -165,7 +165,7 @@ def prepare_color_group(channel_names, color_group):
     return paint_pcd_color_groups
 
 if __name__ == "__main__":
-    current_config = CONFIG or _auto_load_config()
+    current_config = get_config()
     if current_config is None:
         print("❌ Error: Configuration not loaded. Please run through run_3d_to_2d_pipeline.py")
         exit(1)

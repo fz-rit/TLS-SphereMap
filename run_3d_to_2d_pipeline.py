@@ -33,10 +33,6 @@ def main():
         print(f"❌ Error loading configuration: {e}")
         sys.exit(1)
     
-    # Set global CONFIG for modules that import it
-    import tools.config_loader
-    tools.config_loader.CONFIG = config
-    
     # Set environment variable for subprocesses
     os.environ['TLS_CONFIG_PATH'] = str(Path(args.config).resolve())
 

@@ -11,7 +11,7 @@ from tools.plot_tools import get_vector_histogram
 from typing import List, Tuple, Dict, Any
 from tools.preprocess_point_cloud import read_and_clean_pcd
 from tools.pcd_utils import interactive_visualize_pcd, export_results, MemoryProfiler
-from tools.config_loader import CONFIG, _auto_load_config
+from tools.config_loader import get_config
 from tools.pcd_utils import create_dir_if_not_exists
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KDTree
@@ -321,7 +321,7 @@ def main() -> None:
     
     with profiler.cpu_memory_monitoring() as peak_memory:
         with profiler.gpu_memory_monitoring():
-            current_config = CONFIG or _auto_load_config()
+            current_config = get_config()
             
             if current_config is None:
                 print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
@@ -335,7 +335,7 @@ def main() -> None:
             clean_pc = current_file_params["clean_pc"]
             flip_mangrove = current_file_params["flip_mangrove"]
             dataset_name = global_params["dataset"]
-            
+            print(f"input_path_ls: {input_path_ls}")
             for input_path, output_dir in zip(input_path_ls, output_dir_ls):
                 print(f'Processing {input_path.stem}...')
                 points_df = read_and_clean_pcd(input_path, 

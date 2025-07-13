@@ -73,30 +73,40 @@ def load_config_mangrove(config):
 
 
 def load_config_forestsemantic(config):
-    """Load the JSON config and dynamically generate paths for forest semantic dataset."""
+    """Load config and generate paths for forest semantic dataset."""
     global_params = config["global"]
     output_base_dir = Path(global_params["output_base_dir"])
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params.get("input_suffix", ".csv")
     selected_scans = global_params['selected_scans']
+    
     create_dir_if_not_exists(output_base_dir, ask_user=False)
 
-    input_path_ls = list(input_base_dir.glob(f"plot*_centered_subsample_scan*{input_suffix}"))
-    if not input_path_ls:
+    # Find and sort input files
+    input_paths = list(input_base_dir.glob(f"plot*_centered_subsample_scan*{input_suffix}"))
+    if not input_paths:
         raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
-    input_path_ls.sort(key=lambda x: x.stem)
-    output_dir_ls = []
-    for input_path in input_path_ls[selected_scans[0]:selected_scans[1]]:
+    
+    input_paths.sort(key=lambda x: x.stem)
+    input_paths = input_paths[selected_scans[0]:selected_scans[1]]
+    
+    if not input_paths:
+        raise ValueError(f"❗ No files selected with scan range {selected_scans}.")
+    
+    # Create output directories
+    output_dirs = []
+    for input_path in input_paths:
         output_dir = output_base_dir / input_path.stem
         create_dir_if_not_exists(output_dir, ask_user=False)
-        output_dir_ls.append(output_dir)
+        output_dirs.append(output_dir)
 
-    # Add computed paths to global config
-    color_map = get_color_map(input_base_dir)
-    global_params["color_map"] = color_map
-    global_params["output_dir_ls"] = output_dir_ls
-    global_params["input_path_ls"] = input_path_ls
-
+    # Update global config
+    global_params.update({
+        "color_map": get_color_map(input_base_dir),
+        "output_dir_ls": output_dirs,
+        "input_path_ls": input_paths
+    })
+    
     return _add_common_config_params(config)
 
 
@@ -195,18 +205,9 @@ def load_config(config_path):
             return load_config_forestsemantic(config)
 
 
-# Global CONFIG variable for backward compatibility
-CONFIG = None
-
-# Auto-load config if environment variable is set
-def _auto_load_config():
-    global CONFIG
-    if CONFIG is None:
-        config_path = os.environ.get('TLS_CONFIG_PATH')
-        if config_path and Path(config_path).exists():
-            CONFIG = load_config(config_path)
-            print(f"🔹 Auto-loaded configuration from environment: {config_path}")
-    return CONFIG
-
-# Try to auto-load on import
-_auto_load_config()
+def get_config():
+    """Get the current configuration, either from environment variable or return None."""
+    config_path = os.environ.get('TLS_CONFIG_PATH')
+    if config_path and Path(config_path).exists():
+        return load_config(config_path)
+    return None

@@ -49,28 +49,6 @@ python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsema
 python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_inlut3d.json
 ```
 
-## What Changed
-
-### Before (old method):
-- Had to manually edit `config_loader.py` to uncomment the right config
-- Could only run with hardcoded configuration
-- No flexibility in choosing processing steps
-
-### After (new method):
-- Clean command-line interface with argparse
-- Automatic config detection and loading
-- Flexible step selection
-- Environment variable-based config sharing between processes
-- Better error handling and user feedback
-
-## Technical Details
-
-The pipeline now:
-1. Uses argparse for command-line argument parsing
-2. Loads configuration dynamically based on the provided path
-3. Sets an environment variable (`TLS_CONFIG_PATH`) for subprocess communication
-4. Automatically detects dataset type and applies appropriate processing functions
-5. Provides clear error messages when configuration is not loaded properly
 
 ## Troubleshooting
 

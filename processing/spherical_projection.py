@@ -6,7 +6,7 @@ from typing import Union, List, Dict, Any, Tuple, Optional
 from pathlib import Path
 import xarray as xr
 from tools.norm_to_hsv import attach_normal_color_to_df
-from tools.config_loader import CONFIG, _auto_load_config
+from tools.config_loader import get_config
 from tools.pcd_utils import create_dir_if_not_exists
 
 from tools.spherical_projection_helper import (
@@ -478,7 +478,7 @@ def generate_2D_projection_images(
 def main() -> None:
     """Main function to run spherical projection processing."""
     # Check if CONFIG is loaded, try auto-load if not
-    current_config = CONFIG or _auto_load_config()
+    current_config = get_config()
     
     if current_config is None:
         print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")

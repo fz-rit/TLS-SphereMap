@@ -12,7 +12,7 @@ current_file_dir = current_file.parent
 
 
 from tools.preprocess_point_cloud import map_angle_to_pixel
-from tools.config_loader import CONFIG, _auto_load_config
+from tools.config_loader import get_config
 
 
 def load_label_maps(dataset_name):
@@ -33,7 +33,8 @@ def load_label_maps(dataset_name):
 
 def attach_segmentation_to_points(image_dir, pcd_out_dir, canvas_size, angular_res):
     """Attach segmentation map class IDs and colors to the point cloud using parameters from JSON."""
-    params = CONFIG["attach_segmap_to_points"]
+    current_config = get_config()
+    params = current_config["attach_segmap_to_points"]
     point_cloud_file = next(pcd_out_dir.glob(f"*_color*"), None)
 
     # segmap_file = image_dir / params["segmap"]
@@ -129,7 +130,7 @@ def attach_segmentation_to_points(image_dir, pcd_out_dir, canvas_size, angular_r
 
 if __name__ == "__main__":
     # Check if CONFIG is loaded, try auto-load if not
-    current_config = CONFIG or _auto_load_config()
+    current_config = get_config()
     if current_config is None:
         print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
         print("   Example: python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic_rc.json")
