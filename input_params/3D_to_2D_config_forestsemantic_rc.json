@@ -1,0 +1,49 @@
+{
+    "global": {
+        "input_folder": "",
+        "input_folder_parent": "",
+        "input_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//input",
+        "output_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//output",
+        "selected_scans": [0, 1],
+        "input_suffix": ".csv",
+        "dataset": "ForestSemantic",
+        "h_fov": [0, 360],
+        "v_fov": [0, 180],
+        "h_ang_res_deg": 0.3,
+        "v_ang_res_deg": 0.3,
+        "delete_intermediate_file": false
+    },
+    "calc_geom_feature": {
+        "cut_percent": 0.0001,
+        "clean_pc": false,
+        "flip_mangrove": false,
+        "pts_num_per_batch": 30000,
+        "buffer_pts": 30,
+        "batching_method": "xyz",
+        "base_radius": 0.01,
+        "max_neighbors": 80,
+        "histogram_saveflag": false,
+        "interactive_visualize": false,
+        "export": true,
+        "out_signature_str": "geom_feat"
+    },
+    "spherical_projection": {
+        "visualize" : false,
+        "extra_maps" : false,
+        "save_extra_maps" : false,
+        "show_single_band" : false,
+        "show_pseudo_rgb" : false,
+        "show_pca" : false        
+    },
+    "back_projection": {
+        "generate_virtual_ball": false,
+        "paint_pcd_color_groups": ["izr", "normals", "pca"]
+    },
+    "convert_color_to_mask": {
+        "dataset": "ForestSemantic"
+    },
+    "attach_segmap_to_points": {
+        "dataset": "ForestSemantic",
+        "output_formats": [".ply", ".label"]
+    }
+}

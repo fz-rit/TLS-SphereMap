@@ -9,7 +9,7 @@ from tools.illustrate_spherical_projection import (generate_geometric_lidar_ball
                                              create_colored_cube_points)
 from PIL import Image
 import pandas as pd
-from tools.config_loader import CONFIG
+from tools.config_loader import CONFIG, _auto_load_config
 from pathlib import Path
 from tools.preprocess_point_cloud import map_angle_to_pixel
 from plyfile import PlyData, PlyElement
@@ -50,10 +50,6 @@ def image_preprocess(image, img_size):
     elif image.dtype != np.float32:
         image = image.astype(np.float32)
 
-
-    print("Image Shape:", image.shape)
-    print("Image Dtype:", image.dtype)
-    print("Image Max:", image.max())
     return image
 
 
@@ -63,7 +59,6 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), ang_res=0
     Assigns image color to df_ball using azimuth and zenith angles.
     Assumes image shape (271, 720), angular res = 0.5°, azimuth 0–360, zenith 0–135.
     """
-    # img_size = int((zenith_range[1] - zenith_range[0]) // ang_res + 1), 720  # (271, 720) for zenith range (0, 135)
     img_size = (ceil((zenith_range[1] - zenith_range[0]) / ang_res), ceil(360/ang_res))  # (271, 720) for zenith range (0, 135)
     print("Image Size:", img_size)
     print("Image Shape:", image.shape)
@@ -216,9 +211,16 @@ def prepare_color_group(channel_names, color_group):
     return paint_pcd_color_groups
 
 if __name__ == "__main__":
+    # Check if CONFIG is loaded, try auto-load if not
+    current_config = CONFIG or _auto_load_config()
+    
+    if current_config is None:
+        print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
+        print("   Example: python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic_rc.json")
+        exit(1)
 
     # Load configuration
-    global_params = CONFIG['global']
+    global_params = current_config['global']
     v_fov = global_params['v_fov']
     h_fov = global_params['h_fov']
     angular_res = (global_params['v_ang_res_deg'], global_params['h_ang_res_deg'])
@@ -226,10 +228,10 @@ if __name__ == "__main__":
     delete_intermediate_file = global_params['delete_intermediate_file']
     out_dir_ls = global_params['output_dir_ls']
     input_path_ls = global_params['input_path_ls']
-    out_signature_str = CONFIG['calc_geom_feature']['out_signature_str']
-    inverse_zenith = CONFIG['calc_geom_feature']['flip_mangrove']
-    generate_virtual_ball = CONFIG['back_projection']['generate_virtual_ball']
-    paint_color_groups = CONFIG['back_projection']['paint_pcd_color_groups']
+    out_signature_str = current_config['calc_geom_feature']['out_signature_str']
+    inverse_zenith = current_config['calc_geom_feature']['flip_mangrove']
+    generate_virtual_ball = current_config['back_projection']['generate_virtual_ball']
+    paint_color_groups = current_config['back_projection']['paint_pcd_color_groups']
 
     # for output_dir in out_dir_ls:
     for input_file, output_dir in zip(input_path_ls, out_dir_ls):

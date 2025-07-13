@@ -6,18 +6,19 @@ from typing import Union, List, Dict, Any, Tuple, Optional
 from pathlib import Path
 import xarray as xr
 from tools.norm_to_hsv import attach_normal_color_to_df
-from tools.config_loader import CONFIG
+from tools.config_loader import CONFIG, _auto_load_config
 from tools.pcd_utils import create_dir_if_not_exists
 
 from tools.spherical_projection_helper import (
-    save_image_cube_and_meta, 
-    generate_correlation_matrix, 
+    save_image_cube_and_meta,
+    generate_correlation_matrix,
     generate_semantic3d_outputs,
     generate_forest_semantic_outputs,
-    generate_extra_visualizations, 
+    generate_extra_visualizations,
     select_by_min_range
 )
 
+import pandas as pd
 pd.options.mode.chained_assignment = None
 
 
@@ -459,8 +460,16 @@ def generate_2D_projection_images(
 
 def main() -> None:
     """Main function to run spherical projection processing."""
-    params = CONFIG['spherical_projection']
-    global_config = CONFIG['global']
+    # Check if CONFIG is loaded, try auto-load if not
+    current_config = CONFIG or _auto_load_config()
+    
+    if current_config is None:
+        print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
+        print("   Example: python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic_rc.json")
+        return
+        
+    params = current_config['spherical_projection']
+    global_config = current_config['global']
     input_path_ls = global_config['input_path_ls']
     output_dir_ls = global_config['output_dir_ls']
     v_fov = global_config['v_fov']
@@ -475,7 +484,7 @@ def main() -> None:
             canvas_size=canvas_size, 
             angular_res=angular_res, 
             dataset_name=global_config['dataset'],
-            out_key_str=CONFIG['calc_geom_feature']['out_signature_str'],
+            out_key_str=current_config['calc_geom_feature']['out_signature_str'],
             input_file_stem=input_path.stem,
             color_map=global_config['color_map'],
             saveflag=params['save_extra_maps'],

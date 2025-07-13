@@ -17,7 +17,7 @@ from tools.plot_tools import get_vector_histogram
 from typing import List, Tuple, Dict, Any
 from tools.preprocess_point_cloud import read_and_clean_pcd
 from tools.pcd_utils import check_and_clean_for_nans, interactive_visualize_pcd, export_results, MemoryProfiler
-from tools.config_loader import CONFIG
+from tools.config_loader import CONFIG, _auto_load_config
 from tools.pcd_utils import create_dir_if_not_exists
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KDTree
@@ -420,8 +420,16 @@ def main() -> None:
         with profiler.gpu_memory_monitoring():
             print("Calculating geometric features: curvature, anisotropy, and planarity")
             
-            global_params = CONFIG["global"]
-            current_file_params = CONFIG["calc_geom_feature"]
+            # Check if CONFIG is loaded, try auto-load if not
+            current_config = CONFIG or _auto_load_config()
+            
+            if current_config is None:
+                print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
+                print("   Example: python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic_rc.json")
+                return
+            
+            global_params = current_config["global"]
+            current_file_params = current_config["calc_geom_feature"]
             output_dir_ls = global_params["output_dir_ls"]
             input_path_ls = global_params["input_path_ls"]
             cut_percent = current_file_params["cut_percent"]

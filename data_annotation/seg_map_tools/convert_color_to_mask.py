@@ -11,7 +11,7 @@ parent_dir = current_file.parents[2]  # Go two levels up to root directory
 sys.path.append(str(parent_dir))
 sys.path.append(str(current_file_dir))
 
-from tools.config_loader import CONFIG
+from tools.config_loader import CONFIG, _auto_load_config
 
 # Load label maps from JSON file
 def load_dataset_info(dataset_name):
@@ -78,8 +78,17 @@ def convert_color_to_mask(seg_map_dir=None, dataset_name=None):
         print(f"  {idx}: {name}")
 
 if __name__ == "__main__":
-    dataset_name = CONFIG["convert_color_to_mask"]["dataset"]
-    output_dir_ls = CONFIG["global"]["output_dir_ls"]
+    # Check if CONFIG is loaded, try auto-load if not
+    if CONFIG is None:
+        temp_config = _auto_load_config()
+        if temp_config is None:
+            print("❌ Error: Configuration not loaded. Please run this script through run_3d_to_2d_pipeline.py")
+            print("   Example: python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic_rc.json")
+            exit(1)
+    
+    current_config = CONFIG or _auto_load_config()
+    dataset_name = current_config["convert_color_to_mask"]["dataset"]
+    output_dir_ls = current_config["global"]["output_dir_ls"]
     for directory in output_dir_ls:
         seg_map_dir = directory / "img"
         convert_color_to_mask(seg_map_dir=seg_map_dir, dataset_name=dataset_name)
