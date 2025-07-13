@@ -4,13 +4,13 @@
         "input_folder_parent": "",
         "input_base_dir": "/home/fzhcis/Downloads/ForestSemantic/output/test/input",
         "output_base_dir": "/home/fzhcis/Downloads/ForestSemantic/output/test/output",
-        "selected_scans": [0, 1],
+        "selected_scans": [1, 2],
         "input_suffix": ".csv",
         "dataset": "ForestSemantic",
         "h_fov": [0, 360],
-        "v_fov": [2, 178],
-        "h_ang_res_deg": 0.2,
-        "v_ang_res_deg": 0.4,
+        "v_fov": [0, 180],
+        "h_ang_res_deg": 0.3,
+        "v_ang_res_deg": 0.3,
         "delete_intermediate_file": false
     },
     "calc_geom_feature": {
@@ -28,7 +28,7 @@
         "out_signature_str": "geom_feat"
     },
     "spherical_projection": {
-        "visualize" : true,
+        "visualize" : false,
         "extra_maps" : true,
         "save_extra_maps" : true,
         "show_single_band" : true,

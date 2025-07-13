@@ -15,6 +15,7 @@ from tools.spherical_projection_helper import (
     generate_semantic3d_outputs,
     generate_forest_semantic_outputs,
     generate_extra_visualizations, 
+    select_by_min_range
 )
 
 pd.options.mode.chained_assignment = None
@@ -81,6 +82,7 @@ def load_and_preprocess_point_cloud(
     return df_filtered_ncolored
 
 
+
 def equirectangular_projection_multi(
     filename: str,
     canvas_size: Tuple[int, int],
@@ -110,37 +112,25 @@ def equirectangular_projection_multi(
         filename, canvas_size=canvas_size, angular_res=angular_res
     )
 
-    # Define aggregation strategy based on dataset
-    base_agg = {
-        'Intensity': 'mean',
-        'Z': 'min',
-        'rangemeter': 'mean',
-        'curvature': 'mean',
-        'anisotropy': 'mean',
-        'planarity': 'mean',
-    }
 
+    
+    # Define aggregation strategy based on dataset
     if dataset_name == 'SEMANTIC3D':
         # Convert columns to float for SEMANTIC3D
         float_cols = ['rangemeter', 'r', 'g', 'b']
         for col in float_cols:
             if col in df_filtered_ncolored.columns:
                 df_filtered_ncolored[col] = df_filtered_ncolored[col].astype(float)
-        
-        # Add RGB aggregation
-        base_agg.update({
-            'r': 'mean',
-            'g': 'mean',
-            'b': 'mean',
-        })
     elif dataset_name != 'MANGROVE' and dataset_name != 'ForestSemantic':
         raise ValueError(
             f"Unsupported dataset: {dataset_name}. "
             f"Supported datasets: 'SEMANTIC3D', 'MANGROVE', 'ForestSemantic'."
         )
 
-    # Group by pixel coordinates and aggregate
-    grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).agg(base_agg)
+    # Group by pixel coordinates and select values from point with minimum range
+    grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).apply(
+        select_by_min_range, include_groups=False
+    )
     
     # Compute point density separately
     pts_per_pixel = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).size()
@@ -286,24 +276,30 @@ def _create_segmentation_masks(
     canvas_size: Tuple[int, int], 
     dataset_name: str
 ) -> Dict[str, np.ndarray]:
-    """Create segmentation masks from class_id column.
+    """Create segmentation masks from class_id column using nearest point aggregation.
+    
+    Uses the same nearest-point (minimum range) strategy as other features
+    to ensure consistency across all projected attributes.
     
     Args:
-        df: DataFrame with class_id column
+        df: DataFrame with class_id column and pixel coordinates
         canvas_size: Output image dimensions
-        grouped: Grouped DataFrame for pixel coordinates
+        dataset_name: Dataset name to determine class column
         
     Returns:
         Dictionary containing segmentation masks
     """
     seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
+    
     if dataset_name == 'ForestSemantic':
         class_col = 'Classification'
     else:
         class_col = 'class_id'
-    grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False)[class_col].agg(
-        lambda x: x.value_counts().idxmax()
-    )
+    
+    # Use nearest point aggregation (same as other features)
+    grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False).apply(
+        select_by_min_range, include_groups=False
+    )[class_col]
     
     y_indices = grouped_class_id.index.get_level_values(0)
     x_indices = grouped_class_id.index.get_level_values(1)
@@ -375,6 +371,7 @@ def generate_2D_projection_images(
     angular_res: Tuple[int, int], 
     dataset_name: str = 'MANGROVE',
     out_key_str: str = 'geom_feat',
+    input_file_stem: str = 'pcd',
     color_map: Optional[Dict[str, tuple]] = None,
     saveflag: bool = False,
     visualize: bool = True,
@@ -409,7 +406,7 @@ def generate_2D_projection_images(
         FileNotFoundError: If required input files are not found
     """
     # Setup paths
-    input_file_stem = output_dir.parent.name
+    # input_file_stem = output_dir.parent.name
     pcd_dir = output_dir / 'pcd'
     img_out_dir = output_dir / 'img'
     
@@ -421,7 +418,8 @@ def generate_2D_projection_images(
         raise FileNotFoundError(f"No file matching '*{out_key_str}*' found in {pcd_dir}")
 
     # Generate projections
-    key_str = f"{input_file_stem.split('_')[0]}_{input_file_stem.split('_')[-1]}"
+    # key_str = f"{input_file_stem.split('_')[0]}_{input_file_stem.split('_')[-1]}"
+    key_str = input_file_stem
     df_filtered, projection_xr = equirectangular_projection_multi(
         filename, canvas_size, angular_res, dataset_name
     )
@@ -463,19 +461,22 @@ def main() -> None:
     """Main function to run spherical projection processing."""
     params = CONFIG['spherical_projection']
     global_config = CONFIG['global']
-    
+    input_path_ls = global_config['input_path_ls']
+    output_dir_ls = global_config['output_dir_ls']
     v_fov = global_config['v_fov']
     h_fov = global_config['h_fov']
     canvas_size = global_config['canvas_size']
     angular_res = (global_config['v_ang_res_deg'], global_config['h_ang_res_deg'])
     
-    for output_dir in global_config['output_dir_ls']:
+    # for output_dir in global_config['output_dir_ls']:
+    for input_path, output_dir in zip(input_path_ls, output_dir_ls):
         generate_2D_projection_images(
             output_dir=output_dir,
             canvas_size=canvas_size, 
             angular_res=angular_res, 
             dataset_name=global_config['dataset'],
             out_key_str=CONFIG['calc_geom_feature']['out_signature_str'],
+            input_file_stem=input_path.stem,
             color_map=global_config['color_map'],
             saveflag=params['save_extra_maps'],
             visualize=params['visualize'],

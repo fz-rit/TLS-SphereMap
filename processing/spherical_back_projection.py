@@ -15,7 +15,7 @@ from tools.preprocess_point_cloud import map_angle_to_pixel
 from plyfile import PlyData, PlyElement
 from tools.spherical_projection_helper import load_image_cube_and_meta
 from numpy.typing import NDArray
-from math import ceil
+from math import ceil, floor
 
 def image_preprocess(image, img_size):
     """
@@ -51,19 +51,20 @@ def image_preprocess(image, img_size):
         image = image.astype(np.float32)
 
 
-    print("Image Shape:", image.shape)
-    print("Image Dtype:", image.dtype)
-    print("Image Max:", image.max())
+    # print("Image Shape:", image.shape)
+    # print("Image Dtype:", image.dtype)
+    # print("Image Max:", image.max())
     return image
 
 
 
-def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), inverse_zenith=False):
+def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), ang_res=0.5, inverse_zenith=False):
     """
     Assigns image color to df_ball using azimuth and zenith angles.
     Assumes image shape (271, 720), angular res = 0.5°, azimuth 0–360, zenith 0–135.
     """
-    img_size = int((zenith_range[1] - zenith_range[0]) // 0.5 + 1), 720  # (271, 720) for zenith range (0, 135)
+    # img_size = int((zenith_range[1] - zenith_range[0]) // ang_res + 1), 720  # (271, 720) for zenith range (0, 135)
+    img_size = (ceil((zenith_range[1] - zenith_range[0]) / ang_res), ceil(360/ang_res))  # (271, 720) for zenith range (0, 135)
     print("Image Size:", img_size)
     print("Image Shape:", image.shape)
     print("Image Dtype:", image.dtype)
@@ -91,6 +92,7 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), inverse_z
 def get_a_colorized_ball_from_img(rgb_img: NDArray, 
                                   key_str: str,
                                   zenith_range: tuple = (0, 135), 
+                                  res_deg: float = 0.5,
                                   save_dir: Path = None,
                                   visualize: bool = False,
                                   inverse_zenith: bool = False):
@@ -102,9 +104,10 @@ def get_a_colorized_ball_from_img(rgb_img: NDArray,
         zenith_range (tuple): Zenith range for the ball.
         save_dir (Path): Directory to save the output point cloud.
     """
-    df_ball = generate_geometric_lidar_ball(radius=10.0, zenith_range=zenith_range)
+    df_ball = generate_geometric_lidar_ball(radius=10.0, zenith_range=zenith_range, res_deg=res_deg)
     df_colored = back_project_color_to_ball(df_ball, rgb_img, 
                                             zenith_range=zenith_range,
+                                            ang_res=res_deg,
                                             inverse_zenith=inverse_zenith)
 
     df_cube = create_colored_cube_points(center=[0, 0, 0], size=0.5, samples_per_face=50)
@@ -218,20 +221,22 @@ if __name__ == "__main__":
     canvas_size = global_params['canvas_size']
     delete_intermediate_file = global_params['delete_intermediate_file']
     out_dir_ls = global_params['output_dir_ls']
+    input_path_ls = global_params['input_path_ls']
     out_signature_str = CONFIG['calc_geom_feature']['out_signature_str']
     inverse_zenith = CONFIG['calc_geom_feature']['flip_mangrove']
     generate_virtual_ball = CONFIG['back_projection']['generate_virtual_ball']
     paint_color_groups = CONFIG['back_projection']['paint_pcd_color_groups']
 
-    for output_dir in out_dir_ls:
-        input_file_stem = output_dir.parent.name
-        print(f'#######Processing {input_file_stem}...########')
+    # for output_dir in out_dir_ls:
+    for input_file, output_dir in zip(input_path_ls, out_dir_ls):
+        # input_file_stem = output_dir.parent.name
+        print(f'#######Processing {input_file.stem}...########')
 
         image_dir = output_dir / 'img'
         pcd_out_dir = output_dir / 'pcd'
         
-        key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
-        image_cube_path = image_dir / f'{key_str}_image_cube.npy'
+        # key_str = input_file_stem.split('_')[0] + '_' + input_file_stem.split('_')[-1]
+        image_cube_path = image_dir / f'{input_file.stem}_image_cube.npy'
         image_cube, metadata = load_image_cube_and_meta(image_cube_path)
         channel_names = metadata['channel_names']
         paint_pcd_color_groups = prepare_color_group(channel_names, paint_color_groups)
@@ -246,11 +251,12 @@ if __name__ == "__main__":
                                        delete_intermediate=delete_intermediate_file)
 
             if generate_virtual_ball:
-                str_ls = input_file_stem.split('_')
-                pcd_signature_str = f"pcd_{str_ls[2]}_{str_ls[-1][-4:]}"
-                ball_key_str = f"{pcd_signature_str}_{'_'.join(color_group)}"
+                # str_ls = input_file_stem.split('_')
+                # pcd_signature_str = f"pcd_{str_ls[2]}_{str_ls[-1][-4:]}"
+                ball_key_str = f"colorball_{'_'.join(color_group)}"
                 get_a_colorized_ball_from_img(rgb_image,
                                         ball_key_str,
+                                        res_deg=angular_res[0],
                                         zenith_range=v_fov, 
                                         save_dir=pcd_out_dir,
                                         inverse_zenith=inverse_zenith)

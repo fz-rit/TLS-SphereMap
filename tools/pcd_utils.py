@@ -120,7 +120,7 @@ class MemoryProfiler:
             pass
 
 
-def create_dir_if_not_exists(directory: Path, ask_user: bool=True) -> None:
+def create_dir_if_not_exists(directory: Path, ask_user: bool=False) -> None:
     """
     Ask the user whether to create a directory (and its parents) if it does not exist.
     Also display the nearest existing parent directory.

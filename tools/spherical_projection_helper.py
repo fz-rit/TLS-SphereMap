@@ -83,6 +83,11 @@ def list_available_channels(projection_xr: xr.DataArray) -> List[str]:
     """
     return list(projection_xr.coords['channel'].values)
 
+def select_by_min_range(group):
+    """Select all values from the point with minimum range value."""
+    min_range_idx = group['rangemeter'].idxmin()
+    return group.loc[min_range_idx]
+
 
 def create_channel_subset(projection_xr: xr.DataArray, channels: List[str]) -> xr.DataArray:
     """Create a subset DataArray with only specified channels.
