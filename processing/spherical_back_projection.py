@@ -71,9 +71,13 @@ def back_project_color_to_ball(df_ball, image, zenith_range= (0, 135), ang_res=0
     image = image_preprocess(image, img_size)
 
     # Compute row, col indices
-    zenith_deg_shifted = df_ball['zenith_deg'] - df_ball['zenith_deg'].min()
+    zenith_deg_shifted = np.array(df_ball['zenith_deg'] - df_ball['zenith_deg'].min())
     row = (zenith_deg_shifted / ang_res).astype(int)
     col = (df_ball['azimuth_deg'] / ang_res).astype(int)
+
+    # Ensure indices are within bounds
+    row = np.clip(row, 0, img_size[0] - 1)
+    col = np.clip(col, 0, img_size[1] - 1)
     # Adjust for inverse zenith
     if inverse_zenith:
         row = img_size[0] - 1 - row
