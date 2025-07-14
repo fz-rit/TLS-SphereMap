@@ -45,7 +45,7 @@ assert len(label_files) > 0, "No .labels files found in the directory."
 if len(pcd_files) != len(label_files):
     raise ValueError(f"Number of .txt files ({len(pcd_files)}) does not match number of .labels files ({len(label_files)}).")
 
-for txt_file, labels_file in zip(pcd_files, label_files):
+for txt_file, labels_file in zip(pcd_files[7:], label_files[7:]):
     if txt_file.stem != labels_file.stem:
         raise ValueError(f"File names do not match: {txt_file.name} and {labels_file.name}")
     print(f"Processing {txt_file.stem} .txt+.labels ...")

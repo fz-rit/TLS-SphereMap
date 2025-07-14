@@ -39,32 +39,17 @@ def get_channel_data(projection_xr: xr.DataArray, channel_name: str) -> np.ndarr
     return projection_xr.sel(channel=channel_name).values
 
 
-def get_rgb_channels(projection_xr: xr.DataArray, rgb_type: str = 'true') -> np.ndarray:
+def get_rgb_channels(projection_xr: xr.DataArray) -> np.ndarray:
     """Extract RGB channels and combine into a 3D array.
     
     Args:
         projection_xr: Multi-channel projection DataArray
-        rgb_type: Type of RGB ('true' for True-RGB)
         
     Returns:
         3D numpy array of shape (height, width, 3) for RGB visualization
-        
-    Raises:
-        ValueError: If RGB channels are not available
     """
-    if rgb_type == 'true':
-        channel_names = ['true_r', 'true_g', 'true_b']
-    else:
-        raise ValueError(f"Unsupported rgb_type: {rgb_type}")
+    channel_names = ['true_r', 'true_g', 'true_b']
     
-    # Check if all required channels exist
-    available_channels = list(projection_xr.coords['channel'].values)
-    missing_channels = [ch for ch in channel_names if ch not in available_channels]
-    
-    if missing_channels:
-        raise ValueError(f"Missing RGB channels: {missing_channels}")
-    
-    # Extract and stack RGB channels
     rgb_data = []
     for channel in channel_names:
         rgb_data.append(projection_xr.sel(channel=channel).values)
@@ -88,6 +73,12 @@ def select_by_min_range(group):
     min_range_idx = group['rangemeter'].idxmin()
     return group.loc[min_range_idx]
 
+def select_min_range_and_count(group):
+    """Select all values from point with minimum range and return count."""
+    min_range_idx = group['rangemeter'].idxmin()
+    selected_row = group.loc[min_range_idx].copy()
+    selected_row['point_count'] = len(group)
+    return selected_row
 
 def create_channel_subset(projection_xr: xr.DataArray, channels: List[str]) -> xr.DataArray:
     """Create a subset DataArray with only specified channels.
@@ -141,12 +132,6 @@ def save_image_cube_and_meta(
         'curvature', 'anisotropy', 'planarity',
     ]
     
-    # save_titles = [
-    #     'Intensity (raw)', 'Z (raw)', 'Range (raw)', 
-    #     'Intensity (adjusted)', 'Z-Inv (adjusted)', 'Range (adjusted)',
-    #     'Curvature', 'Anisotropy', 'Planarity',
-    # ]
-
     # Validate and collect maps
     collected_maps = []
     expected_shape = normals_rgb_image.shape[:2]
@@ -183,7 +168,7 @@ def save_image_cube_and_meta(
 
     # Handle optional True-RGB data
     if 'true_r' in projection_xr.coords['channel'].values:
-        true_rgb = get_rgb_channels(projection_xr, 'true')
+        true_rgb = get_rgb_channels(projection_xr)
         extended_cube = np.concatenate([true_rgb, extended_cube], axis=-1)
         save_channels = ['True-R', 'True-G', 'True-B'] + save_channels
 
@@ -438,42 +423,36 @@ def generate_semantic3d_outputs(
         v_fov: Vertical field of view range
         h_fov: Horizontal field of view range
     """
-    # True RGB image
-    if 'true_r' in projection_xr.coords['channel'].values:
-        true_rgb = get_rgb_channels(projection_xr, 'true')
-        display_unwrapped_rgb_image(
-            true_rgb, 
-            figure_title=f'True_RGB_{key_str}', 
-            saveflag=saveflag, 
-            output_dir=img_out_dir,
-            visualize=visualize,
-            canvas_size=canvas_size,
-            v_fov=v_fov,
-            h_fov=h_fov
-        )
+
+    true_rgb = get_rgb_channels(projection_xr)
+    display_unwrapped_rgb_image(
+        true_rgb, 
+        figure_title=f'True_RGB_{key_str}', 
+        saveflag=saveflag, 
+        output_dir=img_out_dir,
+        visualize=visualize,
+        canvas_size=canvas_size,
+        v_fov=v_fov,
+        h_fov=h_fov
+    )
 
     # Segmentation masks
     if 'Classification' in df_filtered.columns:
-        for mask_type in ['merged', 'raw']:
-            mask_channel = f'seg_mask_{mask_type}'
-            if mask_channel in projection_xr.coords['channel'].values:
-                seg_mask = get_channel_data(projection_xr, mask_channel).astype(np.uint8)
-                title = f'seg_map_{mask_type}_{key_str}'
-                
-                # Save mask as PNG
-                Image.fromarray(seg_mask).save(img_out_dir / f"{title}_mask.png")
-                
-                if mask_type == 'merged':
-                    display_single_band_img_wt_discrete_values(
-                        seg_mask,
-                        title=title, 
-                        num_unique_values=18,
-                        cb_label='Class ID',
-                        output_dir=img_out_dir, 
-                        saveflag=saveflag,
-                        visualize=visualize,
-                        color_map=color_map
-                    )
+        seg_mask = get_channel_data(projection_xr, 'seg_mask').astype(np.uint8)
+        title = f'seg_map_{key_str}'
+        
+        # Save mask as PNG
+        Image.fromarray(seg_mask).save(img_out_dir / f"{title}_mask.png")
+        
+        display_single_band_img_wt_discrete_values(
+            seg_mask,
+            title=title, 
+            cb_label='Class ID',
+            output_dir=img_out_dir, 
+            saveflag=saveflag,
+            visualize=visualize,
+            color_map=color_map
+        )
 
 
 def generate_forestsemantic_outputs(
@@ -483,10 +462,7 @@ def generate_forestsemantic_outputs(
     key_str: str,
     color_map: Optional[Dict[str, tuple]],
     saveflag: bool,
-    visualize: bool,
-    # canvas_size: Tuple[int, int],
-    # v_fov: Tuple[float, float],
-    # h_fov: Tuple[float, float]
+    visualize: bool
 ) -> None:
     """Generate SEMANTIC3D-specific visualizations.
     
@@ -517,7 +493,6 @@ def generate_forestsemantic_outputs(
     display_single_band_img_wt_discrete_values(
             seg_mask,
             title=title, 
-            num_unique_values=7,
             cb_label='Class ID',
             output_dir=img_out_dir, 
             saveflag=saveflag,

@@ -8,6 +8,7 @@ from tools.pcd_utils import create_dir_if_not_exists
 
 def get_color_map(input_base_dir):
     label_file = input_base_dir / 'labels.json'
+    print(f"🔹 Loading color map from {label_file}")
     with open(label_file, 'r') as f:
         label_json = json.load(f)
     color_map = {label_dict['code']:label_dict["color"] for label_dict in label_json}
@@ -35,6 +36,7 @@ def _add_common_config_params(config):
     )
     global_params["canvas_size"] = canvas_size
     config["global"] = global_params
+    print(f"config: {config}")
     return config
 
 
@@ -85,8 +87,8 @@ def load_config_forestsemantic(config):
     # Find and sort input files
     input_paths = list(input_base_dir.glob(f"plot*_centered_subsample_scan*{input_suffix}"))
     if not input_paths:
-        raise FileNotFoundError(f"❗ No input files found in {input_base_dir} with suffix {input_suffix}.")
-    
+        raise FileNotFoundError(f"❗ No input files found for ForestSemantic in {input_base_dir} with suffix {input_suffix}.")
+
     input_paths.sort(key=lambda x: x.stem)
     input_paths = input_paths[selected_scans[0]:selected_scans[1]]
     
@@ -142,28 +144,41 @@ def load_config_inlut3d(config):
 
 
 def load_config_semantic3d(config):
-    """Load the JSON config and dynamically generate paths for Semantic3D dataset."""
+    """Load config and generate paths for Semantic3D dataset."""
     global_params = config["global"]
     output_base_dir = Path(global_params["output_base_dir"])
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params["input_suffix"]
     selected_scans = global_params['selected_scans']
+    
+    # Find and sort input files
     pcd_files = list(input_base_dir.glob(f"*{input_suffix}"))
+    if not pcd_files:
+        print(f"pcd_files: {pcd_files}")
+        raise FileNotFoundError(f"❗ No input files found for Semantic3D in {input_base_dir} with suffix {input_suffix}.")
+
     pcd_files.sort()
-    input_path_ls = pcd_files[selected_scans[0]:selected_scans[1]]
-    if not input_path_ls:
+    input_paths = pcd_files[selected_scans[0]:selected_scans[1]]
+    
+    if not input_paths:
         raise ValueError(f"❗ No files selected with scan range {selected_scans}.")
-    output_dir_ls = []
-    for input_path in input_path_ls:
+    
+    print(f"Input files: {input_paths}")
+    
+    # Create output directories
+    output_dirs = []
+    for input_path in input_paths:
         output_dir = output_base_dir / input_path.stem
         create_dir_if_not_exists(output_dir, ask_user=False)
-        output_dir_ls.append(output_dir)
+        output_dirs.append(output_dir)
 
-    color_map = get_color_map(input_base_dir)
-    global_params["output_dir_ls"] = output_dir_ls
-    global_params["input_path_ls"] = input_path_ls
-    global_params["color_map"] = color_map
-
+    # Update global config
+    global_params.update({
+        "color_map": get_color_map(input_base_dir),
+        "output_dir_ls": output_dirs,
+        "input_path_ls": input_paths
+    })
+    
     return _add_common_config_params(config)
 
 
@@ -179,28 +194,18 @@ def load_config(config_path):
     # Determine dataset type and apply appropriate loader
     dataset = config["global"].get("dataset", "").lower()
     
-    if dataset == "mangrove" or "mangrove" in str(config_path).lower():
+    if "mangrove" in dataset.lower():
         return load_config_mangrove(config)
-    elif dataset == "forestsemantic" or "forestsemantic" in str(config_path).lower():
+    elif "forestsemantic" in dataset.lower():
         return load_config_forestsemantic(config)
-    elif dataset == "inlut3d" or "inlut3d" in str(config_path).lower():
+    elif "inlut3d" in dataset.lower():
         return load_config_inlut3d(config)
-    elif dataset == "semantic3d" or "semantic3d" in str(config_path).lower():
+    elif "semantic3d" in dataset.lower():
         return load_config_semantic3d(config)
     else:
-        # Try to infer from filename if dataset field is not set
-        if "mangrove" in str(config_path).lower():
-            return load_config_mangrove(config)
-        elif "forest" in str(config_path).lower():
-            return load_config_forestsemantic(config)
-        elif "inlut" in str(config_path).lower():
-            return load_config_inlut3d(config)
-        elif "semantic3d" in str(config_path).lower():
-            return load_config_semantic3d(config)
-        else:
-            # Default to forest semantic if cannot determine
-            print(f"⚠️ Warning: Could not determine dataset type from {config_path}. Using forestsemantic loader.")
-            return load_config_forestsemantic(config)
+        raise ValueError(f"❗ Unknown dataset type in config: {dataset}. \
+                         Please specify a valid dataset type in {config_path}.")
+
 
 
 def get_config():

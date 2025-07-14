@@ -15,7 +15,8 @@ from tools.spherical_projection_helper import (
     generate_semantic3d_outputs,
     generate_forestsemantic_outputs,
     generate_extra_visualizations,
-    select_by_min_range
+    select_by_min_range,
+    select_min_range_and_count,
 )
 
 import pandas as pd
@@ -113,28 +114,29 @@ def equirectangular_projection_multi(
         filename, canvas_size=canvas_size, angular_res=angular_res
     )
 
-
+    # Normalize dataset name for flexible comparison
+    dataset_upper = dataset_name.upper()
     
     # Define aggregation strategy based on dataset
-    if dataset_name == 'SEMANTIC3D':
-        # Convert columns to float for SEMANTIC3D
-        float_cols = ['rangemeter', 'r', 'g', 'b']
+    dataset_upper = dataset_name.upper()
+    if 'SEMANTIC3D' in dataset_upper:
+        float_cols = ['r', 'g', 'b']
         for col in float_cols:
-            if col in df_filtered_ncolored.columns:
-                df_filtered_ncolored[col] = df_filtered_ncolored[col].astype(float)
-    elif dataset_name != 'MANGROVE' and dataset_name != 'ForestSemantic':
+            df_filtered_ncolored[col] = (df_filtered_ncolored[col] / 255.0).astype(np.float32)
+        print("True RGB channels normalized to [0, 1] for SEMANTIC3D.")
+    elif not any(x in dataset_upper for x in ['MANGROVE', 'FORESTSEMANTIC']):
         raise ValueError(
             f"Unsupported dataset: {dataset_name}. "
             f"Supported datasets: 'SEMANTIC3D', 'MANGROVE', 'ForestSemantic'."
         )
 
-    # Group by pixel coordinates and select values from point with minimum range
-    grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).apply(
-        select_by_min_range, include_groups=False
+    grouped_with_density = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).apply(
+        select_min_range_and_count, include_groups=False
     )
     
-    # Compute point density separately
-    pts_per_pixel = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).size()
+    # Extract density and main data
+    pts_per_pixel = grouped_with_density['point_count']
+    grouped = grouped_with_density.drop(columns=['point_count'])
 
     # Define channel names and initialize data
     base_channels = [
@@ -144,15 +146,14 @@ def equirectangular_projection_multi(
     ]
     
     # Add dataset-specific channels
-    if dataset_name == 'SEMANTIC3D':
+    if 'SEMANTIC3D' in dataset_upper:
         base_channels.extend(['true_r', 'true_g', 'true_b'])
         if 'Classification' in df_filtered_ncolored.columns:
-            base_channels.extend(['seg_mask_raw', 'seg_mask_merged'])
+            base_channels.extend(['seg_mask'])
         else:
-            # print("Warning: 'Classification' column not found in SEMANTIC3D data. Skipping segmentation masks.")
-            raise RuntimeError("Missing 'Classification' column in SEMANTIC3D data.")
+            print("Warning: 'Classification' column not found in SEMANTIC3D data. Skipping segmentation masks.")
 
-    if dataset_name == 'ForestSemantic':
+    if 'FORESTSEMANTIC' in dataset_upper:
         if 'Classification' in df_filtered_ncolored.columns:
             base_channels.extend(['seg_mask'])
 
@@ -214,41 +215,41 @@ def equirectangular_projection_multi(
         'anisotropy': image_arrays['anisotropy'],
         'planarity': image_arrays['planarity'],
         'density': image_arrays['density'],
-    }
-
+    }    
+    
     # Add dataset-specific channels
-    if dataset_name == 'SEMANTIC3D':
-        # Create RGB channels
-        rgb_r = np.zeros(canvas_size, dtype=np.float32)
-        rgb_g = np.zeros(canvas_size, dtype=np.float32)
-        rgb_b = np.zeros(canvas_size, dtype=np.float32)
+    if 'SEMANTIC3D' in dataset_upper:
+        beautiful_colors = {"Sky ash": (160, 190, 220), "Periwinkle Mist": (180, 170, 255)}
+        red, green, blue = (np.full(canvas_size, val / 255.0, dtype=np.float32) 
+                    for val in beautiful_colors["Periwinkle Mist"])
         
-        rgb_r[y_indices, x_indices] = grouped['r'].values
-        rgb_g[y_indices, x_indices] = grouped['g'].values
-        rgb_b[y_indices, x_indices] = grouped['b'].values
+        red[y_indices, x_indices] = grouped['r'].values
+        green[y_indices, x_indices] = grouped['g'].values
+        blue[y_indices, x_indices] = grouped['b'].values
         
         channel_mapping.update({
-            'true_r': rgb_r,
-            'true_g': rgb_g,
-            'true_b': rgb_b,
+            'true_r': red,
+            'true_g': green,
+            'true_b': blue,
         })
 
-        # Add segmentation masks if available
+        # Add segmentation masks for training data
         if 'Classification' in df_filtered_ncolored.columns:
-            seg_masks = _create_segmentation_masks_semantic3d(
-                df_filtered_ncolored, canvas_size
-            )
-            channel_mapping.update({
-                'seg_mask_raw': seg_masks['seg_mask_raw'].astype(np.float32),
-                'seg_mask_merged': seg_masks['seg_mask_merged'].astype(np.float32),
-            })
-    elif dataset_name == 'ForestSemantic':
-        # Create segmentation mask if available
-        if 'Classification' in df_filtered_ncolored.columns:
-            seg_mask = _create_segmentation_masks_forestsemantic(
+            seg_mask = _create_segmentation_masks_semantic3d(
                 df_filtered_ncolored, canvas_size
             )
             channel_mapping['seg_mask'] = seg_mask.astype(np.float32)
+        else:
+            print("Warning: 'Classification' column not found in SEMANTIC3D data. Skipping segmentation masks.")
+            
+    elif 'FORESTSEMANTIC' in dataset_upper:
+        # Create segmentation mask if available
+        if 'Classification' not in df_filtered_ncolored.columns:
+            raise ValueError("❗ 'Classification' column not found in ForestSemantic data. ")
+        seg_mask = _create_segmentation_masks_forestsemantic(
+            df_filtered_ncolored, canvas_size
+        )
+        channel_mapping['seg_mask'] = seg_mask.astype(np.float32)
 
     # Fill the projection data array
     for i, channel in enumerate(base_channels):
@@ -292,29 +293,19 @@ def _create_segmentation_masks_semantic3d(
     Returns:
         Dictionary containing segmentation masks
     """
-    seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
+    
 
     # Use nearest point aggregation (same as other features)
     grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False).apply(
         select_by_min_range, include_groups=False
     )['Classification']
-    
+    void_class_id = 9 # Hardcoded for Semantic3D
+    seg_mask = np.full(canvas_size, void_class_id, dtype=np.uint8)
     y_indices = grouped_class_id.index.get_level_values(0)
     x_indices = grouped_class_id.index.get_level_values(1)
-    seg_mask_raw[y_indices, x_indices] = grouped_class_id.values
+    seg_mask[y_indices, x_indices] = grouped_class_id.values
     
-    # Handle special class values
-    seg_mask_raw[seg_mask_raw == -1] = 18
-    seg_mask_raw = seg_mask_raw.astype(np.uint8)
-    
-    # Create merged mask
-    seg_mask_merged = seg_mask_raw.copy()
-    seg_mask_merged[np.isin(seg_mask_merged, [18, 255])] = 17
-    
-    return {
-        'seg_mask_raw': seg_mask_raw,
-        'seg_mask_merged': seg_mask_merged
-    }
+    return seg_mask
 
 def _create_segmentation_masks_forestsemantic(
     df: pd.DataFrame, 
@@ -451,12 +442,12 @@ def generate_2D_projection_images(
     )
 
     # Generate dataset-specific outputs
-    if dataset_name == 'SEMANTIC3D':
+    if 'SEMANTIC3D' in dataset_name.upper():
         generate_semantic3d_outputs(
             projection_xr, df_filtered, img_out_dir, key_str, 
             color_map, saveflag, visualize, canvas_size, v_fov, h_fov
         )
-    elif dataset_name == 'ForestSemantic':
+    elif 'FORESTSEMANTIC' in dataset_name.upper():
         generate_forestsemantic_outputs(
             projection_xr, df_filtered, img_out_dir, key_str, 
             color_map, saveflag, visualize, 
