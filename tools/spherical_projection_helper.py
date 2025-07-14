@@ -453,7 +453,7 @@ def generate_semantic3d_outputs(
         )
 
     # Segmentation masks
-    if 'class_id' in df_filtered.columns:
+    if 'Classification' in df_filtered.columns:
         for mask_type in ['merged', 'raw']:
             mask_channel = f'seg_mask_{mask_type}'
             if mask_channel in projection_xr.coords['channel'].values:

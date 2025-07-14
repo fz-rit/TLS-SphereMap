@@ -148,18 +148,14 @@ def load_config_semantic3d(config):
     input_base_dir = Path(global_params["input_base_dir"])
     input_suffix = global_params["input_suffix"]
     selected_scans = global_params['selected_scans']
-    input_folders = list(input_base_dir.iterdir())
-    input_folders = [p for p in input_folders if p.is_dir()]
-    input_folders.sort()
-    input_folders = input_folders[selected_scans[0]:selected_scans[1]]
+    pcd_files = list(input_base_dir.glob(f"*{input_suffix}"))
+    pcd_files.sort()
+    input_path_ls = pcd_files[selected_scans[0]:selected_scans[1]]
+    if not input_path_ls:
+        raise ValueError(f"❗ No files selected with scan range {selected_scans}.")
     output_dir_ls = []
-    input_path_ls = []
-    for p in input_folders:
-        input_path = next(p.glob(f"*_with_labels{input_suffix}"), None)
-        if not input_path.exists():
-            raise FileNotFoundError(f"❗ Input file {input_path} does not exist.")
-        input_path_ls.append(input_path)
-        output_dir = output_base_dir / p.name
+    for input_path in input_path_ls:
+        output_dir = output_base_dir / input_path.stem
         create_dir_if_not_exists(output_dir, ask_user=False)
         output_dir_ls.append(output_dir)
 

@@ -24,7 +24,7 @@ def attach_labels_to_points(txt_file: Path, labels_file: Path, las_dir:Path):
     # ref: http://www.semantic3d.net/view_dbase.php?chl=1
     las = las[las.classification != 0]
     print(f"After dropping class 0, unique labels: {np.unique(las.classification)}; shape: {las.classification.shape}")
-    
+
     las.write(las_dir / f'{txt_file.stem}_with_labels.las')
 
 
@@ -48,7 +48,7 @@ if len(pcd_files) != len(label_files):
 for txt_file, labels_file in zip(pcd_files, label_files):
     if txt_file.stem != labels_file.stem:
         raise ValueError(f"File names do not match: {txt_file.name} and {labels_file.name}")
-    print(f"Processing {txt_file.name} with labels from {labels_file.name}...")
+    print(f"Processing {txt_file.stem} .txt+.labels ...")
     attach_labels_to_points(txt_file, labels_file, las_dir)
 
 
