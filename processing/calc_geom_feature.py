@@ -34,11 +34,11 @@ class GeometricFeatureCalculator:
 
     def calculate_neighbor_eigens(self, nn_radius: float, max_neighbors: int):
         num_points = self.points_xyz.shape[0]
-        
-        # Memory safety check - limit to 15K points for RTX A2000
-        if num_points > 15000:
-            raise RuntimeError(f"❌ Batch too large: {num_points:,} points (max 15K for GPU memory)")
-        
+
+        # Memory safety check - limit to 20K points for RTX A2000
+        if num_points > 20000:
+            raise RuntimeError(f"❌ Batch too large: {num_points:,} points (max 20K for GPU memory)")
+
         # Compute distance matrix and adaptive radii
         dist_matrix = torch.cdist(self.points_xyz, self.points_xyz)
         sorted_dists, _ = torch.sort(dist_matrix, dim=1)

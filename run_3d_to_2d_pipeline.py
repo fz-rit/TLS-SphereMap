@@ -39,8 +39,6 @@ def main():
     # Define default processing steps
     default_scripts = [
         "processing.calc_geom_feature",
-        # "processing.calc_geom_feature_fast", #use open3d KDTree
-        # "processing.calc_geom_feature_faiss", # use FAISS for fast neighbor search
         "processing.spherical_projection", 
         "processing.spherical_back_projection",
         # "data_annotation.seg_map_tools.convert_color_to_mask", # Only if 2D segmentation map (color) is available.

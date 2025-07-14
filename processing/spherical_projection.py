@@ -146,8 +146,11 @@ def equirectangular_projection_multi(
     # Add dataset-specific channels
     if dataset_name == 'SEMANTIC3D':
         base_channels.extend(['true_r', 'true_g', 'true_b'])
-        if 'class_id' in df_filtered_ncolored.columns:
+        if 'Classification' in df_filtered_ncolored.columns:
             base_channels.extend(['seg_mask_raw', 'seg_mask_merged'])
+        else:
+            # print("Warning: 'Classification' column not found in SEMANTIC3D data. Skipping segmentation masks.")
+            raise RuntimeError("Missing 'Classification' column in SEMANTIC3D data.")
 
     if dataset_name == 'ForestSemantic':
         if 'Classification' in df_filtered_ncolored.columns:
@@ -231,9 +234,9 @@ def equirectangular_projection_multi(
         })
 
         # Add segmentation masks if available
-        if 'class_id' in df_filtered_ncolored.columns:
+        if 'Classification' in df_filtered_ncolored.columns:
             seg_masks = _create_segmentation_masks_semantic3d(
-                df_filtered_ncolored, canvas_size, dataset_name
+                df_filtered_ncolored, canvas_size
             )
             channel_mapping.update({
                 'seg_mask_raw': seg_masks['seg_mask_raw'].astype(np.float32),
@@ -275,7 +278,6 @@ def equirectangular_projection_multi(
 def _create_segmentation_masks_semantic3d(
     df: pd.DataFrame, 
     canvas_size: Tuple[int, int], 
-    dataset_name: str
 ) -> Dict[str, np.ndarray]:
     """Create segmentation masks from class_id column using nearest point aggregation.
     
@@ -291,16 +293,11 @@ def _create_segmentation_masks_semantic3d(
         Dictionary containing segmentation masks
     """
     seg_mask_raw = np.full(canvas_size, 255, dtype=np.int16)
-    
-    if dataset_name == 'ForestSemantic':
-        class_col = 'Classification'
-    else:
-        class_col = 'class_id'
-    
+
     # Use nearest point aggregation (same as other features)
     grouped_class_id = df.groupby(['y_pix', 'x_pix'], observed=False).apply(
         select_by_min_range, include_groups=False
-    )[class_col]
+    )['Classification']
     
     y_indices = grouped_class_id.index.get_level_values(0)
     x_indices = grouped_class_id.index.get_level_values(1)
@@ -344,7 +341,7 @@ def equirectangular_projection_normals(
     """Create RGB image from normal vector colors.
     
     Projects normal vector HSV colors onto a 2D equirectangular grid
-    by averaging colors within each pixel.
+    by selecting normal colors from the point with minimum range within each pixel.
 
     Args:
         df_filtered_ncolored: DataFrame with normal color columns (n_r, n_g, n_b)
@@ -353,14 +350,13 @@ def equirectangular_projection_normals(
     Returns:
         RGB image array of shape (height, width, 3) with normal-based colors
     """
-    grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False)
+    # Use the same nearest point aggregation strategy as other features
+    grouped = df_filtered_ncolored.groupby(['y_pix', 'x_pix'], observed=False).apply(
+        select_by_min_range, include_groups=False
+    )
     
-    # Aggregate normal colors
-    color_aggregation = {
-        'n_r': grouped['n_r'].mean(),
-        'n_g': grouped['n_g'].mean(),
-        'n_b': grouped['n_b'].mean()
-    }
+    # Extract normal colors from the selected points
+    normal_colors = grouped[['n_r', 'n_g', 'n_b']]
 
     # Initialize RGB image arrays
     rgb_images = {
@@ -368,14 +364,14 @@ def equirectangular_projection_normals(
         for channel in ['r', 'g', 'b']
     }
 
-    # Get pixel indices
-    pixel_indices = np.array(color_aggregation['n_r'].index.tolist())
+    # Get pixel indices from the grouped normal colors
+    pixel_indices = np.array(normal_colors.index.tolist())
     y_coords, x_coords = pixel_indices[:, 0], pixel_indices[:, 1]
 
-    # Populate RGB channels
-    rgb_images['r'][y_coords, x_coords] = color_aggregation['n_r'].values
-    rgb_images['g'][y_coords, x_coords] = color_aggregation['n_g'].values
-    rgb_images['b'][y_coords, x_coords] = color_aggregation['n_b'].values
+    # Populate RGB channels using the selected normal colors
+    rgb_images['r'][y_coords, x_coords] = normal_colors['n_r'].values
+    rgb_images['g'][y_coords, x_coords] = normal_colors['n_g'].values
+    rgb_images['b'][y_coords, x_coords] = normal_colors['n_b'].values
 
     # Stack channels to create RGB image
     rgb_image = np.stack([rgb_images['r'], rgb_images['g'], rgb_images['b']], axis=-1)
