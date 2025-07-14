@@ -73,10 +73,36 @@ def get_image_histogram(image_data: np.ndarray,
 
     # Get unique values and their counts
     values, counts = np.unique(flattened_data, return_counts=True)
-    normalized_counts = counts / counts.sum()  # Normalize counts
+    
+    # Smart binning: if more than 10 unique values, keep top 9 and group rest as "Other"
+    if len(values) > 10:
+        # Sort by counts in descending order
+        sorted_indices = np.argsort(counts)[::-1]
+        top_9_indices = sorted_indices[:9]
+        other_indices = sorted_indices[9:]
+        
+        # Keep top 9 values and their counts
+        top_values = values[top_9_indices]
+        top_counts = counts[top_9_indices]
+        
+        # Sum counts for "Other" category
+        other_count = np.sum(counts[other_indices])
+        
+        # Combine top values with "Other"
+        final_values = np.append(top_values, "Other")
+        final_counts = np.append(top_counts, other_count)
+        
+        # Create labels for x-axis
+        value_labels = [f"{int(v)}" if v < 100 else f"{int(v):,}" for v in top_values] + ["Other"]
+    else:
+        final_values = values
+        final_counts = counts
+        value_labels = [f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values]
+    
+    normalized_counts = final_counts / final_counts.sum()  # Normalize counts
 
     # Map values to evenly spaced indices for plotting
-    x_indices = np.arange(len(values))
+    x_indices = np.arange(len(final_values))
 
     # Create the bar plot
     fig, ax1 = plt.subplots(figsize=(4.5, 2.5), dpi=300)
@@ -86,7 +112,7 @@ def get_image_histogram(image_data: np.ndarray,
     else:
         colors = 'blue'
 
-    ax1.bar(x_indices, counts, color=colors, alpha=0.7, label='Absolute Count')
+    ax1.bar(x_indices, final_counts, color=colors, alpha=0.7, label='Absolute Count')
     ax1.set_xlabel('Pixel Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
@@ -98,7 +124,7 @@ def get_image_histogram(image_data: np.ndarray,
     ax2.tick_params(axis='y', labelcolor='orange')
 
     # Replace x-ticks with the actual pixel values
-    plt.xticks(x_indices, labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values], rotation=45)
+    plt.xticks(x_indices, labels=value_labels, rotation=45)
 
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
     # plt.title(f'Histogram of {title}')
@@ -516,7 +542,6 @@ def display_single_band_img_wt_discrete_values(
         plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
         print(f'Images saved to {output_dir} directory')
 
-    # Generate additional visualizations
     get_image_histogram(
         image_data=image_data, 
         title=title, 
