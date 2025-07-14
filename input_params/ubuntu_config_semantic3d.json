@@ -12,18 +12,16 @@
         "delete_intermediate_file": false
     },
     "calc_geom_feature": {
+        "base_radius": 0.01,
+        "max_neighbors": 50,
+        "batching_method": "xyz",
+        "pts_num_per_batch": 12000,
+        "max_workers": 6,
+        "buffer_pts": 30,
         "cut_percent": 0.0001,
         "clean_pc": true,
         "flip_mangrove": false,
-        "pts_num_per_batch": 30000,
-        "buffer_pts": 30,
-        "batching_method": "xyz",
-        "base_radius": 0.01,
-        "max_neighbors": 50,
-        "histogram_saveflag": true,
-        "interactive_visualize": true,
-        "export": true,
-        "out_signature_str": "geom_feat"
+        "enable_gpu": true
     },
     "spherical_projection": {
         "visualize" : false,
