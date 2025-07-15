@@ -15,7 +15,7 @@
         "base_radius": 0.01,
         "max_neighbors": 50,
         "batching_method": "xyz",
-        "pts_num_per_batch": 12000,
+        "pts_num_per_batch": 18000,
         "max_workers": 6,
         "buffer_pts": 30,
         "cut_percent": 0.001,
