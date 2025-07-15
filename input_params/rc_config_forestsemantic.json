@@ -4,7 +4,7 @@
         "input_folder_parent": "",
         "input_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//input",
         "output_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//output",
-        "selected_scans": [0, 15],
+        "selected_scans": [1, 15],
         "input_suffix": ".csv",
         "dataset": "ForestSemantic",
         "h_fov": [0, 360],

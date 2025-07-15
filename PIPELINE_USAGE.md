@@ -21,6 +21,8 @@ python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsema
 - `spherical_back_projection` - Back-project 2D data to 3D points
 - `convert_color_to_mask` - Convert color segmentation maps to masks
 - `attach_segmap_to_points` - Attach segmentation data to point clouds
+- `refine_pcd_labels.py` - Refine point cloud labels based on segmentation
+- `refine_2D_mask.py` - Refine 2D segmentation masks from refined point cloud labels
 
 ## Configuration Files
 
@@ -29,7 +31,6 @@ The pipeline automatically detects the dataset type based on the configuration f
 ### Available datasets:
 - **ForestSemantic**: `input_params/3D_to_2D_config_forestsemantic*.json`
 - **Mangrove**: `input_params/3D_to_2D_config_mangrove*.json`
-- **INLUT3D**: `input_params/3D_to_2D_config_inlut3d*.json`
 - **Semantic3D**: `input_params/3D_to_2D_config_semantic3d*.json`
 
 ## Examples
@@ -44,9 +45,9 @@ python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsema
 python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic.json --steps spherical_projection
 ```
 
-### Process INLUT3D data:
+### Process Semantic3D data:
 ```bash
-python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_inlut3d.json
+python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_Semantic3D.json
 ```
 
 
@@ -57,12 +58,3 @@ If you see an error like "Configuration not loaded", make sure to:
 2. Provide a valid config file path
 3. Ensure the config file exists and is properly formatted
 
-### Valid command:
-```bash
-python run_3d_to_2d_pipeline.py --config input_params/3D_to_2D_config_forestsemantic.json
-```
-
-### Invalid command (will show error):
-```bash
-python -m processing.spherical_projection  # Don't run modules directly
-```
