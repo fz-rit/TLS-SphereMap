@@ -2,7 +2,7 @@
     "global": {
         "input_base_dir": "/home/fzhcis/data/semantic3d_reduced8/subsampled_las_train_with_labels/",
         "output_base_dir": "/home/fzhcis/data/semantic3d_reduced8/TLS_sphere_output/",
-        "selected_scans": [0, 1],
+        "selected_scans": [1, 15],
         "input_suffix": ".las",
         "dataset": "SEMANTIC3D",
         "h_fov": [0, 360],
