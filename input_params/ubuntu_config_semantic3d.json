@@ -33,7 +33,7 @@
     },
     "back_projection": {
         "generate_virtual_ball": true,
-        "paint_pcd_color_groups": ["izr", "normals", "pca"]
+        "paint_pcd_color_groups": ["izr", "normals", "pca", "true_rgb"]
     },
     "convert_color_to_mask": {
         "dataset": "ForestSemantic"

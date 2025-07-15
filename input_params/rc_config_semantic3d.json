@@ -7,8 +7,8 @@
         "dataset": "SEMANTIC3D",
         "h_fov": [0, 360],
         "v_fov": [45, 136],
-        "h_ang_res_deg": 0.1,
-        "v_ang_res_deg": 0.1,
+        "h_ang_res_deg": 0.2,
+        "v_ang_res_deg": 0.2,
         "delete_intermediate_file": false
     },
     "calc_geom_feature": {
@@ -25,21 +25,21 @@
     },
     "spherical_projection": {
         "visualize" : false,
-        "extra_maps" : true,
-        "save_extra_maps" : true,
-        "show_single_band" : true,
-        "show_pseudo_rgb" : true,
-        "show_pca" : true        
+        "extra_maps" : false,
+        "save_extra_maps" : false,
+        "show_single_band" : false,
+        "show_pseudo_rgb" : false,
+        "show_pca" : false        
     },
     "back_projection": {
-        "generate_virtual_ball": true,
+        "generate_virtual_ball": false,
         "paint_pcd_color_groups": ["izr", "normals", "pca"]
     },
     "convert_color_to_mask": {
-        "dataset": "ForestSemantic"
+        "dataset": ""
     },
     "attach_segmap_to_points": {
-        "dataset": "ForestSemantic",
+        "dataset": "",
         "output_formats": [".ply", ".label"]
     }
 }
