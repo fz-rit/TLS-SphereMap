@@ -72,28 +72,15 @@ pip install seaborn
     - Change the `CONFIG_PATH` in the config_loader.py to the desired config file, e.g., `3D_to_2D_config_mangrove_roots.json`
     - Adjust the paths in the `3D_to_2D_config_mangrove_roots.json` file
     - run:  `python run_3d_to_2d_pipeline.py`
-        - outputs include unwrapped 2D images and a point cloud .txt file with fields:
-            - 'X': 'float32',
-            - 'Y': 'float32',
-            - 'Z': 'float32',
-            - 'Intensity': 'uint16',
-            - 'Return Number': 'uint8',
-            - 'azimuth': 'float32',
-            - 'zenith': 'float32',
-            - 'elevation': 'float32',
-            - 'rangemeter': 'float32',
-            - 'nx': 'float32',
-            - 'ny': 'float32',
-            - 'nz': 'float32'
-            - 'curvature': 'float32'
-            - 'roughness': 'float32'
 3) Manually label the 2D unwrapped images to get segmentation maps in RGB, e.g., `seg_map_33_01.png`.
     - refer to the [`data_annotation_guidline.md`](data_annotation/data_annotation_guidline.md) for more details.
 4) Generate class ID based segmentaion map and then attach the class id and color to the point cloud:
     - refer to the [`seg_map_tools_readme.md`](data_annotation/seg_map_tools/seg_map_tools_readme.md) for more details.
-5) [Optional] Co-register multiple scans of point clouds:
-    - Use [`GlobalMatch`](https://github.com/zexinyang/GlobalMatch) to get the rigit transformation matrices (use original point clouds as inputs).
-    - Load the point clouds and apply the transformation matrices.
+5) Run the refine scripts to refine the segmentation maps:
+    - `python tools.refine_pcd_labels.py`
+        - This will refine labels in the 3D point cloud.
+    - `python tools.refine_2D_mask.py`
+        - This will refine the 2D segmentation maps based on the refined point cloud.
 
 ## Intermediary Results
 
