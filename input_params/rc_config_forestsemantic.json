@@ -8,9 +8,9 @@
         "input_suffix": ".csv",
         "dataset": "ForestSemantic",
         "h_fov": [0, 360],
-        "v_fov": [0, 180],
-        "h_ang_res_deg": 0.3,
-        "v_ang_res_deg": 0.3,
+        "v_fov": [10, 178],
+        "h_ang_res_deg": 0.1,
+        "v_ang_res_deg": 0.2,
         "delete_intermediate_file": false
     },
     "calc_geom_feature": {
