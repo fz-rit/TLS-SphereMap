@@ -124,7 +124,10 @@ def equirectangular_projection_multi(
         for col in float_cols:
             df_filtered_ncolored[col] = (df_filtered_ncolored[col] / 255.0).astype(np.float32)
         print("True RGB channels normalized to [0, 1] for SEMANTIC3D.")
-    elif not any(x in dataset_upper for x in ['MANGROVE', 'FORESTSEMANTIC']):
+
+    elif 'FORESTSEMANTIC' in dataset_upper:
+        df_filtered_ncolored = df_filtered_ncolored[df_filtered_ncolored['Classification'] != 7]
+    elif 'MANGROVE' not in dataset_upper:
         raise ValueError(
             f"Unsupported dataset: {dataset_name}. "
             f"Supported datasets: 'SEMANTIC3D', 'MANGROVE', 'ForestSemantic'."

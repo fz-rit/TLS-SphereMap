@@ -5,7 +5,7 @@ import argparse
 
 def drop_class7(input_file, output_file):
     """Drop points with class 7 from the input CSV file."""
-    df = pd.read_csv(input_file)
+    df = pd.read_csv(input_file, sep=',')
 
     # Check if 'Classification' column exists
     if 'Classification' not in df.columns:
