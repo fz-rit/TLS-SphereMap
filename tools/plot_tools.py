@@ -140,6 +140,8 @@ def get_image_histogram(image_data: np.ndarray,
     
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 
 def get_vector_histogram(input_vec: np.ndarray, 
@@ -235,6 +237,8 @@ def get_vector_histogram(input_vec: np.ndarray,
 
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 
 def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
@@ -323,6 +327,8 @@ def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
         )
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
@@ -378,8 +384,8 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 
     if visualize:
         plt.show()
-
-
+    else:
+        plt.close('all')
 
 
 def _determine_colormap_range(image_data: np.ndarray, color_map: dict = None) -> tuple[int, list]:
@@ -554,6 +560,8 @@ def display_single_band_img_wt_discrete_values(
     if visualize:
         smart_image_pie_chart(image_data)
         plt.show()
+    else:
+        plt.close('all')
 
 
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
@@ -595,6 +603,8 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     if visualize:
         smart_image_pie_chart(rgb_image)
         plt.show()
+    else:
+        plt.close('all')
 
 
 
@@ -633,7 +643,7 @@ def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
         output_path = output_dir / f"pca_components_{output_stem}.png"
     fig.savefig(output_path)
     print(f"2️PCA/MNF/ICA components saved to {output_path}")
-    
+    plt.close('all')
 
 def plot_components_permutations(components, output_dir:Path=None, output_stem:str=None):
     """
@@ -685,6 +695,7 @@ def plot_components_permutations(components, output_dir:Path=None, output_stem:s
         fig.savefig(output_path)
         print(f"3️Saved RGB permutations plot to {output_path}")
 
+    plt.close('all')
 
         
 def plot_correlation_matrix(corr_matrix, 
@@ -770,6 +781,7 @@ def plot_correlation_matrix(corr_matrix,
     output_path = output_dir / f"correlation_matrix_{output_stem}.png"
     fig.savefig(output_path)
     print(f"✅ Correlation matrix saved to: {output_path}")
+    plt.close('all')
 
 
 def histogram_to_ascii(hist, width=30, style="blocks"):
