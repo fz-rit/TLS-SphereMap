@@ -4,7 +4,7 @@
         "input_folder_parent": "",
         "input_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//input",
         "output_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//output",
-        "selected_scans": [1, 15],
+        "selected_scans": [0, 15],
         "input_suffix": ".csv",
         "dataset": "ForestSemantic",
         "h_fov": [0, 360],
@@ -29,10 +29,10 @@
     },
     "spherical_projection": {
         "visualize" : false,
-        "extra_maps" : false,
-        "save_extra_maps" : false,
+        "extra_maps" : true,
+        "save_extra_maps" : true,
         "show_single_band" : false,
-        "show_pseudo_rgb" : false,
+        "show_pseudo_rgb" : true,
         "show_pca" : false        
     },
     "back_projection": {
