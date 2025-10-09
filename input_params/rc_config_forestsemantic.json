@@ -1,26 +1,27 @@
 {
     "global": {
-        "input_folder": "ALRSET2",
-        "input_folder_parent": "palau_2024",
-        "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
-        "output_base_dir": "/home/fzhcis/Downloads/ForestSemantic/output/test/output",
-        "selected_scans": [1, 2],
-        "input_suffix": ".txt",
-        "dataset": "MANGROVE",
+        "input_folder": "",
+        "input_folder_parent": "",
+        "input_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//input",
+        "output_base_dir": "/home/fzhcis/data/forest_semantic_preprocessed//output",
+        "selected_scans": [0, 15],
+        "input_suffix": ".csv",
+        "dataset": "ForestSemantic",
         "h_fov": [0, 360],
-        "v_fov": [0, 135],
-        "h_ang_res_deg": 0.25,
-        "v_ang_res_deg": 0.25,
-        "delete_intermediate_file": true
+        "v_fov": [10, 178],
+        "h_ang_res_deg": 0.1,
+        "v_ang_res_deg": 0.2,
+        "delete_intermediate_file": false
     },
     "calc_geom_feature": {
         "cut_percent": 0.0001,
-        "clean_pc": true,
-        "flip_mangrove": true,
-        "pts_num_per_batch": 10000,
-        "buffer_pts": 100,
+        "clean_pc": false,
+        "flip_mangrove": false,
+        "pts_num_per_batch": 30000,
+        "buffer_pts": 30,
+        "batching_method": "xyz",
         "base_radius": 0.01,
-        "max_neighbors": 2000,
+        "max_neighbors": 50,
         "histogram_saveflag": false,
         "interactive_visualize": false,
         "export": true,
@@ -39,10 +40,10 @@
         "paint_pcd_color_groups": ["izr", "normals", "pca"]
     },
     "convert_color_to_mask": {
-        "dataset": "MANGROVE_ROOTS"
+        "dataset": "ForestSemantic"
     },
     "attach_segmap_to_points": {
-        "dataset": "MANGROVE_ROOTS",
+        "dataset": "ForestSemantic",
         "output_formats": [".ply", ".label"]
     }
 }

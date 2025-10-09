@@ -228,16 +228,40 @@ def read_raw_point_cloud(filename: Path, dataset_name:str="MANGROVE", flip_mangr
         df['Intensity'] = df[['r', 'g', 'b']].mean(axis=1) / 255.0 # normalize to [0, 1]
         df = add_angle_range_to_df(df)
 
-    elif filename.suffix == '.txt' and dataset_name == 'SEMANTIC3D':
-        print("Reading a .txt file, for Semantic3D data.")
+    # elif filename.suffix == '.txt' and dataset_name == 'SEMANTIC3D':
+    #     print("Reading a .txt file, for Semantic3D data.")
+    #     # Try reading the file assuming there is a header
+    #     column_names = ['X', 'Y', 'Z', 'Intensity', 'r', 'g', 'b']
+    #     df = pd.read_csv(filename, sep='\s+', names=column_names)
+    #     print(f"Read {len(df)} points from {filename}")
+    #     print(df.head())
+    #     df = add_angle_range_to_df(df)
+    elif filename.suffix == '.las' and dataset_name == 'SEMANTIC3D':
+        las_file = laspy.read(filename)
+        data = {
+            'X': np.array(las_file.x),
+            'Y': np.array(las_file.y),
+            'Z': np.array(las_file.z),
+            'Intensity': np.array(las_file.intensity),
+            'r': np.array(las_file.red),
+            'g': np.array(las_file.green),
+            'b': np.array(las_file.blue),
+            'Classification': np.array(las_file.classification)
+        }
+        df = pd.DataFrame(data)
+        df['Classification'] = df['Classification'].astype(np.uint8)
+        print(df.head())
+        df = add_angle_range_to_df(df)
+
+    elif filename.suffix == '.csv' and dataset_name == 'ForestSemantic':
+        print("Reading a .csv file, for ForestSemantic data.")
         # Try reading the file assuming there is a header
-        column_names = ['X', 'Y', 'Z', 'Intensity', 'r', 'g', 'b']
-        df = pd.read_csv(filename, sep='\s+', names=column_names)
+        column_names = ['X', 'Y', 'Z', 'Intensity', 'Classification']
+        # df = pd.read_csv(filename, sep=',', names=column_names)
+        df = pd.read_csv(filename, sep=',', usecols=column_names)
         print(f"Read {len(df)} points from {filename}")
         print(df.head())
         df = add_angle_range_to_df(df)
-        
-
     else:
         raise ValueError(f"Unsupported file extension: {filename.suffix}; supported extensions are .txt, .las, .bin, and .pts")
     

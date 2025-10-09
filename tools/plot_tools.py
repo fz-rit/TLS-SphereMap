@@ -73,10 +73,36 @@ def get_image_histogram(image_data: np.ndarray,
 
     # Get unique values and their counts
     values, counts = np.unique(flattened_data, return_counts=True)
-    normalized_counts = counts / counts.sum()  # Normalize counts
+    
+    # Smart binning: if more than 10 unique values, keep top 9 and group rest as "Other"
+    if len(values) > 10:
+        # Sort by counts in descending order
+        sorted_indices = np.argsort(counts)[::-1]
+        top_9_indices = sorted_indices[:9]
+        other_indices = sorted_indices[9:]
+        
+        # Keep top 9 values and their counts
+        top_values = values[top_9_indices]
+        top_counts = counts[top_9_indices]
+        
+        # Sum counts for "Other" category
+        other_count = np.sum(counts[other_indices])
+        
+        # Combine top values with "Other"
+        final_values = np.append(top_values, "Other")
+        final_counts = np.append(top_counts, other_count)
+        
+        # Create labels for x-axis
+        value_labels = [f"{int(v)}" if v < 100 else f"{int(v):,}" for v in top_values] + ["Other"]
+    else:
+        final_values = values
+        final_counts = counts
+        value_labels = [f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values]
+    
+    normalized_counts = final_counts / final_counts.sum()  # Normalize counts
 
     # Map values to evenly spaced indices for plotting
-    x_indices = np.arange(len(values))
+    x_indices = np.arange(len(final_values))
 
     # Create the bar plot
     fig, ax1 = plt.subplots(figsize=(4.5, 2.5), dpi=300)
@@ -86,7 +112,7 @@ def get_image_histogram(image_data: np.ndarray,
     else:
         colors = 'blue'
 
-    ax1.bar(x_indices, counts, color=colors, alpha=0.7, label='Absolute Count')
+    ax1.bar(x_indices, final_counts, color=colors, alpha=0.7, label='Absolute Count')
     ax1.set_xlabel('Pixel Value')
     ax1.set_ylabel('Absolute Count', color='blue')
     ax1.tick_params(axis='y', labelcolor='blue')
@@ -98,7 +124,7 @@ def get_image_histogram(image_data: np.ndarray,
     ax2.tick_params(axis='y', labelcolor='orange')
 
     # Replace x-ticks with the actual pixel values
-    plt.xticks(x_indices, labels=[f"{int(v)}" if v < 100 else f"{int(v):,}" for v in values], rotation=45)
+    plt.xticks(x_indices, labels=value_labels, rotation=45)
 
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
     # plt.title(f'Histogram of {title}')
@@ -114,6 +140,8 @@ def get_image_histogram(image_data: np.ndarray,
     
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 
 def get_vector_histogram(input_vec: np.ndarray, 
@@ -209,6 +237,8 @@ def get_vector_histogram(input_vec: np.ndarray,
 
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 
 def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
@@ -297,6 +327,8 @@ def smart_image_pie_chart(image: np.ndarray, visualize:bool = True) -> None:
         )
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
@@ -352,57 +384,96 @@ def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray],
 
     if visualize:
         plt.show()
+    else:
+        plt.close('all')
 
 
-
-
-def display_single_band_img_wt_discrete_values(
-    image_data: np.ndarray,
-    output_dir: Path,
-    color_map: dict = None,
-    num_unique_values: int = None,
-    title: str = "Point Density Map",
-    cb_label: str = "Point Density",
-    saveflag: bool = False,
-    visualize: bool = True,
-) -> None:
+def _determine_colormap_range(image_data: np.ndarray, color_map: dict = None) -> tuple[int, list]:
     """
-    Displays a single-band image with discrete values using a custom colormap, and optionally saves the image.
-
+    Determine the appropriate range and colors for discrete value visualization.
+    
     Parameters
     ----------
     image_data : np.ndarray
-        The image data to display, expected to contain discrete integer values.
-    output_dir : Path
-        The directory where the image will be saved if `saveflag` is True.
-    title : str, optional
-        The title of the image, by default "Point Density Map".
-    saveflag : bool, optional
-        If True, saves the image to the output directory, by default False.
-
+        The image data containing discrete integer values.
+    color_map : dict, optional
+        Dictionary mapping string keys to color values.
+        
     Returns
     -------
-    None
-        This function does not return any value.
+    tuple[int, list]
+        Number of unique values and list of colors to use.
     """
-    # Display the image with the discrete colormap
-    fig, ax = plt.subplots(figsize=(18, 5))
-    # unique_values = np.unique(image_data)
-    num_unique_values = 10 if num_unique_values is None else num_unique_values
-    boundaries = list(range(num_unique_values)) + [1e6]  # Bins: [0–1), [1–2), ..., [9–inf)
-    if color_map is None:
-        jet = plt.cm.get_cmap('jet', len(boundaries) - 1)
-        colors = [jet(i) for i in range(jet.N)] + ['gray']
-    elif type(color_map) == dict:
-        colors = [color_map[str(i)] for i in range(num_unique_values)]
-    color_map = ListedColormap(colors)
-    bnd_norm = BoundaryNorm(boundaries, ncolors=color_map.N)
+    image_unique_values = np.unique(image_data).astype(int)
+    print(f"Unique values in image: {image_unique_values}")
     
+    if color_map is not None and isinstance(color_map, dict):
+        # Get available color map keys as integers
+        colormap_keys = set()
+        for key in color_map.keys():
+            try:
+                colormap_keys.add(int(key))
+            except (ValueError, TypeError):
+                continue
+        
+        print(f"Available color map keys: {sorted(colormap_keys)}")
+        
+        # Check if image values are within color map range
+        image_values_in_colormap = set(image_unique_values) & colormap_keys
+        
+        if image_values_in_colormap:
+            num_unique_values = max(colormap_keys) + 1
+            print(f"Using color map range: 0 to {num_unique_values-1}")
+        else:
+            num_unique_values = max(image_unique_values) + 1
+            print(f"Image values don't match color map, using image range: 0 to {num_unique_values-1}")
+    else:
+        num_unique_values = max(image_unique_values) + 1
+        print(f"No color map provided, using image range: 0 to {num_unique_values-1}")
+    
+    # Ensure we have at least the minimum needed for image data
+    num_unique_values = max(num_unique_values, max(image_unique_values) + 1)
+    
+    # Generate colors
+    if color_map is None:
+        jet = plt.cm.get_cmap('jet', num_unique_values)
+        colors = [jet(i) for i in range(num_unique_values)] + ['gray']
+    elif isinstance(color_map, dict):
+        colors = []
+        default_cmap = plt.cm.get_cmap('jet', num_unique_values)
+        for i in range(num_unique_values):
+            if str(i) in color_map:
+                colors.append(color_map[str(i)])
+            else:
+                colors.append(default_cmap(i))
+        colors.append('gray')  # For values above range
+    else:
+        raise ValueError("color_map must be None or a dictionary")
+    
+    return num_unique_values, colors
 
-    # --- Display the image ---
-    im = ax.imshow(image_data, cmap=color_map, norm=bnd_norm)
 
-    # --- Compute frequencies and cumulative proportions for proportional colorbar ---
+def _create_proportional_colorbar(fig, ax, colors: list, num_unique_values: int, 
+                                 image_data: np.ndarray, cb_label: str) -> None:
+    """
+    Create a proportional colorbar based on value frequencies in the image.
+    
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        The figure to add the colorbar to.
+    ax : matplotlib.axes.Axes
+        The main axes containing the image.
+    colors : list
+        List of colors for the colorbar.
+    num_unique_values : int
+        Number of unique values in the data.
+    image_data : np.ndarray
+        The image data for computing frequencies.
+    cb_label : str
+        Label for the colorbar.
+    """
+    # Compute frequencies and cumulative proportions
     flat_data = image_data.flatten()
     flat_data_clipped = np.clip(flat_data, 0, num_unique_values-1).astype(int)
     value_counts = np.array([np.count_nonzero(flat_data_clipped == i) for i in range(num_unique_values)])
@@ -410,39 +481,87 @@ def display_single_band_img_wt_discrete_values(
     cumulative = np.concatenate([[0], np.cumsum(proportions)])
 
     # Create separate axes for custom colorbar
-    cax = fig.add_axes([0.92, 0.15, 0.02, 0.7])  # [left, bottom, width, height]
+    cax = fig.add_axes([0.92, 0.15, 0.02, 0.7])
 
-    # --- Build proportional colorbar ---
+    # Build proportional colorbar
     cb = ColorbarBase(
         cax,
-        cmap=ListedColormap(colors),
-        norm=BoundaryNorm(cumulative, color_map.N),
+        cmap=ListedColormap(colors[:-1]),  # Exclude 'gray' for overflow values
+        norm=BoundaryNorm(cumulative, len(colors)-1),
         ticks=(cumulative[:-1] + cumulative[1:]) / 2,
         spacing='proportional',
         orientation='vertical'
     )
 
-    # Set colorbar tick labels
     cb.ax.set_yticklabels([str(i) for i in range(num_unique_values)])
     cb.set_label(cb_label)
- 
+
+
+def display_single_band_img_wt_discrete_values(
+    image_data: np.ndarray,
+    output_dir: Path,
+    color_map: dict = None,
+    title: str = "Point Density Map",
+    cb_label: str = "Point Density",
+    saveflag: bool = False,
+    visualize: bool = True,
+) -> None:
+    """
+    Display a single-band image with discrete values using automatic colormap determination.
+
+    Parameters
+    ----------
+    image_data : np.ndarray
+        The image data to display, expected to contain discrete integer values.
+    output_dir : Path
+        The directory where the image will be saved if `saveflag` is True.
+    color_map : dict, optional
+        Dictionary mapping string keys to color values. If None, uses default colormap.
+    title : str, optional
+        The title of the image, by default "Point Density Map".
+    cb_label : str, optional
+        Label for the colorbar, by default "Point Density".
+    saveflag : bool, optional
+        If True, saves the image to the output directory, by default False.
+    visualize : bool, optional
+        If True, displays the image, by default True.
+    """
+    # Determine colormap range and colors
+    num_unique_values, colors = _determine_colormap_range(image_data, color_map)
+    
+    # Setup figure and display
+    fig, ax = plt.subplots(figsize=(18, 5))
+    boundaries = list(range(num_unique_values)) + [1e6]
+    custom_colormap = ListedColormap(colors)
+    bnd_norm = BoundaryNorm(boundaries, ncolors=custom_colormap.N)
+    
+    # Display the image
+    im = ax.imshow(image_data, cmap=custom_colormap, norm=bnd_norm)
+    
+    # Create proportional colorbar
+    _create_proportional_colorbar(fig, ax, colors, num_unique_values, image_data, cb_label)
+    
+    # Save image if requested
     if saveflag:
-        # Save the raw image without labels or colorbars
         normalized_data = bnd_norm(image_data)
-        rgba_image = color_map(normalized_data)
+        rgba_image = custom_colormap(normalized_data)
         plt.imsave(output_dir / f'{title}.png', rgba_image, format='png', dpi=1)
         print(f'Images saved to {output_dir} directory')
 
-    get_image_histogram(image_data=image_data, 
-                        title=title, 
-                        saveflag=saveflag, 
-                        output_dir=output_dir,
-                        visualize=visualize,
-                        cmap=color_map,
-                        )
+    get_image_histogram(
+        image_data=image_data, 
+        title=title, 
+        saveflag=saveflag, 
+        output_dir=output_dir,
+        visualize=visualize,
+        cmap=custom_colormap,
+    )
+    
     if visualize:
         smart_image_pie_chart(image_data)
         plt.show()
+    else:
+        plt.close('all')
 
 
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
@@ -473,13 +592,19 @@ def display_unwrapped_rgb_image(rgb_image: np.ndarray,
     if saveflag:
         if rgb_image.dtype == np.uint8:
             rgb_image_uint8 = rgb_image
-        else:
+        elif rgb_image.dtype == np.float32 and rgb_image.max() <= 1.0:
             rgb_image_uint8 = (rgb_image * 255).astype(np.uint8)
+        else:
+            raise ValueError(f"Must be uint8 or float32 with values in [0, 1]. \
+                             Unsupported image dtype {rgb_image.dtype}. \
+                             Image values: min={rgb_image.min()}, max={rgb_image.max()}")
         io.imsave(f'{output_dir}/{figure_title}.png', rgb_image_uint8)
 
     if visualize:
         smart_image_pie_chart(rgb_image)
         plt.show()
+    else:
+        plt.close('all')
 
 
 
@@ -518,7 +643,7 @@ def plot_pca_components(pcs, output_dir:Path=None, output_stem:str = None):
         output_path = output_dir / f"pca_components_{output_stem}.png"
     fig.savefig(output_path)
     print(f"2️PCA/MNF/ICA components saved to {output_path}")
-    
+    plt.close('all')
 
 def plot_components_permutations(components, output_dir:Path=None, output_stem:str=None):
     """
@@ -570,6 +695,7 @@ def plot_components_permutations(components, output_dir:Path=None, output_stem:s
         fig.savefig(output_path)
         print(f"3️Saved RGB permutations plot to {output_path}")
 
+    plt.close('all')
 
         
 def plot_correlation_matrix(corr_matrix, 
@@ -625,7 +751,7 @@ def plot_correlation_matrix(corr_matrix,
 
     # ─────────────────────────────────────────────
     # Upper triangle: bubble glyph overlay
-    max_bubble_area = 1200
+    max_bubble_area = 800
     for i in range(C):
         for j in range(i+1, C):
             val = corr.iloc[i, j]
@@ -655,6 +781,7 @@ def plot_correlation_matrix(corr_matrix,
     output_path = output_dir / f"correlation_matrix_{output_stem}.png"
     fig.savefig(output_path)
     print(f"✅ Correlation matrix saved to: {output_path}")
+    plt.close('all')
 
 
 def histogram_to_ascii(hist, width=30, style="blocks"):

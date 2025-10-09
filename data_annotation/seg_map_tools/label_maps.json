@@ -18,6 +18,26 @@
                 "5": "Objects"
             }
         },
+        "ForestSemantic": {
+            "COLOR_TO_INDEX": {
+                "0,0,0": 0,
+                "0.6,0.4,0.2": 1,
+                "0.55,0.0,0.0": 2,
+                "0.0,0.4,0.8": 3,
+                "0.9,0.6,0.0": 4,
+                "0.0,0.8,0.2": 5,
+                "0.7,0.0,0.7": 6
+            },
+            "CLASS_NAMES": {
+                "0": "Void",
+                "1": "Ground",
+                "2": "Trunk",
+                "3": "First-order branch",
+                "4": "Higher-order branch",
+                "5": "Foliage",
+                "6": "Miscellany"
+            }
+        },
         "HARVARD_FOREST": {
             "COLOR_TO_INDEX": {
                 "0,0,0": 0,
