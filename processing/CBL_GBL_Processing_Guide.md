@@ -40,10 +40,7 @@ python CBL_GBL_Processing_UMB.py --inFolder /path/to/gbl/files_folder --verbose
 
 For each `.gbl` input file, the script generates:
 - `.txt`: Text format with point coordinates and attributes
-<!-- - `.spd`: SPD format (if spdlib available)
-- `.las`: LAS format (if spdlib available) -->
 
 ## Dependencies
 
-- Required: `numpy`, `pathlib`
-<!-- - Optional: `spdpy` (for SPD/LAS output) -->
+- Required: `numpy`

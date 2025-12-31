@@ -1,10 +1,10 @@
 {
     "global": {
-        "input_folder": "ALRSET1",
+        "input_folder": "ALRSET2",
         "input_folder_parent": "palau_2024",
         "input_base_dir": "/home/fzhcis/mylab/gdrive/projects_with_Jan/for_Fei",
-        "output_base_dir": "/home/fzhcis/mylab/data/mangrove3d/outputs",
-        "selected_scans": [0, 3],
+        "output_base_dir": "/home/fzhcis/Downloads/ForestSemantic/output/test/output",
+        "selected_scans": [1, 2],
         "input_suffix": ".txt",
         "dataset": "MANGROVE",
         "h_fov": [0, 360],
@@ -31,7 +31,7 @@
         "extra_maps" : true,
         "save_extra_maps" : true,
         "show_single_band" : false,
-        "show_pseudo_rgb" : false,
+        "show_pseudo_rgb" : true,
         "show_pca" : false        
     },
     "back_projection": {

@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Add tools directory to Python path for config_loader import
 sys.path.append(str(Path(__file__).parent))
-from tools.config_loader import load_config
+# from tools.config_loader import load_config
 
 
 def main():
@@ -23,15 +23,11 @@ def main():
     
     args = parser.parse_args()
     
-    # Load configuration
-    try:
-        config = load_config(args.config)
-        print(f"✅ Successfully loaded configuration from {args.config}")
-        print(f"🔹 Dataset: {config['global'].get('dataset', 'Unknown')}")
-        print(f"🔹 Processing scans: {config['global']['selected_scans'][0]} - {config['global']['selected_scans'][-1]-1}")
-    except Exception as e:
-        print(f"❌ Error loading configuration: {e}")
-        sys.exit(1)
+    # # Load configuration
+    # config = load_config(args.config)
+    # print(f"✅ Successfully loaded configuration from {args.config}")
+    # print(f"🔹 Dataset: {config['global'].get('dataset', 'Unknown')}")
+    # print(f"🔹 Processing scans: {config['global']['selected_scans'][0]} - {config['global']['selected_scans'][-1]-1}")
     
     # Set environment variable for subprocesses
     os.environ['TLS_CONFIG_PATH'] = str(Path(args.config).resolve())
@@ -47,14 +43,11 @@ def main():
     
     # Use custom steps if provided, otherwise use defaults
     if args.steps:
-        scripts = [f"processing.{step}" if not step.startswith('processing.') and not step.startswith('data_annotation.') 
+        scripts = [f"processing.{step}" if not step.startswith('processing.')  
                   else step for step in args.steps]
     else:
         scripts = default_scripts
 
-    print(f"\n🚀 Starting pipeline with {len(scripts)} steps: \
-          {', '.join(scripts)}")
-    
     for script in scripts:
         print(f"\n🔹 Executing: {script}")
         try:

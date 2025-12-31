@@ -24,7 +24,7 @@ pd.options.mode.chained_assignment = None
 
 
 def load_and_preprocess_point_cloud(
-    filename: Union[str, Path], 
+    input_path: Union[str, Path], 
     canvas_size: Tuple[int, int],
     angular_res: Tuple[int, int]
 ) -> pd.DataFrame:
@@ -48,7 +48,7 @@ def load_and_preprocess_point_cloud(
     Raises:
         AssertionError: If data contains NaN or negative values in critical columns
     """
-    df_filtered = pd.read_csv(filename, sep=',')
+    df_filtered = pd.read_csv(input_path, sep=',')
     
     # Map angles to pixel coordinates
     azimuth, elevation = df_filtered['azimuth'], df_filtered['elevation']
@@ -86,7 +86,7 @@ def load_and_preprocess_point_cloud(
 
 
 def equirectangular_projection_multi(
-    filename: str,
+    input_path: str,
     canvas_size: Tuple[int, int],
     angular_res: Tuple[int, int],
     dataset_name: str = 'MANGROVE',
@@ -97,7 +97,7 @@ def equirectangular_projection_multi(
     range, geometric features, and optionally RGB and segmentation masks.
 
     Args:
-        filename: Path to the point cloud CSV file
+        input_path: Path to the point cloud
         canvas_size: Output image dimensions (height, width)
         angular_res: Angular resolution (vertical, horizontal) in degrees
         dataset_name: Dataset type ('MANGROVE' or 'SEMANTIC3D')
@@ -111,11 +111,11 @@ def equirectangular_projection_multi(
         ValueError: If dataset_name is not supported
     """
     df_filtered_ncolored = load_and_preprocess_point_cloud(
-        filename, canvas_size=canvas_size, angular_res=angular_res
+        input_path, canvas_size=canvas_size, angular_res=angular_res
     )
 
-    # Normalize dataset name for flexible comparison
-    dataset_upper = dataset_name.upper()
+    # # Normalize dataset name for flexible comparison
+    # dataset_upper = dataset_name.upper()
     
     # Define aggregation strategy based on dataset
     dataset_upper = dataset_name.upper()
@@ -388,7 +388,8 @@ def generate_2D_projection_images(
     show_pseudo_rgb: bool = True,
     show_pca: bool = True,
     v_fov: Tuple[float, float] = (0, 90),
-    h_fov: Tuple[float, float] = (0, 360)
+    h_fov: Tuple[float, float] = (0, 360),
+    input_path: Path = None,
 ) -> None:
     """Generate comprehensive 2D projection images from point cloud data.
     
@@ -396,7 +397,7 @@ def generate_2D_projection_images(
     pseudo-RGB combinations, PCA components, and correlation matrices.
 
     Args:
-        output_dir: Directory containing point cloud data and for outputs
+        output_dir: Directory to save output images
         canvas_size: Output image dimensions (height, width)
         angular_res: Angular resolution (vertical, horizontal) in degrees
         dataset_name: Dataset type ('MANGROVE' or 'SEMANTIC3D')
@@ -409,27 +410,29 @@ def generate_2D_projection_images(
         show_pca: Whether to show PCA/MNF/ICA components
         v_fov: Vertical field of view range (min, max) in degrees
         h_fov: Horizontal field of view range (min, max) in degrees
+        input_path: Path to the input point cloud file
         
     Raises:
         FileNotFoundError: If required input files are not found
     """
     # Setup paths
-    # input_file_stem = output_dir.parent.name
-    pcd_dir = output_dir / 'pcd'
     img_out_dir = output_dir / 'img'
     
     create_dir_if_not_exists(img_out_dir, ask_user=False)
     
     # Find input file
-    filename = next(pcd_dir.glob(f"*{out_key_str}*"), None)
-    if filename is None:
-        raise FileNotFoundError(f"No file matching '*{out_key_str}*' found in {pcd_dir}")
-
+    if out_key_str in input_path.name:
+        input_path = input_path
+    else:
+        pcd_dir = output_dir / 'pcd'
+        input_path = next(pcd_dir.glob(f"*{out_key_str}*"), None)
+        assert input_path is not None, \
+            f"Input file with signature '{out_key_str}' not found in {pcd_dir}"
+        
     # Generate projections
-    # key_str = f"{input_file_stem.split('_')[0]}_{input_file_stem.split('_')[-1]}"
     key_str = input_file_stem
     df_filtered, projection_xr = equirectangular_projection_multi(
-        filename, canvas_size, angular_res, dataset_name
+        input_path, canvas_size, angular_res, dataset_name
     )
     normals_rgb_image = equirectangular_projection_normals(df_filtered, canvas_size)
 
@@ -501,7 +504,8 @@ def main() -> None:
             show_pseudo_rgb=params['show_pseudo_rgb'],
             show_pca=params['show_pca'],
             v_fov=v_fov,
-            h_fov=h_fov
+            h_fov=h_fov,
+            input_path=input_path,
         )
 
 

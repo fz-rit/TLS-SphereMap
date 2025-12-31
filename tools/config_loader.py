@@ -8,7 +8,7 @@ from tools.pcd_utils import create_dir_if_not_exists
 
 def get_color_map(input_base_dir):
     label_file = input_base_dir / 'labels.json'
-    print(f"🔹 Loading color map from {label_file}")
+    pprint(f"🔹 Loading color map from {label_file}")
     with open(label_file, 'r') as f:
         label_json = json.load(f)
     color_map = {label_dict['code']:label_dict["color"] for label_dict in label_json}
@@ -36,7 +36,7 @@ def _add_common_config_params(config):
     )
     global_params["canvas_size"] = canvas_size
     config["global"] = global_params
-    print(f"config: {config}")
+    pprint(f"config: {config}")
     return config
 
 
@@ -49,22 +49,25 @@ def load_config_mangrove(config):
     input_suffix = global_params.get("input_suffix", ".txt")
     input_folder_parent = global_params["input_folder_parent"]
     selected_scans = global_params['selected_scans']
-    output_root_dir = output_base_dir / input_folder_parent / input_folder
-    create_dir_if_not_exists(output_root_dir, ask_user=False)
-    output_sub_folders = [p for p in output_root_dir.iterdir() if p.is_dir() and p.name != "forest"]
-    output_sub_folders.sort()
-    output_sub_folders = output_sub_folders[selected_scans[0]:selected_scans[1]]
-    output_sub_folder_names = [p.name for p in output_sub_folders]
-    print(f"🔹 Found output sub-folders: {output_sub_folder_names}")
-    output_dir_ls = [p / "outputs" for p in output_sub_folders]
-    
-    input_path_ls = []
-    for output_sub_folder_name in output_sub_folder_names:
-        input_path = input_base_dir / input_folder_parent / input_folder / f"{output_sub_folder_name}{input_suffix}"
-        if not input_path.exists():
-            raise FileNotFoundError(f"❗ Input file {input_path} does not exist.")
-        input_path_ls.append(input_path)
 
+    # Collect inputs
+    input_folder_path = input_base_dir / input_folder_parent / input_folder
+    input_path_ls = list(input_folder_path.rglob(f"*{input_suffix}"))
+    assert input_path_ls, "❗ No input files found."
+    input_path_ls.sort()
+    input_path_ls = input_path_ls[selected_scans[0]:selected_scans[1]]
+
+    # Create output directories
+    output_root_dir = output_base_dir / input_folder
+    create_dir_if_not_exists(output_root_dir, ask_user=False)
+
+    output_dir_ls = []
+    for input_path in input_path_ls:
+        output_sub_dir = output_root_dir / input_path.stem
+        create_dir_if_not_exists(output_sub_dir, ask_user=False)
+        output_dir_ls.append(output_sub_dir)
+
+    
     # Add computed paths to global config
     color_map = get_color_map(input_base_dir/input_folder_parent)
     global_params["color_map"] = color_map
