@@ -151,17 +151,19 @@ def voxel_grid_downsample(points,
 
 def main():
     # Subsample a large point cloud dataset to 10M points
-    pcd_dir = Path('/home/fzhcis/mylab/data/semantic3d')
-    labels_dir = pcd_dir / 'sem8_labels_training'
+    # pcd_dir = Path('/home/fzhcis/mylab/data/semantic3d')
+    # labels_dir = pcd_dir / 'sem8_labels_training'
+    source_dir = Path('/home/fzhcis/data/semantic3d_full/Semantic3D/train')
+    output_dir = Path('/shared/rc/mangrove/data/Semantic3D/full-subsampled/temp')
 
-    labels_paths = list(labels_dir.glob('*.labels'))
-    pcd_paths = list(pcd_dir.glob('*.txt'))
+    labels_paths = list(source_dir.glob('*.labels'))
+    pcd_paths = list(source_dir.glob('*.txt'))
     pcd_paths.sort()
     labels_paths.sort()
     assert len(labels_paths) == len(pcd_paths), "Mismatch in number of labels and point clouds"
 
     for pcd_path, labels_path in zip(pcd_paths, labels_paths):
-        savedir = pcd_dir / 'subsampled' / pcd_path.stem
+        savedir = output_dir / pcd_path.stem
         savedir.mkdir(parents=True, exist_ok=True)
         with profiler.cpu_memory_monitoring() as peak_memory:
             sub_points, sub_labels = hybrid_stratified_downsample(
