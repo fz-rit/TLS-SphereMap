@@ -94,6 +94,7 @@ class GeometricFeatureCalculator:
         curvature = lambda1 / lambda_sum
         anisotropy = (lambda3 - lambda2) / lambda3.clamp(min=1e-9)
         planarity = (lambda2 - lambda1) / lambda3.clamp(min=1e-9)
+        roughness = torch.sqrt(lambda3)
 
         normals = eigenvecs[:, :, 0]
         to_origin = -self.points_xyz
@@ -105,6 +106,7 @@ class GeometricFeatureCalculator:
             'curvature': curvature.cpu().numpy(),
             'anisotropy': anisotropy.cpu().numpy(),
             'planarity': planarity.cpu().numpy(),
+            'roughness': roughness.cpu().numpy(),
             'nx': normals[:, 0], 'ny': normals[:, 1], 'nz': normals[:, 2]
         }
 
@@ -154,7 +156,7 @@ class GeometricFeatureCalculator:
         print(f"🎉 Sequential processing completed: {total_points:,} points in {total_time:.1f}s")
         print(f"⚡ Average: {total_points/total_time:.0f} points/sec")
         
-        geom_feat_names = ['curvature', 'anisotropy', 'planarity', 'nx', 'ny', 'nz']
+        geom_feat_names = ['curvature', 'anisotropy', 'planarity', 'roughness', 'nx', 'ny', 'nz']
         return pd.concat(result_dfs, ignore_index=True), geom_feat_names
 
 

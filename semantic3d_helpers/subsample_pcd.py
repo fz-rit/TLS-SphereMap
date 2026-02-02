@@ -153,8 +153,9 @@ def main():
     # Subsample a large point cloud dataset to 10M points
     # pcd_dir = Path('/home/fzhcis/mylab/data/semantic3d')
     # labels_dir = pcd_dir / 'sem8_labels_training'
-    source_dir = Path('/home/fzhcis/data/semantic3d_full/Semantic3D/train')
-    output_dir = Path('/shared/rc/mangrove/data/Semantic3D/full-subsampled/temp')
+    # source_dir = Path('/home/fzhcis/data/semantic3d_full/Semantic3D/train')
+    source_dir = Path('/home/fzhcis/data/semantic3d_full/Semantic3D/test')
+    output_dir = Path('/shared/rc/mangrove/data/Semantic3D/full-subsampled/test')
 
     labels_paths = list(source_dir.glob('*.labels'))
     pcd_paths = list(source_dir.glob('*.txt'))

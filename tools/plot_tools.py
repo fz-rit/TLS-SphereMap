@@ -287,21 +287,6 @@ def generate_pie_chart(counts,
 
 
 
-
-# def smart_image_pie_chart(grouped_counts, grouped_labels,
-#                           title: str,
-#                           visualize: bool = True,
-#                           save_path: Path = None) -> None:
-#     """
-#     Generate pie charts for image pixel value distributions.
-#     """
-    
-#     generate_pie_chart
-#     if visualize:
-#         plt.show()
-#     else:
-#         plt.close('all')
-
 def display_unwrapped_single_band_images(subplot_images: tuple[np.ndarray], 
                              titles: tuple[str],
                              key_str: str,
@@ -715,12 +700,8 @@ def display_single_band_img_wt_discrete_values(
         cmap=custom_colormap,
     )
     
-    generate_pie_chart(pixel_val_counts, labels=['0', '1', '2', '>2'], title=title, save_path=output_dir / f'PieChart_{title}.png')
-    # if visualize:
-    #     generate_pie_chart(pixel_val_counts, labels=['0', '1', '2', '>2'], title=title)
-    #     plt.show()
-    # else:
-    #     plt.close('all')
+    if visualize:
+        generate_pie_chart(pixel_val_counts, labels=['0', '1', '2', '>2'], title=title, save_path=output_dir / f'PieChart_{title}.png')
 
 
 def display_unwrapped_rgb_image(rgb_image: np.ndarray, 
