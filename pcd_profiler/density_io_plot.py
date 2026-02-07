@@ -98,91 +98,113 @@ def save_results(output_path, mode='aggregate', **data):
     
     if mode == 'aggregate':
         # Save density vs range data
-        npz_path = output_path.with_suffix('.npz')
-        json_path = output_path.with_suffix('.json')
+        csv_path = output_path.parent / 'density_vs_range.csv'
+        json_path = output_path.parent / 'density_vs_range_metadata.json'
         
-        # Prepare arrays for NPZ (density vs range)
-        arrays_to_save = {
+        # Create dataframe for aggregate statistics
+        df_aggregate = pd.DataFrame({
             'bin_centers': data['bin_centers'],
             'densities_median': data['densities_median'],
             'densities_q25': data['densities_q25'],
             'densities_q75': data['densities_q75'],
             'point_counts': data['point_counts']
-        }
+        })
+        df_aggregate.to_csv(csv_path, index=False)
         
-        # Add per-scan data
+        # Save per-scan data
+        scan_csv_path = output_path.parent / 'density_vs_range_per_scan.csv'
+        scan_rows = []
         for i, (scan_dens, scan_centers) in enumerate(zip(data['scan_densities'], data['scan_bin_centers'])):
-            arrays_to_save[f'scan_{i}_densities'] = scan_dens
-            arrays_to_save[f'scan_{i}_bin_centers'] = scan_centers
-        
-        np.savez_compressed(npz_path, **arrays_to_save)
+            for center, dens in zip(scan_centers, scan_dens):
+                scan_rows.append({
+                    'scan_id': i,
+                    'bin_center': center,
+                    'density': dens
+                })
+        df_scans = pd.DataFrame(scan_rows)
+        df_scans.to_csv(scan_csv_path, index=False)
         
         # Save metadata to JSON
         metadata = {
             'mode': mode,
             'density_type': data.get('density_type', 'volumetric'),
-            'n_scans': len(data['scan_densities'])
+            'n_scans': len(data['scan_densities']),
+            'files': {
+                'aggregate': str(csv_path.name),
+                'per_scan': str(scan_csv_path.name)
+            }
         }
         with open(json_path, 'w') as f:
             json.dump(metadata, f, indent=2)
         
         print(f"\nDensity vs range results saved to:")
-        print(f"  Data: {npz_path}")
+        print(f"  Aggregate data: {csv_path}")
+        print(f"  Per-scan data: {scan_csv_path}")
         print(f"  Metadata: {json_path}")
         
         # Save vertical density distribution data
         if 'scan_heights' in data:
-            vertical_npz = output_path.parent / (output_path.stem + '_vertical.npz')
-            vertical_json = output_path.parent / (output_path.stem + '_vertical.json')
+            vertical_csv = output_path.parent / 'vertical_density.csv'
+            vertical_json = output_path.parent / 'vertical_density_metadata.json'
             
-            # Prepare arrays
-            vertical_arrays = {}
+            # Build rows for vertical density data
+            vertical_rows = []
             for i, (heights, densities, ids) in enumerate(zip(
                 data['scan_heights'], data['scan_densities_vertical'], data['scan_ids']
             )):
-                vertical_arrays[f'scan_{i}_heights'] = heights
-                vertical_arrays[f'scan_{i}_densities'] = densities
-                vertical_arrays[f'scan_{i}_ids'] = np.array(ids)
+                scan_id = ids if np.isscalar(ids) else (ids[0] if len(ids) > 0 else i)
+                for h, d in zip(heights, densities):
+                    vertical_rows.append({
+                        'scan_id': scan_id,
+                        'height': h,
+                        'density': d
+                    })
             
-            np.savez_compressed(vertical_npz, **vertical_arrays)
+            df_vertical = pd.DataFrame(vertical_rows)
+            df_vertical.to_csv(vertical_csv, index=False)
             
             # Save vertical metadata
             vertical_metadata = {
                 'mode': mode,
                 'density_type': data.get('density_type', 'volumetric'),
                 'n_scans': len(data['scan_heights']),
-                'z_range': list(data['z_range'])
+                'z_range': list(data['z_range']),
+                'files': {
+                    'vertical_density': str(vertical_csv.name)
+                }
             }
             with open(vertical_json, 'w') as f:
                 json.dump(vertical_metadata, f, indent=2)
             
             print(f"\nVertical density results saved to:")
-            print(f"  Data: {vertical_npz}")
+            print(f"  Data: {vertical_csv}")
             print(f"  Metadata: {vertical_json}")
     
     elif mode == 'single':
-        npz_path = output_path.with_suffix('.npz')
-        json_path = output_path.with_suffix('.json')
+        csv_path = output_path.parent / 'density_vs_range_single.csv'
+        json_path = output_path.parent / 'density_vs_range_single_metadata.json'
         
-        arrays_to_save = {
+        df = pd.DataFrame({
             'bin_centers': data['bin_centers'],
             'densities_median': data['densities_median'],
             'densities_q25': data['densities_q25'],
             'densities_q75': data['densities_q75'],
             'point_counts': data['point_counts']
-        }
-        
-        np.savez_compressed(npz_path, **arrays_to_save)
+        })
+        df.to_csv(csv_path, index=False)
         
         metadata = {
             'mode': mode,
-            'density_type': data.get('density_type', 'volumetric')
+            'density_type': data.get('density_type', 'volumetric'),
+            'files': {
+                'density_data': str(csv_path.name)
+            }
         }
         with open(json_path, 'w') as f:
             json.dump(metadata, f, indent=2)
         
         print(f"\nResults saved to:")
-        print(f"  Data: {npz_path}")
+        print(f"  Data: {csv_path}")
         print(f"  Metadata: {json_path}")
 
 
@@ -193,7 +215,7 @@ def load_results(results_path):
     Parameters:
     -----------
     results_path : str or Path
-        Path to the .npz or .json file (either works)
+        Path to the .csv or .json file (either works)
         
     Returns:
     --------
@@ -203,43 +225,86 @@ def load_results(results_path):
         Dictionary containing metadata
     """
     results_path = Path(results_path)
-    npz_path = results_path.with_suffix('.npz')
-    json_path = results_path.with_suffix('.json')
     
-    if not npz_path.exists():
-        raise FileNotFoundError(f"Data file not found: {npz_path}")
+    # If given a CSV path, find the corresponding JSON metadata
+    if results_path.suffix == '.csv':
+        json_path = results_path.with_name(results_path.stem.replace('_per_scan', '').replace('_single', '') + '_metadata.json')
+    else:
+        json_path = results_path.with_suffix('.json')
+    
     if not json_path.exists():
         raise FileNotFoundError(f"Metadata file not found: {json_path}")
-    
-    # Load arrays
-    npz_data = np.load(npz_path)
-    data = dict(npz_data)
     
     # Load metadata
     with open(json_path, 'r') as f:
         metadata = json.load(f)
     
-    # Reconstruct per-scan data if aggregate mode
+    data = {}
+    
     if metadata['mode'] == 'aggregate':
-        n_scans = metadata['n_scans']
+        # Load density vs range aggregate data
+        aggregate_csv = json_path.parent / metadata['files']['aggregate']
+        if aggregate_csv.exists():
+            df_aggregate = pd.read_csv(aggregate_csv)
+            data['bin_centers'] = df_aggregate['bin_centers'].values
+            data['densities_median'] = df_aggregate['densities_median'].values
+            data['densities_q25'] = df_aggregate['densities_q25'].values
+            data['densities_q75'] = df_aggregate['densities_q75'].values
+            data['point_counts'] = df_aggregate['point_counts'].values
         
-        # Check if this is vertical density data (has heights) or density vs range data (has bin_centers)
-        if 'scan_0_heights' in data:
-            # Vertical density data
-            pass  # Heights and IDs are already in the data dict
-        elif 'scan_0_bin_centers' in data:
-            # Density vs range data
+        # Load per-scan data
+        scan_csv = json_path.parent / metadata['files']['per_scan']
+        if scan_csv.exists():
+            df_scans = pd.read_csv(scan_csv)
             scan_densities = []
             scan_bin_centers = []
             
-            for i in range(n_scans):
-                scan_densities.append(data[f'scan_{i}_densities'])
-                scan_bin_centers.append(data[f'scan_{i}_bin_centers'])
+            for scan_id in sorted(df_scans['scan_id'].unique()):
+                scan_data = df_scans[df_scans['scan_id'] == scan_id]
+                scan_densities.append(scan_data['density'].values)
+                scan_bin_centers.append(scan_data['bin_center'].values)
             
             data['scan_densities'] = scan_densities
             data['scan_bin_centers'] = scan_bin_centers
+        
+        # Check for vertical density data
+        vertical_json = json_path.parent / 'vertical_density_metadata.json'
+        if vertical_json.exists():
+            with open(vertical_json, 'r') as f:
+                vertical_meta = json.load(f)
+            
+            vertical_csv = json_path.parent / vertical_meta['files']['vertical_density']
+            if vertical_csv.exists():
+                df_vertical = pd.read_csv(vertical_csv)
+                
+                scan_heights = []
+                scan_densities_vertical = []
+                scan_ids = []
+                
+                for scan_id in sorted(df_vertical['scan_id'].unique()):
+                    scan_data = df_vertical[df_vertical['scan_id'] == scan_id]
+                    scan_heights.append(scan_data['height'].values)
+                    scan_densities_vertical.append(scan_data['density'].values)
+                    scan_ids.append(scan_id)
+                
+                data['scan_heights'] = scan_heights
+                data['scan_densities_vertical'] = scan_densities_vertical
+                data['scan_ids'] = scan_ids
+                data['z_range'] = vertical_meta['z_range']
     
-    print(f"\nLoaded results from: {npz_path}")
+    elif metadata['mode'] == 'single':
+        csv_path = json_path.parent / metadata['files']['density_data']
+        if not csv_path.exists():
+            raise FileNotFoundError(f"Data file not found: {csv_path}")
+        
+        df = pd.read_csv(csv_path)
+        data['bin_centers'] = df['bin_centers'].values
+        data['densities_median'] = df['densities_median'].values
+        data['densities_q25'] = df['densities_q25'].values
+        data['densities_q75'] = df['densities_q75'].values
+        data['point_counts'] = df['point_counts'].values
+    
+    print(f"\nLoaded results from: {json_path.parent}")
     return data, metadata
 
 
@@ -531,121 +596,154 @@ def plot_vertical_density_violin(local_densities, bin_labels, point_counts,
     return fig
 
 
-def plot_vertical_density_violin_aggregate(scan_heights, scan_densities, scan_ids, z_range,
-                                          density_type='volumetric', output_dir=None,
-                                          figsize=(12, 6), dpi=300):
+def plot_vertical_density_violin_aggregate(
+    scan_heights, scan_densities, scan_ids, z_range,
+    density_type='volumetric', output_dir=None,
+    figsize=(12, 6), dpi=300,
+    samples_per_scan=20000,
+    weight_transform='log1p',     # 'none', 'log1p', or 'sqrt'
+    clip_quantile=0.995,          # clip extreme weights
+    density_norm='width',         # seaborn new name (replaces scale)
+    random_seed=0,
+    show_p25=True,
+):
     """
-    Plot vertical density distribution with height on y-axis and scan ID on x-axis.
-    Shows violin plots for each scan showing the distribution of heights.
-    
-    Parameters:
-    -----------
-    scan_heights : list of np.ndarray
-        Heights (z-coordinates) for each scan
-    scan_densities : list of np.ndarray
-        Local densities corresponding to each height
-    scan_ids : list of list
-        Scan ID for each point
-    z_range : tuple
-        (z_min, z_max) for y-axis limits
-    density_type : str
-        'volumetric' or 'areal'
-    output_dir : str or None
-        Path to save figure
-    figsize : tuple
-        Figure size
-    dpi : int
-        DPI for saved figure
+    Density-weighted vertical violin plot (seaborn-version safe):
+    - We emulate weights by resampling heights proportional to densities.
+    - Violin width reflects density mass along height for each scan.
+
+    samples_per_scan controls smoothness (bigger = smoother, slower).
     """
     import seaborn as sns
-    
-    # Set publication-quality style
-    plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['font.serif'] = ['Times New Roman', 'DejaVu Serif']
-    plt.rcParams['font.size'] = 13
-    plt.rcParams['axes.linewidth'] = 1.5
-    plt.rcParams['xtick.major.width'] = 1.5
-    plt.rcParams['ytick.major.width'] = 1.5
-    
+
+    rng = np.random.default_rng(random_seed)
+
+    # -------- build resampled dataframe --------
+    all_h = []
+    all_sid = []
+
     n_scans = len(scan_heights)
-    
-    # Prepare data for plotting
-    all_heights = []
-    all_scan_ids = []
-    for scan_idx in range(n_scans):
-        all_heights.extend(scan_heights[scan_idx])
-        all_scan_ids.extend(scan_ids[scan_idx])
-    
-    df = pd.DataFrame({
-        'Height (m)': all_heights,
-        'Scan ID': all_scan_ids
-    })
-    
-    fig, ax = plt.subplots(figsize=figsize)
-    
-    # Create vertical violin plot with scan ID on x-axis and height on y-axis
-    sns.violinplot(data=df, x='Scan ID', y='Height (m)', ax=ax,
-                   hue='Scan ID', palette='viridis', legend=False,
-                   linewidth=2, inner='quartile',
-                   cut=0, density_norm='width', saturation=0.8)
-    
-    # Compute and overlay median heights for each scan
-    scan_medians = []
-    for scan_idx in range(n_scans):
-        if len(scan_heights[scan_idx]) > 0:
-            median_height = np.median(scan_heights[scan_idx])
-            scan_medians.append(median_height)
+    for i in range(n_scans):
+        h = np.asarray(scan_heights[i], dtype=float)
+        w = np.asarray(scan_densities[i], dtype=float)
+
+        # scan id handling: allow passing a scalar id or per-point ids
+        sid = scan_ids[i]
+        if isinstance(sid, (list, tuple, np.ndarray)):
+            sid_arr = np.asarray(sid)
+            if sid_arr.size == 1:
+                sid_val = sid_arr.item()
+            else:
+                # If per-point IDs were passed, we assume all same; otherwise fallback
+                sid_val = sid_arr[0]
         else:
-            scan_medians.append(np.nan)
-    
-    ax.scatter(range(n_scans), scan_medians,
-              color='red', s=100, zorder=3, marker='D',
-              label='Median Height', edgecolors='darkred', linewidths=1.5)
-    
-    # Styling
+            sid_val = sid
+
+        # filter bad values
+        m = np.isfinite(h) & np.isfinite(w) & (w >= 0)
+        h, w = h[m], w[m]
+        if h.size == 0:
+            continue
+
+        # clip to plotting range (optional but makes KDE more stable)
+        zmin, zmax = z_range
+        m2 = (h >= zmin) & (h <= zmax)
+        h, w = h[m2], w[m2]
+        if h.size == 0:
+            continue
+
+        # clip extreme weights (prevents a few points dominating)
+        if clip_quantile is not None and 0 < clip_quantile < 1:
+            cap = np.quantile(w, clip_quantile)
+            w = np.minimum(w, cap)
+
+        # transform weights (recommended: log1p to tame heavy tails)
+        if weight_transform == 'log1p':
+            w = np.log1p(w)
+        elif weight_transform == 'sqrt':
+            w = np.sqrt(w)
+        elif weight_transform == 'none':
+            pass
+        else:
+            raise ValueError(f"Unknown weight_transform: {weight_transform}")
+
+        # if all weights are zero after transform, fall back to uniform
+        s = w.sum()
+        if s <= 0:
+            p = None
+        else:
+            p = w / s
+
+        # resample heights according to weights
+        n_samp = min(samples_per_scan, h.size) if p is None else samples_per_scan
+        idx = rng.choice(h.size, size=n_samp, replace=True, p=p)
+        h_rs = h[idx]
+
+        all_h.append(h_rs)
+        all_sid.append(np.full(h_rs.shape, sid_val))
+
+    if len(all_h) == 0:
+        raise ValueError("No valid data to plot after filtering.")
+
+    df = pd.DataFrame({
+        'Height (m)': np.concatenate(all_h),
+        'Scan ID': np.concatenate(all_sid),
+    })
+
+    # stable scan ordering
+    # if scan IDs are numeric-ish, this keeps numeric order
+    try:
+        ordered_ids = sorted(df['Scan ID'].unique(), key=lambda x: int(x))
+    except Exception:
+        ordered_ids = sorted(df['Scan ID'].unique(), key=lambda x: str(x))
+    df['Scan ID'] = pd.Categorical(df['Scan ID'], categories=ordered_ids, ordered=True)
+
+    # -------- style --------
+    plt.rcParams.update({
+        'font.family': 'serif',
+        'font.size': 13,
+        'axes.linewidth': 1.5,
+        'xtick.major.width': 1.5,
+        'ytick.major.width': 1.5,
+    })
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    sns.violinplot(
+        data=df, x='Scan ID', y='Height (m)',
+        hue='Scan ID',               # same as x, but required for palette to work in newer seaborn
+        palette='rainbow',
+        legend=False,                # don't show redundant legend
+        cut=0,
+        inner='quartile',            # quartiles of *resampled* distribution (density-weighted)
+        linewidth=0.5,
+        density_norm=density_norm,   # replaces scale='width'
+        ax=ax
+    )
+
+    ax.set_ylim(z_range)
     ax.set_xlabel('Scan ID', fontsize=15, fontweight='bold')
     ax.set_ylabel('Height (m)', fontsize=15, fontweight='bold')
     ax.grid(True, alpha=0.3, axis='y', linestyle=':', linewidth=1.2)
-    ax.tick_params(labelsize=12, width=1.5, length=6)
+    ax.tick_params(labelsize=11, width=1.5, length=6)
+
+    # Mark upright scans with asterisk
+    upright_z_idx = [9, 17, 29, 34, 39]  # Each scan was inversed by default, except for these scans which were already upright, idx starts from 1
     
-    # Set x-axis labels to show scan IDs
-    ax.set_xticks(range(n_scans))
-    # ax.set_xticklabels([f'Scan {i+1}' for i in range(n_scans)])
+    # Modify x-tick labels to add asterisk for upright scans
+    xtick_labels = [str(sid) if sid not in upright_z_idx else f"{sid}*" for sid in ordered_ids]
+    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
     
-    # Rotate x-axis labels if too many scans
-    if n_scans > 8:
-        plt.xticks(rotation=45, ha='right')
-    elif n_scans > 5:
-        plt.xticks(rotation=30, ha='right')
-    
-    # Add legend
-    legend = ax.legend(loc='upper right', frameon=True, framealpha=0.95,
-                      edgecolor='black', fancybox=False, fontsize=13)
-    legend.get_frame().set_linewidth(1.5)
-    
-    # Add statistics text
-    total_points = sum(len(h) for h in scan_heights)
-    z_min, z_max = z_range
-    stats_text = (f'Total scans: {n_scans}\n'
-                 f'Total points: {total_points:,}\n'
-                 f'Height range: {z_min:.1f} - {z_max:.1f} m')
-    ax.text(0.02, 0.98, stats_text, transform=ax.transAxes,
-           fontsize=11, verticalalignment='top',
-           bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray', linewidth=1.5))
-    
+
     plt.tight_layout()
-    
+
     if output_dir:
-        # Create output directory if it doesn't exist
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        
-        output_path = output_dir_path / 'vertical_density_violin.png'
-        plt.savefig(output_path, dpi=dpi, bbox_inches='tight')
-        print(f"\nVertical density violin plot saved to: {output_path}")
-        print(f"Statistics: {n_scans} scans, {total_points:,} total points analyzed")
-    else:
-        plt.show()
-    
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        outpath = out / 'vertical_density_violin_weighted_resample.png'
+        fig.savefig(outpath, dpi=dpi, bbox_inches='tight')
+        print(f"Saved: {outpath}")
+
     return fig
+
 
