@@ -1,0 +1,50 @@
+# Configuration for Point Cloud Density vs Range Analysis
+# 
+# Two modes of operation:
+# 1. SINGLE MODE: Set csv_dir to null and provide csv_path for single scan analysis
+# 2. AGGREGATE MODE: Set csv_dir to a directory path to analyze multiple scans
+#    - Computes median density per bin for each scan independently
+#    - Aggregates by taking median and IQR across scan-level medians
+#    - Plots thin gray lines for each scan, thick black line for median, shaded IQR band
+
+csv_path: "/home/fzhcis/mylab/data/point_cloud_segmentation/palau_2024/test/pcd/proj000_pcd_ALRSET12_7489_color.csv"
+csv_dir: "/home/fzhcis/mylab/data/point_cloud_segmentation/palau_2024"  # Set to directory path for aggregate mode, null for single mode
+# Column names for coordinates in the CSV file
+columns:
+  x: "X"
+  y: "Y"
+  z: "Z"
+
+# Scan center coordinates [x, y, z]
+# If null, the centroid of the point cloud will be used
+scan_center: [0.0, 0.0, 0.0]  # Example: [0.0, 0.0, 0.0]
+
+# Analysis parameters
+analysis:
+  # Width of range bins in meters
+  bin_width: 1.0
+  
+  # Type of density computation: 'volumetric' (points/m³) or 'areal' (points/m²)
+  density_type: "volumetric"
+  
+  # Number of nearest neighbors to use for density estimation
+  # Set to null for adaptive k (recommended)
+  k_neighbors: null  # Example: 50
+  
+  # Range threshold (m) beyond which bins are merged into one
+  merge_threshold: 28.0
+  
+  # Height of vertical bins (Z-axis) in meters for vertical density distribution
+  bin_height: 0.5
+
+# Visualization settings
+visualization:
+  # Output file path for the figure
+  # If null, the figure will be displayed but not saved
+  output_dir: "/home/fzhcis/Downloads/temp"  # null to display only
+  
+  # Figure DPI for saved images
+  dpi: 300
+  
+  # Figure size [width, height] in inches
+  figsize: [12, 6]

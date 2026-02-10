@@ -447,7 +447,7 @@ def generate_semantic3d_outputs(
         display_single_band_img_wt_discrete_values(
             seg_mask,
             title=title, 
-            cb_label='Class ID',
+            # cb_label='Class ID',
             output_dir=img_out_dir, 
             saveflag=saveflag,
             visualize=visualize,
@@ -493,7 +493,7 @@ def generate_forestsemantic_outputs(
     display_single_band_img_wt_discrete_values(
             seg_mask,
             title=title, 
-            cb_label='Class ID',
+            # cb_label='Class ID',
             output_dir=img_out_dir, 
             saveflag=saveflag,
             visualize=visualize,
@@ -537,8 +537,7 @@ def generate_extra_visualizations(
         density_map = get_channel_data(projection_xr, 'density')
         display_single_band_img_wt_discrete_values(
             density_map, 
-            title='Point Density Map', 
-            cb_label='Point Density',
+            title='pt_density_map', 
             output_dir=img_out_dir, 
             saveflag=saveflag,
             visualize=visualize

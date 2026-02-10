@@ -1,0 +1,24 @@
+================================================================================
+ROUGHNESS STATISTICS BY LABEL
+================================================================================
+
+Data root: /home/fzhcis/mylab/data/mangrove3d/mangrove3d_pcd
+Neighbor radius: 0.05m
+Max neighbors: 30
+Scans processed: 2
+
+================================================================================
+GROUND (Label 1):
+  Median Roughness:    1.71 cm
+  IQR:                 0.93 cm
+  95th Percentile:     3.04 cm
+  Q25-Q75:             1.25 - 2.18 cm
+  Total points:        637,256
+
+STEM (Label 2):
+  Median Roughness:    nan cm
+  IQR:                 nan cm
+  95th Percentile:     nan cm
+  Q25-Q75:             nan - nan cm
+  Total points:        106,265
+================================================================================

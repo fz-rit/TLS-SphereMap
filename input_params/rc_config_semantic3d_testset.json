@@ -1,0 +1,45 @@
+{
+    "global": {
+        "input_base_dir": "/shared/rc/mangrove/data/Semantic3D/full-subsampled/subsampled_las_test_with_labels/",
+        "output_base_dir": "/shared/rc/mangrove/data/Semantic3D/full-subsampled/TLS_sphere_output_testset/",
+        "selected_scans": [1, 15],
+        "input_suffix": ".las",
+        "dataset": "SEMANTIC3D",
+        "h_fov": [0, 360],
+        "v_fov": [45, 136],
+        "h_ang_res_deg": 0.2,
+        "v_ang_res_deg": 0.2,
+        "delete_intermediate_file": false
+    },
+    "calc_geom_feature": {
+        "base_radius": 0.01,
+        "max_neighbors": 50,
+        "batching_method": "xyz",
+        "pts_num_per_batch": 12000,
+        "max_workers": 6,
+        "buffer_pts": 30,
+        "cut_percent": 0.001,
+        "clean_pc": true,
+        "out_signature_str": "geom_feat",
+        "flip_mangrove": false
+    },
+    "spherical_projection": {
+        "visualize" : false,
+        "extra_maps" : false,
+        "save_extra_maps" : false,
+        "show_single_band" : false,
+        "show_pseudo_rgb" : false,
+        "show_pca" : false        
+    },
+    "back_projection": {
+        "generate_virtual_ball": false,
+        "paint_pcd_color_groups": ["izr", "normals", "pca"]
+    },
+    "convert_color_to_mask": {
+        "dataset": ""
+    },
+    "attach_segmap_to_points": {
+        "dataset": "",
+        "output_formats": [".ply", ".label"]
+    }
+}

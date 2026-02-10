@@ -1,0 +1,17 @@
+# Configuration for roughness statistics calculation
+
+# Data paths
+data_root: ~/mylab/data/mangrove3d/mangrove3d_pcd
+
+# Processing parameters
+neighbor_radius: 0.06  # Base radius for neighborhood search (m)
+max_neighbors: 60      # Maximum neighbors per point
+batch_size: 5000      # Target points per batch for large clouds
+buffer_pts: 30         # Number of buffer neighbors per core point
+
+# Testing/debugging
+max_scans: null        # Maximum number of scans to process (null = all scans)
+
+# Output
+output_dir: ~/Downloads/temp/noise  # Directory to save intermediate results and final statistics
+output_file: roughness_statistics.txt  # Output file name for final results

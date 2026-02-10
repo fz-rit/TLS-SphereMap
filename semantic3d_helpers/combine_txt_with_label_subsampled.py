@@ -5,8 +5,8 @@ from pathlib import Path
 def attach_labels_to_points(individual_dir: Path, las_dir:Path):
     """Attach labels from .labels file to points in .txt file and save as .las."""
 
-    txt_file = individual_dir / f"_subsampled_voxel_subsampled_0.01.txt"
-    labels_file = individual_dir / f"_subsampled_voxel_subsampled_0.01.labels"
+    txt_file = individual_dir / f"_subsampled_voxel_subsampled_0.02.txt"
+    labels_file = individual_dir / f"_subsampled_voxel_subsampled_0.02.labels"
 
     if not txt_file.exists() or not labels_file.exists():
         raise FileNotFoundError(f"Input files {txt_file} or {labels_file} do not exist.")
@@ -29,8 +29,9 @@ def attach_labels_to_points(individual_dir: Path, las_dir:Path):
     las.write(las_dir / f'{individual_dir.name}_with_labels.las')
 
 
-root_dir = Path("/home/fzhcis/data/semantic3d_reduced8/subsampled")
-las_dir = root_dir.parent / "subsampled_las_train_with_labels"
+# root_dir = Path("/home/fzhcis/data/semantic3d_reduced8/subsampled")
+root_dir = Path("/shared/rc/mangrove/data/Semantic3D/full-subsampled/test")
+las_dir = root_dir.parent / "subsampled_las_test_with_labels"
 las_dir.mkdir(parents=True, exist_ok=True)
 individual_dirs = [d for d in root_dir.iterdir() if d.is_dir()]
 individual_dirs.sort(key=lambda folder: folder.name)
