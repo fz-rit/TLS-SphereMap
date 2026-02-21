@@ -1,0 +1,58 @@
+input_ply: "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_2021/033/33_01/outputs/33_01_filtered_normaled_curvature_0.06_roughness_0.06_segmap.ply"
+out_dir: "/home/fzhcis/mylab/gdrive/papers/rse-2025-through-lidars-eye/gif_mp4/dirs-presentation/sphere_proj_demo"
+
+fields:
+  azimuth: "azimuth"
+  zenith: "zenith"          # use zenith for spherical projection
+  angles_in_degrees: true
+
+ranges:
+  az_min: 0.0
+  az_max: 360.0
+  ze_min: 0.0
+  ze_max: "auto"            # <- infer from data (e.g., 135.0251)
+
+grid:
+  width: 720
+  height: 180               # can stay fixed; ze_max decides how much of it is “used”
+
+progress:
+  step_cols: 2
+  frames_to_save: [0, 10, 20, 40, 80, 120, 179]
+
+# What to draw in the image:
+# - count: density buildup (great for “lighting up columns” demo)
+# - mean/max of a scalar: range image / intensity image
+projection:
+  mode: "count"             # "count" or "scalar"
+  scalar_field: "range1metres"  # used only if mode="scalar"
+  agg: "mean"               # mean/max/min/median
+
+render:
+  cmap: "gray"
+  dpi: 180
+  vmax_percentile: 99.5
+  draw_progress_line: true  # vertical line showing current az column
+
+
+render3d:
+  enabled: true
+  out_subdir: "frames_3d"
+  width: 1280
+  height: 720
+  point_size: 2.0
+  background_rgb: [0, 0, 0]     # black background
+
+  # Use RGB from the PLY if present (r,g,b). Otherwise fallback to a constant color.
+  use_rgb_if_available: true
+  fallback_rgb: [0.9, 0.9, 0.9]
+
+  # Optional speed control if rendering is slow
+  max_points: 200000             # random sample cap; set null to disable
+
+  # Camera: fixed view (Open3D style)
+  camera:
+    lookat: [0.0, 0.0, 0.0]
+    front:  [0.0, -1.0, 0.0]
+    up:     [0.0, 0.0, 1.0]
+    zoom:   0.7
