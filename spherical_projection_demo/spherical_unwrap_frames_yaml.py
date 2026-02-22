@@ -1,9 +1,11 @@
 from __future__ import annotations
 import os
+import io
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import yaml
+from PIL import Image
 from plyfile import PlyData
 
 # 3D rendering
@@ -132,7 +134,7 @@ def compute_vmax(img: np.ndarray, percentile: float) -> float:
 
 def save_frame_2d(
     img: np.ndarray,
-    out_png: str,
+    out_png: str | None,
     title: str,
     cmap: str,
     dpi: int,
@@ -140,17 +142,61 @@ def save_frame_2d(
     vmax: float,
     progress_col: int | None = None,
     draw_progress_line: bool = False,
-):
-    os.makedirs(os.path.dirname(out_png), exist_ok=True)
-    plt.figure(figsize=(10, 4))
-    plt.imshow(img, origin="upper", cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
+    opposite_col: int | None = None,
+    az_min: float = 0.0,
+    az_max: float = 360.0,
+    ze_min: float = 0.0,
+    ze_max: float = 180.0,
+    return_pil: bool = False,
+) -> Image.Image | None:
+    """Save 2D frame and/or return as PIL Image.
+    
+    Args:
+        out_png: Path to save PNG file, or None to skip saving
+        return_pil: If True, return PIL Image object
+    
+    Returns:
+        PIL Image if return_pil=True, else None
+    """
+    if out_png is not None:
+        os.makedirs(os.path.dirname(out_png), exist_ok=True)
+    
+    fig, ax = plt.subplots(figsize=(12, 5))
+    im = ax.imshow(img, origin="upper", cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax,
+                   extent=[az_min, az_max, ze_max, ze_min])  # extent for axis labels
+    
     if draw_progress_line and progress_col is not None:
-        plt.axvline(progress_col, linewidth=1)
-    plt.title(title)
-    plt.axis("off")
+        # Convert column index to azimuth angle
+        progress_az = az_min + progress_col * (az_max - az_min) / img.shape[1]
+        ax.axvline(progress_az, color="cyan", linewidth=1.5, alpha=0.8, label="Current scan angle")
+        if opposite_col is not None:
+            opposite_az = az_min + opposite_col * (az_max - az_min) / img.shape[1]
+            ax.axvline(opposite_az, color="cyan", linewidth=1.5, alpha=0.8)
+    
+    ax.set_xlabel("Azimuth (degrees)", fontsize=10)
+    ax.set_ylabel("Zenith (degrees)", fontsize=10)
+    ax.set_title(title, fontsize=11)
+    
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label("Value", fontsize=9)
+    
     plt.tight_layout()
-    plt.savefig(out_png, dpi=dpi)
+    
+    pil_img = None
+    if return_pil or out_png is not None:
+        # Render to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=dpi)
+        buf.seek(0)
+        pil_img = Image.open(buf).copy()
+        buf.close()
+        
+        if out_png is not None:
+            pil_img.save(out_png)
+    
     plt.close()
+    return pil_img if return_pil else None
 
 
 # -------------------------
@@ -197,7 +243,7 @@ def build_open3d_pcd_from_2d_image(
 
 def render_pcd_screenshot(
     pcd: o3d.geometry.PointCloud,
-    out_png: str,
+    out_png: str | None,
     width: int,
     height: int,
     point_size: float,
@@ -206,8 +252,19 @@ def render_pcd_screenshot(
     front=None,
     up=None,
     zoom=0.7,
-):
-    os.makedirs(os.path.dirname(out_png), exist_ok=True)
+    return_pil: bool = False,
+) -> Image.Image | None:
+    """Render 3D point cloud screenshot and/or return as PIL Image.
+    
+    Args:
+        out_png: Path to save PNG file, or None to skip saving
+        return_pil: If True, return PIL Image object
+    
+    Returns:
+        PIL Image if return_pil=True, else None
+    """
+    if out_png is not None:
+        os.makedirs(os.path.dirname(out_png), exist_ok=True)
 
     vis = o3d.visualization.Visualizer()
     vis.create_window(visible=False, width=width, height=height)
@@ -229,8 +286,24 @@ def render_pcd_screenshot(
     vis.poll_events()
     vis.update_renderer()
 
-    vis.capture_screen_image(out_png, do_render=True)
+    # Capture to temporary location if we need PIL image
+    pil_img = None
+    if return_pil or out_png is not None:
+        import tempfile
+        if out_png is None:
+            # Need temporary file for capture
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix='.png')
+            os.close(tmp_fd)
+            vis.capture_screen_image(tmp_path, do_render=True)
+            pil_img = Image.open(tmp_path).copy()
+            os.unlink(tmp_path)
+        else:
+            vis.capture_screen_image(out_png, do_render=True)
+            if return_pil:
+                pil_img = Image.open(out_png).copy()
+    
     vis.destroy_window()
+    return pil_img if return_pil else None
 
 
 def compute_fixed_camera_params(df: pd.DataFrame) -> dict:
@@ -246,11 +319,61 @@ def compute_fixed_camera_params(df: pd.DataFrame) -> dict:
     }
 
 
-def resolve_frames_to_save(frames_to_have: str, n_cols: int, step_cols: int) -> list[int]:
-    assert isinstance(frames_to_have, str)
-    assert n_cols > 0 and step_cols > 0
+def create_gif_from_pil_images(
+    images: list[Image.Image],
+    out_gif: str,
+    duration: int = 100,
+    loop: int = 0,
+    hold_last_frame: int = 0,
+):
+    """Create animated GIF from PIL images.
+    
+    Args:
+        images: List of PIL Image objects
+        out_gif: Output GIF path
+        duration: Frame duration in milliseconds
+        loop: Number of loops (0 = infinite)
+        hold_last_frame: Number of additional times to repeat the last frame (default: 0)
+    """
+    if not images:
+        print(f"[WARNING] No images to create GIF: {out_gif}")
+        return
+    
+    # Duplicate the last frame to hold it longer at the end of the animation
+    # This creates a pause effect before looping back to the beginning
+    if hold_last_frame > 0:
+        images = images + [images[-1]] * hold_last_frame
+    
+    os.makedirs(os.path.dirname(out_gif), exist_ok=True)
+    images[0].save(
+        out_gif,
+        save_all=True,
+        append_images=images[1:],
+        duration=duration,
+        loop=loop,
+        optimize=False,
+    )
+    print(f"[WROTE GIF] {out_gif} ({len(images)} frames)")
 
-    max_k = int(np.ceil((n_cols - 1) / step_cols))
+
+def resolve_frames_to_save(
+    frames_to_have: str, 
+    n_cols: int, 
+    step_degrees: float,
+    angular_resolution: float,
+    tls_dual_scan: bool,
+) -> list[int]:
+    assert isinstance(frames_to_have, str)
+    assert n_cols > 0
+    
+    # With dual-scan, physical rotation is only 180° (half the columns)
+    # Without dual-scan, full 360° rotation
+    effective_cols = (n_cols // 2) if tls_dual_scan else n_cols
+    
+    # Convert step_degrees to step_cols
+    step_cols = max(1, int(np.round(step_degrees / angular_resolution)))
+    
+    max_k = int(np.ceil((effective_cols - 1) / step_cols))
     total_steps = max_k + 1
 
     token = frames_to_have.strip().lower()
@@ -283,18 +406,53 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     ze_field = cfg["fields"]["zenith"]
     angles_in_degrees = bool(cfg["fields"].get("angles_in_degrees", True))
 
-    width = int(cfg["grid"]["width"])
-    height = int(cfg["grid"]["height"])
-    assert width > 0 and height > 0
-
     az_min = float(cfg["ranges"]["az_min"])
     az_max = float(cfg["ranges"]["az_max"])
-    ze_min = cfg["ranges"]["ze_min"]
-    ze_max = cfg["ranges"]["ze_max"]
+    ze_min_cfg = cfg["ranges"]["ze_min"]
+    ze_max_cfg = cfg["ranges"]["ze_max"]
+    
+    # Angular resolution for adaptive grid
+    angular_resolution = float(cfg["grid"].get("angular_resolution", 0.25))  # degrees per pixel
+    
+    print(f"[INFO] Reading PLY: {ply_path}")
+    df = read_ply_vertex_to_df(ply_path)
+    print(f"[INFO] Points: {len(df):,}")
+    print(f"[INFO] Columns: {list(df.columns)}")
 
-    step_cols = int(cfg["progress"]["step_cols"])
-    assert step_cols > 0
+    if az_field not in df.columns or ze_field not in df.columns:
+        raise RuntimeError(
+            f"Angle fields missing. Need az='{az_field}', ze='{ze_field}'. Available: {list(df.columns)}"
+        )
+
+    # Resolve zenith range (may be auto)
+    if isinstance(ze_min_cfg, str) and ze_min_cfg.lower() == "auto":
+        ze_min, _ = infer_angle_range(df[ze_field])
+        print(f"[INFO] ze_min=auto -> {ze_min:.6f}")
+    else:
+        ze_min = float(ze_min_cfg)
+
+    if isinstance(ze_max_cfg, str) and ze_max_cfg.lower() == "auto":
+        _, ze_max = infer_angle_range(df[ze_field])
+        print(f"[INFO] ze_max=auto -> {ze_max:.6f}")
+    else:
+        ze_max = float(ze_max_cfg)
+
+    # Compute adaptive grid dimensions based on angular resolution
+    az_span = az_max - az_min
+    ze_span = ze_max - ze_min
+    width = int(np.ceil(az_span / angular_resolution))
+    height = int(np.ceil(ze_span / angular_resolution))
+    
+    print(f"[INFO] Angular resolution: {angular_resolution}°")
+    print(f"[INFO] Azimuth range: [{az_min:.1f}, {az_max:.1f}]° -> {width} columns")
+    print(f"[INFO] Zenith range: [{ze_min:.1f}, {ze_max:.1f}]° -> {height} rows")
+
+    step_degrees = float(cfg["progress"].get("step_degrees", 0.5))  # degrees per frame step
     frames_to_have = str(cfg["progress"]["frames_to_have"])
+    tls_dual_scan = bool(cfg["progress"].get("tls_dual_scan", True))  # TLS scans opposite azimuths simultaneously
+    
+    print(f"[INFO] Step size: {step_degrees}° per frame")
+    print(f"[INFO] TLS dual-scan mode: {tls_dual_scan} (physical rotation: {'180°' if tls_dual_scan else '360°'})")
 
     proj_cfg = cfg.get("projection", {})
     proj_mode = proj_cfg.get("mode", "count")  # "count" or "scalar"
@@ -306,6 +464,9 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     dpi = int(render_cfg.get("dpi", 180))
     vmax_percentile = float(render_cfg.get("vmax_percentile", 99.5))
     draw_progress_line = bool(render_cfg.get("draw_progress_line", True))
+    save_individual_frames = bool(render_cfg.get("save_individual_frames", False))
+    gif_duration = int(render_cfg.get("gif_duration_ms", 100))  # milliseconds per frame
+    gif_loop = int(render_cfg.get("gif_loop", 0))  # 0 = infinite loop
 
     render3d = cfg.get("render3d", {})
     render3d_enabled = bool(render3d.get("enabled", False))
@@ -320,27 +481,7 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     if max_points is not None:
         max_points = int(max_points)
 
-    print(f"[INFO] Reading PLY: {ply_path}")
-    df = read_ply_vertex_to_df(ply_path)
-    print(f"[INFO] Points: {len(df):,}")
-    print(f"[INFO] Columns: {list(df.columns)}")
-
-    if az_field not in df.columns or ze_field not in df.columns:
-        raise RuntimeError(
-            f"Angle fields missing. Need az='{az_field}', ze='{ze_field}'. Available: {list(df.columns)}"
-        )
-
-    if isinstance(ze_min, str) and ze_min.lower() == "auto":
-        ze_min, _ = infer_angle_range(df[ze_field])
-        print(f"[INFO] ze_min=auto -> {ze_min:.6f}")
-    else:
-        ze_min = float(ze_min)
-
-    if isinstance(ze_max, str) and ze_max.lower() == "auto":
-        _, ze_max = infer_angle_range(df[ze_field])
-        print(f"[INFO] ze_max=auto -> {ze_max:.6f}")
-    else:
-        ze_max = float(ze_max)
+    assert width > 0 and height > 0
 
     dfp = angles_to_pixels(
         df,
@@ -374,6 +515,8 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
     print(f"[INFO] Projection mode: {proj_mode}")
     print(f"[INFO] Contrast: vmin={vmin:.4f}, vmax(p{vmax_percentile})={vmax:.4f}")
+    print(f"[INFO] Save individual frames: {save_individual_frames}")
+    print(f"[INFO] GIF animation: enabled (duration={gif_duration}ms/frame)")
     if render3d_enabled:
         print("[INFO] 3D screenshots: enabled")
 
@@ -383,9 +526,25 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     out_dir_3d_top = os.path.join(out_dir, render3d_top_subdir)
 
     n_cols = width
-    frames_to_save = resolve_frames_to_save(frames_to_have, n_cols=n_cols, step_cols=step_cols)
+    frames_to_save = resolve_frames_to_save(
+        frames_to_have=frames_to_have, 
+        n_cols=n_cols, 
+        step_degrees=step_degrees,
+        angular_resolution=angular_resolution,
+        tls_dual_scan=tls_dual_scan,
+    )
     assert len(frames_to_save) > 0
     n_frames = len(frames_to_save)
+    
+    print(f"[INFO] Exporting {n_frames} frames")
+
+    # Convert step_degrees to step_cols for frame iteration
+    step_cols = max(1, int(np.round(step_degrees / angular_resolution)))
+    
+    # Storage for GIF frames
+    frames_2d_pil = []
+    frames_3d_side_pil = []
+    frames_3d_top_pil = []
 
     # Compute fixed camera parameters from full point cloud
     if render3d_enabled:
@@ -405,7 +564,22 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
     for frame_idx, k in enumerate(frames_to_save):
         max_col = min(n_cols - 1, k * step_cols)
-        sub = dfp[dfp["col"] <= max_col]
+        
+        # TLS typically scans opposite azimuths simultaneously
+        # (0° and 180°, 0.25° and 180.25°, etc.)
+        if tls_dual_scan:
+            # Include columns 0 to max_col AND their 180° opposites
+            half_width = width // 2
+            opposite_cols = set()
+            for c in range(max_col + 1):
+                opposite_c = (c + half_width) % width
+                opposite_cols.add(opposite_c)
+            
+            # Filter points: include if col <= max_col OR col is an opposite
+            sub = dfp[(dfp["col"] <= max_col) | (dfp["col"].isin(opposite_cols))]
+        else:
+            # Sequential scan: just columns 0 to max_col
+            sub = dfp[dfp["col"] <= max_col]
 
         # ----- 2D frame
         if proj_mode == "count":
@@ -413,9 +587,18 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
         else:
             img2d = project_scalar(sub, width, height, scalar_field=scalar_field, agg=agg)
 
-        out_png_2d = os.path.join(out_dir_2d, f"frame_k{k:04d}_col{max_col:04d}.png")
-        title = f"Unwrap buildup: az cols 0..{max_col}, ze[{ze_min:.1f},{ze_max:.1f}]"
-        save_frame_2d(
+        out_png_2d = os.path.join(out_dir_2d, f"frame_k{k:04d}_col{max_col:04d}.png") if save_individual_frames else None
+        if tls_dual_scan:
+            # Calculate angular position (physical rotation is only 180°)
+            current_angle = max_col * angular_resolution
+            title = f"TLS Dual-Scan | Rotation: {current_angle:.1f}° | Coverage: 0-{current_angle:.1f}° & 180-{current_angle + 180:.1f}°"
+            opposite_col = (max_col + width // 2) % width
+        else:
+            current_angle = max_col * angular_resolution
+            title = f"Sequential Scan | Azimuth: 0-{current_angle:.1f}° | Zenith: {ze_min:.1f}-{ze_max:.1f}°"
+            opposite_col = None
+        
+        pil_2d = save_frame_2d(
             img2d,
             out_png_2d,
             title=title,
@@ -425,8 +608,17 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
             vmax=vmax,
             progress_col=max_col,
             draw_progress_line=draw_progress_line,
+            opposite_col=opposite_col,
+            az_min=az_min,
+            az_max=az_max,
+            ze_min=ze_min,
+            ze_max=ze_max,
+            return_pil=True,
         )
-        print(f"[WROTE] 2D {out_png_2d}")
+        frames_2d_pil.append(pil_2d)
+        
+        if save_individual_frames:
+            print(f"[WROTE] 2D {out_png_2d}")
 
         # ----- 3D screenshots (side + top views)
         if render3d_enabled:
@@ -441,8 +633,8 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
             )
             
             # Side view
-            out_png_side = os.path.join(out_dir_3d_side, f"frame_k{k:04d}_col{max_col:04d}.png")
-            render_pcd_screenshot(
+            out_png_side = os.path.join(out_dir_3d_side, f"frame_k{k:04d}_col{max_col:04d}.png") if save_individual_frames else None
+            pil_side = render_pcd_screenshot(
                 pcd,
                 out_png=out_png_side,
                 width=render3d_w,
@@ -453,12 +645,16 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
                 front=side_front,
                 up=side_up,
                 zoom=side_zoom,
+                return_pil=True,
             )
-            print(f"[WROTE] 3D side {out_png_side}")
+            frames_3d_side_pil.append(pil_side)
+            
+            if save_individual_frames:
+                print(f"[WROTE] 3D side {out_png_side}")
             
             # Top view
-            out_png_top = os.path.join(out_dir_3d_top, f"frame_k{k:04d}_col{max_col:04d}.png")
-            render_pcd_screenshot(
+            out_png_top = os.path.join(out_dir_3d_top, f"frame_k{k:04d}_col{max_col:04d}.png") if save_individual_frames else None
+            pil_top = render_pcd_screenshot(
                 pcd,
                 out_png=out_png_top,
                 width=render3d_w,
@@ -469,13 +665,30 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
                 front=top_front,
                 up=top_up,
                 zoom=top_zoom,
+                return_pil=True,
             )
-            print(f"[WROTE] 3D top {out_png_top}")
+            frames_3d_top_pil.append(pil_top)
+            
+            if save_individual_frames:
+                print(f"[WROTE] 3D top {out_png_top}")
 
-    print(f"[DONE] Saved 2D frames to: {out_dir_2d}")
+    # Generate GIF files
+    gif_2d = os.path.join(out_dir, "animation_2d.gif")
+    create_gif_from_pil_images(frames_2d_pil, gif_2d, duration=gif_duration, loop=gif_loop, hold_last_frame=9)
+    
     if render3d_enabled:
-        print(f"[DONE] Saved 3D side views to: {out_dir_3d_side}")
-        print(f"[DONE] Saved 3D top views to: {out_dir_3d_top}")
+        gif_3d_side = os.path.join(out_dir, "animation_3d_side.gif")
+        gif_3d_top = os.path.join(out_dir, "animation_3d_top.gif")
+        create_gif_from_pil_images(frames_3d_side_pil, gif_3d_side, duration=gif_duration, loop=gif_loop, hold_last_frame=9)
+        create_gif_from_pil_images(frames_3d_top_pil, gif_3d_top, duration=gif_duration, loop=gif_loop, hold_last_frame=9)
+    
+    if save_individual_frames:
+        print(f"[DONE] Saved 2D frames to: {out_dir_2d}")
+        if render3d_enabled:
+            print(f"[DONE] Saved 3D side views to: {out_dir_3d_side}")
+            print(f"[DONE] Saved 3D top views to: {out_dir_3d_top}")
+    
+    print(f"[DONE] Animation saved to: {out_dir}")
 
 
 if __name__ == "__main__":

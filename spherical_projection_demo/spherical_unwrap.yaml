@@ -10,29 +10,29 @@ ranges:
   az_min: 0.0
   az_max: 360.0
   ze_min: 0.0
-  ze_max: "auto"            # <- infer from data (e.g., 135.0251)
+  ze_max: "auto"  # Auto-detect from data, or specify explicit value (e.g., 135.0)
 
 grid:
-  width: 720
-  height: 180               # can stay fixed; ze_max decides how much of it is “used”
+  angular_resolution: 0.25  # degrees per pixel (adaptive width/height based on angular ranges)
 
 progress:
-  step_cols: 2
-  frames_to_have: "20"  # "10", "20", ... = number of exported frames; "max" = all steps
+  step_degrees: 0.5       # Angular step per frame (degrees)
+  frames_to_have: "100"    # Number of exported frames: "10", "20", etc., or "max" for all steps
+  tls_dual_scan: true     # TLS scans opposite azimuths simultaneously (180° physical rotation covers 360°)
 
-# What to draw in the image:
-# - count: density buildup (great for “lighting up columns” demo)
-# - mean/max of a scalar: range image / intensity image
 projection:
-  mode: "scalar"             # "count" or "scalar"
-  scalar_field: "range1metres"  # used only if mode="scalar"
-  agg: "mean"               # mean/max/min/median
+  mode: "scalar"          # "count" (density) or "scalar" (field values)
+  scalar_field: "range1metres"
+  agg: "mean"             # Aggregation: mean/max/min/median
 
 render:
   cmap: "hot"
   dpi: 180
   vmax_percentile: 99.5
-  draw_progress_line: true  # vertical line showing current az column
+  draw_progress_line: true
+  save_individual_frames: false  # Set to true to save individual PNG frames
+  gif_duration_ms: 100  # Milliseconds per frame in GIF
+  gif_loop: 0  # 0 = infinite loop
 
 
 render3d:
