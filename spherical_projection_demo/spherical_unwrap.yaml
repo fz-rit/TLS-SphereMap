@@ -37,16 +37,10 @@ render:
 
 render3d:
   enabled: true
-  out_subdir: "frames_3d"
-  camera_csv: "C:\\mylab\\data\\through_lidar_eye_demo\\sphere_proj_demo\\camera_settings.csv"
+  side_subdir: "frames_3d_side"
+  top_subdir: "frames_3d_top"
   width: 1280
   height: 720
   point_size: 2.0
-  background_rgb: [0, 0, 0]     # black background
-
-  # Use RGB from the PLY if present (r,g,b). Otherwise fallback to a constant color.
-  use_rgb_if_available: true
-  fallback_rgb: [0.9, 0.9, 0.9]
-
-  # Optional speed control if rendering is slow
-  max_points: 200000             # random sample cap; set null to disable
+  background_rgb: [0, 0, 0]
+  max_points: 200000  # Random sample cap for performance; null to disable

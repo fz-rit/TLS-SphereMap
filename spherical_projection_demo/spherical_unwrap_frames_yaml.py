@@ -156,12 +156,16 @@ def save_frame_2d(
 # -------------------------
 # 3D Rendering (paired with frames)
 # -------------------------
-def build_open3d_pcd_from_df(
+def build_open3d_pcd_from_2d_image(
     df_sub: pd.DataFrame,
-    use_rgb_if_available: bool,
-    fallback_rgb=(0.9, 0.9, 0.9),
+    img2d: np.ndarray,
+    cmap: str,
+    vmin: float,
+    vmax: float,
     max_points: int | None = None,
+    fallback_rgb=(0.5, 0.5, 0.5),
 ) -> o3d.geometry.PointCloud:
+    """Build point cloud with colors mapped from 2D projection image."""
     if max_points is not None and len(df_sub) > max_points:
         df_sub = df_sub.sample(n=max_points, random_state=0)
 
@@ -170,17 +174,24 @@ def build_open3d_pcd_from_df(
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts)
 
-    # colors if present
-    if use_rgb_if_available and all(c in df_sub.columns for c in ["r", "g", "b"]):
-        rgb = np.stack([df_sub["r"].to_numpy(), df_sub["g"].to_numpy(), df_sub["b"].to_numpy()], axis=1).astype(np.float64)
-        # assume 0..255
-        if rgb.max() > 1.0:
-            rgb /= 255.0
-        pcd.colors = o3d.utility.Vector3dVector(rgb)
-    else:
-        col = np.array(fallback_rgb, dtype=np.float64).reshape(1, 3)
-        pcd.colors = o3d.utility.Vector3dVector(np.repeat(col, repeats=len(df_sub), axis=0))
+    # Get matplotlib colormap and apply to 2D image
+    cm = plt.get_cmap(cmap)
+    img_norm = np.clip((img2d - vmin) / max(vmax - vmin, 1e-9), 0.0, 1.0)
+    img_rgb = cm(img_norm)[:, :, :3]  # RGB only, drop alpha channel
 
+    # Map colors from 2D image to points using row/col indices
+    rows = df_sub["row"].to_numpy()
+    cols = df_sub["col"].to_numpy()
+    colors = np.zeros((len(df_sub), 3), dtype=np.float64)
+
+    for i in range(len(df_sub)):
+        r, c = int(rows[i]), int(cols[i])
+        if 0 <= r < img2d.shape[0] and 0 <= c < img2d.shape[1] and np.isfinite(img2d[r, c]):
+            colors[i] = img_rgb[r, c]
+        else:
+            colors[i] = fallback_rgb
+
+    pcd.colors = o3d.utility.Vector3dVector(colors)
     return pcd
 
 
@@ -191,13 +202,11 @@ def render_pcd_screenshot(
     height: int,
     point_size: float,
     bg_rgb=(0, 0, 0),
-    camera=None,
+    lookat=None,
+    front=None,
+    up=None,
+    zoom=0.7,
 ):
-    """
-    Uses Open3D Visualizer in headless-ish mode (creates a hidden window).
-    Works on most desktop Ubuntu setups. On true headless servers, this may fail
-    unless EGL/OSMesa is configured.
-    """
     os.makedirs(os.path.dirname(out_png), exist_ok=True)
 
     vis = o3d.visualization.Visualizer()
@@ -209,17 +218,13 @@ def render_pcd_screenshot(
     opt.background_color = np.array(bg_rgb, dtype=np.float64)
 
     ctr = vis.get_view_control()
-    if camera is not None:
-        # Open3D-style camera parameters
-        lookat = camera.get("lookat", [0, 0, 0])
-        front = camera.get("front", [0, -1, 0])
-        up = camera.get("up", [0, 0, 1])
-        zoom = camera.get("zoom", 0.7)
-
+    if lookat is not None:
         ctr.set_lookat(lookat)
+    if front is not None:
         ctr.set_front(front)
+    if up is not None:
         ctr.set_up(up)
-        ctr.set_zoom(zoom)
+    ctr.set_zoom(zoom)
 
     vis.poll_events()
     vis.update_renderer()
@@ -228,33 +233,16 @@ def render_pcd_screenshot(
     vis.destroy_window()
 
 
-def load_camera_csv(camera_csv_path: str) -> pd.DataFrame:
-    df_cam = pd.read_csv(camera_csv_path)
-    required = [
-        "frame_idx",
-        "frame_k",
-        "lookat_x",
-        "lookat_y",
-        "lookat_z",
-        "front_x",
-        "front_y",
-        "front_z",
-        "up_x",
-        "up_y",
-        "up_z",
-        "zoom",
-    ]
-    missing = [c for c in required if c not in df_cam.columns]
-    assert len(missing) == 0, f"camera CSV missing columns: {missing}"
-    return df_cam.sort_values("frame_idx", kind="stable").reset_index(drop=True)
-
-
-def camera_from_csv_row(row: pd.Series) -> dict:
+def compute_fixed_camera_params(df: pd.DataFrame) -> dict:
+    """Compute center and reasonable camera positions from point cloud."""
+    xyz = np.stack([df["x"].to_numpy(), df["y"].to_numpy(), df["z"].to_numpy()], axis=1).astype(np.float64)
+    center = np.median(xyz, axis=0)
+    ptp = np.ptp(xyz, axis=0)
+    max_span = float(np.max(ptp))
+    
     return {
-        "lookat": [float(row["lookat_x"]), float(row["lookat_y"]), float(row["lookat_z"])],
-        "front": [float(row["front_x"]), float(row["front_y"]), float(row["front_z"])],
-        "up": [float(row["up_x"]), float(row["up_y"]), float(row["up_z"])],
-        "zoom": float(row["zoom"]),
+        "lookat": center.tolist(),
+        "max_span": max_span,
     }
 
 
@@ -321,21 +309,16 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
     render3d = cfg.get("render3d", {})
     render3d_enabled = bool(render3d.get("enabled", False))
-    render3d_subdir = render3d.get("out_subdir", "frames_3d")
+    render3d_side_subdir = render3d.get("side_subdir", "frames_3d_side")
+    render3d_top_subdir = render3d.get("top_subdir", "frames_3d_top")
     render3d_w = int(render3d.get("width", 1280))
     render3d_h = int(render3d.get("height", 720))
     assert render3d_w > 0 and render3d_h > 0
     render3d_point_size = float(render3d.get("point_size", 2.0))
     bg_rgb = tuple(render3d.get("background_rgb", [0, 0, 0]))
-    use_rgb_if_available = bool(render3d.get("use_rgb_if_available", True))
-    fallback_rgb = tuple(render3d.get("fallback_rgb", [0.9, 0.9, 0.9]))
     max_points = render3d.get("max_points", 200000)
-    if max_points is None:
-        max_points = None
-    else:
+    if max_points is not None:
         max_points = int(max_points)
-
-    camera_csv = str(render3d["camera_csv"])
 
     print(f"[INFO] Reading PLY: {ply_path}")
     df = read_ply_vertex_to_df(ply_path)
@@ -396,18 +379,29 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
     # output dirs
     out_dir_2d = os.path.join(out_dir, "frames_2d")
-    out_dir_3d = os.path.join(out_dir, render3d_subdir)
+    out_dir_3d_side = os.path.join(out_dir, render3d_side_subdir)
+    out_dir_3d_top = os.path.join(out_dir, render3d_top_subdir)
 
     n_cols = width
     frames_to_save = resolve_frames_to_save(frames_to_have, n_cols=n_cols, step_cols=step_cols)
-
     assert len(frames_to_save) > 0
     n_frames = len(frames_to_save)
-    camera_table = load_camera_csv(camera_csv)
-    assert len(camera_table) == n_frames, (
-        f"camera CSV rows ({len(camera_table)}) must match exported frames ({n_frames}). "
-        f"Re-generate CSV with current YAML settings."
-    )
+
+    # Compute fixed camera parameters from full point cloud
+    if render3d_enabled:
+        cam_params = compute_fixed_camera_params(df)
+        lookat = cam_params["lookat"]
+        max_span = cam_params["max_span"]
+        
+        # Side view: looking at x-z plane (front view)
+        side_front = [0.0, -1.0, 0.0]  # look from -Y toward +Y
+        side_up = [0.0, 0.0, 1.0]     # Z is up
+        side_zoom = 0.7
+        
+        # Top view: looking down from above
+        top_front = [0.0, 0.0, -1.0]  # look from +Z toward -Z
+        top_up = [0.0, 1.0, 0.0]      # Y is up in screen space
+        top_zoom = 0.7
 
     for frame_idx, k in enumerate(frames_to_save):
         max_col = min(n_cols - 1, k * step_cols)
@@ -434,36 +428,54 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
         )
         print(f"[WROTE] 2D {out_png_2d}")
 
-        # ----- 3D screenshot (same subset)
+        # ----- 3D screenshots (side + top views)
         if render3d_enabled:
-            cam_row = camera_table.iloc[frame_idx]
-            frame_camera = camera_from_csv_row(cam_row)
-            assert int(cam_row["frame_k"]) == int(k), (
-                f"camera CSV frame_k mismatch at frame_idx={frame_idx}: "
-                f"csv={int(cam_row['frame_k'])}, expected={int(k)}"
-            )
-
-            pcd = build_open3d_pcd_from_df(
-                sub,
-                use_rgb_if_available=use_rgb_if_available,
-                fallback_rgb=fallback_rgb,
+            pcd = build_open3d_pcd_from_2d_image(
+                df_sub=sub,
+                img2d=img2d,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
                 max_points=max_points,
+                fallback_rgb=tuple(render3d.get("fallback_rgb", [0.5, 0.5, 0.5])),
             )
-            out_png_3d = os.path.join(out_dir_3d, f"frame_k{k:04d}_col{max_col:04d}.png")
+            
+            # Side view
+            out_png_side = os.path.join(out_dir_3d_side, f"frame_k{k:04d}_col{max_col:04d}.png")
             render_pcd_screenshot(
                 pcd,
-                out_png=out_png_3d,
+                out_png=out_png_side,
                 width=render3d_w,
                 height=render3d_h,
                 point_size=render3d_point_size,
                 bg_rgb=bg_rgb,
-                camera=frame_camera,
+                lookat=lookat,
+                front=side_front,
+                up=side_up,
+                zoom=side_zoom,
             )
-            print(f"[WROTE] 3D {out_png_3d}")
+            print(f"[WROTE] 3D side {out_png_side}")
+            
+            # Top view
+            out_png_top = os.path.join(out_dir_3d_top, f"frame_k{k:04d}_col{max_col:04d}.png")
+            render_pcd_screenshot(
+                pcd,
+                out_png=out_png_top,
+                width=render3d_w,
+                height=render3d_h,
+                point_size=render3d_point_size,
+                bg_rgb=bg_rgb,
+                lookat=lookat,
+                front=top_front,
+                up=top_up,
+                zoom=top_zoom,
+            )
+            print(f"[WROTE] 3D top {out_png_top}")
 
     print(f"[DONE] Saved 2D frames to: {out_dir_2d}")
     if render3d_enabled:
-        print(f"[DONE] Saved 3D frames to: {out_dir_3d}")
+        print(f"[DONE] Saved 3D side views to: {out_dir_3d_side}")
+        print(f"[DONE] Saved 3D top views to: {out_dir_3d_top}")
 
 
 if __name__ == "__main__":
