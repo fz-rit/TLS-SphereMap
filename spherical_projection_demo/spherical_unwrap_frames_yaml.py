@@ -591,11 +591,11 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
         if tls_dual_scan:
             # Calculate angular position (physical rotation is only 180°)
             current_angle = max_col * angular_resolution
-            title = f"TLS Dual-Scan | Rotation: {current_angle:.1f}° | Coverage: 0-{current_angle:.1f}° & 180-{current_angle + 180:.1f}°"
+            title = f"LiDAR Rotation: {current_angle:.1f}° | Azimuth Coverage: 0-{current_angle:.1f}° & 180-{current_angle + 180:.1f}°"
             opposite_col = (max_col + width // 2) % width
         else:
             current_angle = max_col * angular_resolution
-            title = f"Sequential Scan | Azimuth: 0-{current_angle:.1f}° | Zenith: {ze_min:.1f}-{ze_max:.1f}°"
+            title = f"Azimuth: 0-{current_angle:.1f}° | Zenith: {ze_min:.1f}-{ze_max:.1f}°"
             opposite_col = None
         
         pil_2d = save_frame_2d(
