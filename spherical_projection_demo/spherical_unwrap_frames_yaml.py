@@ -228,6 +228,88 @@ def render_pcd_screenshot(
     vis.destroy_window()
 
 
+def smoothstep01(t: float) -> float:
+    t = float(np.clip(t, 0.0, 1.0))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def infer_scene_center_radius(df: pd.DataFrame) -> tuple[np.ndarray, float]:
+    pts = np.stack([df["x"].to_numpy(), df["y"].to_numpy(), df["z"].to_numpy()], axis=1).astype(np.float64)
+    center = np.mean(pts, axis=0)
+    mins = np.min(pts, axis=0)
+    maxs = np.max(pts, axis=0)
+    radius = 0.5 * float(np.linalg.norm(maxs - mins))
+    radius = max(radius, 1e-6)
+    return center, radius
+
+
+def make_dynamic_camera(progress: float, center: np.ndarray, scene_radius: float, dyn_cfg: dict) -> dict:
+    assert scene_radius > 0.0
+
+    easing = str(dyn_cfg.get("easing", "smoothstep")).lower()
+    s = smoothstep01(progress) if easing == "smoothstep" else float(np.clip(progress, 0.0, 1.0))
+
+    radius_start_mult = float(dyn_cfg.get("radius_start_mult", 0.55))
+    radius_end_mult = float(dyn_cfg.get("radius_end_mult", 2.4))
+    elev_start_deg = float(dyn_cfg.get("elev_start_deg", 25.0))
+    elev_end_deg = float(dyn_cfg.get("elev_end_deg", 86.0))
+    azimuth_start_deg = float(dyn_cfg.get("azimuth_start_deg", -120.0))
+    azimuth_end_deg = float(dyn_cfg.get("azimuth_end_deg", -30.0))
+    zoom_start = float(dyn_cfg.get("zoom_start", 0.95))
+    zoom_end = float(dyn_cfg.get("zoom_end", 0.55))
+
+    radius = scene_radius * ((1.0 - s) * radius_start_mult + s * radius_end_mult)
+    elev = np.radians((1.0 - s) * elev_start_deg + s * elev_end_deg)
+    azim = np.radians((1.0 - s) * azimuth_start_deg + s * azimuth_end_deg)
+
+    direction = np.array(
+        [
+            np.cos(elev) * np.cos(azim),
+            np.cos(elev) * np.sin(azim),
+            np.sin(elev),
+        ],
+        dtype=np.float64,
+    )
+    cam_pos = center + radius * direction
+    front = center - cam_pos
+    front = front / max(np.linalg.norm(front), 1e-12)
+
+    up = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+    if abs(float(np.dot(front, up))) > 0.98:
+        up = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+
+    zoom = (1.0 - s) * zoom_start + s * zoom_end
+    return {
+        "lookat": center.tolist(),
+        "front": front.tolist(),
+        "up": up.tolist(),
+        "zoom": float(zoom),
+    }
+
+
+def resolve_frames_to_save(frames_to_have: str, n_cols: int, step_cols: int) -> list[int]:
+    assert isinstance(frames_to_have, str)
+    assert n_cols > 0 and step_cols > 0
+
+    max_k = int(np.ceil((n_cols - 1) / step_cols))
+    total_steps = max_k + 1
+
+    token = frames_to_have.strip().lower()
+    if token == "max":
+        return list(range(total_steps))
+
+    assert token.isdigit(), "progress.frames_to_have must be 'max' or a numeric string like '10'"
+    n_requested = int(token)
+    assert n_requested > 0, "progress.frames_to_have numeric value must be > 0"
+
+    n_take = min(n_requested, total_steps)
+    if n_take == 1:
+        return [max_k]
+
+    picks = [int(i * (total_steps - 1) / (n_take - 1)) for i in range(n_take)]
+    return picks
+
+
 # -------------------------
 # Main
 # -------------------------
@@ -244,6 +326,7 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
     width = int(cfg["grid"]["width"])
     height = int(cfg["grid"]["height"])
+    assert width > 0 and height > 0
 
     az_min = float(cfg["ranges"]["az_min"])
     az_max = float(cfg["ranges"]["az_max"])
@@ -251,14 +334,8 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     ze_max = cfg["ranges"]["ze_max"]
 
     step_cols = int(cfg["progress"]["step_cols"])
-    frames_to_have = cfg["progress"].get("frames_to_have", cfg["progress"].get("frames_to_save"))
-
-    if isinstance(frames_to_have, str) and frames_to_have.lower() == "max":
-        frames_to_save = "max"
-    elif isinstance(frames_to_have, (list, tuple, np.ndarray)):
-        frames_to_save = list(frames_to_have)
-    else:
-        frames_to_save = [int(frames_to_have)]
+    assert step_cols > 0
+    frames_to_have = str(cfg["progress"]["frames_to_have"])
 
     proj_cfg = cfg.get("projection", {})
     proj_mode = proj_cfg.get("mode", "count")  # "count" or "scalar"
@@ -276,6 +353,7 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     render3d_subdir = render3d.get("out_subdir", "frames_3d")
     render3d_w = int(render3d.get("width", 1280))
     render3d_h = int(render3d.get("height", 720))
+    assert render3d_w > 0 and render3d_h > 0
     render3d_point_size = float(render3d.get("point_size", 2.0))
     bg_rgb = tuple(render3d.get("background_rgb", [0, 0, 0]))
     use_rgb_if_available = bool(render3d.get("use_rgb_if_available", True))
@@ -286,12 +364,16 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     else:
         max_points = int(max_points)
 
+    dynamic_camera_cfg = render3d.get("dynamic_camera", {})
+    dynamic_camera_enabled = bool(dynamic_camera_cfg.get("enabled", True))
     camera = render3d.get("camera", None)
 
     print(f"[INFO] Reading PLY: {ply_path}")
     df = read_ply_vertex_to_df(ply_path)
     print(f"[INFO] Points: {len(df):,}")
     print(f"[INFO] Columns: {list(df.columns)}")
+
+    scene_center, scene_radius = infer_scene_center_radius(df)
 
     if az_field not in df.columns or ze_field not in df.columns:
         raise RuntimeError(
@@ -350,11 +432,12 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     out_dir_3d = os.path.join(out_dir, render3d_subdir)
 
     n_cols = width
-    if frames_to_save == "max":
-        max_k = int(np.ceil((n_cols - 1) / step_cols))
-        frames_to_save = list(range(max_k + 1))
+    frames_to_save = resolve_frames_to_save(frames_to_have, n_cols=n_cols, step_cols=step_cols)
 
-    for k in frames_to_save:
+    assert len(frames_to_save) > 0
+    n_frames = len(frames_to_save)
+
+    for frame_idx, k in enumerate(frames_to_save):
         max_col = min(n_cols - 1, k * step_cols)
         sub = dfp[dfp["col"] <= max_col]
 
@@ -381,6 +464,12 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
         # ----- 3D screenshot (same subset)
         if render3d_enabled:
+            if dynamic_camera_enabled:
+                t = frame_idx / max(n_frames - 1, 1)
+                frame_camera = make_dynamic_camera(t, scene_center, scene_radius, dynamic_camera_cfg)
+            else:
+                frame_camera = camera
+
             pcd = build_open3d_pcd_from_df(
                 sub,
                 use_rgb_if_available=use_rgb_if_available,
@@ -395,7 +484,7 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
                 height=render3d_h,
                 point_size=render3d_point_size,
                 bg_rgb=bg_rgb,
-                camera=camera,
+                camera=frame_camera,
             )
             print(f"[WROTE] 3D {out_png_3d}")
 
