@@ -232,7 +232,7 @@ def render_pcd_screenshot(
 # Main
 # -------------------------
 def main(cfg_path: str = "spherical_unwrap.yaml"):
-    with open(cfg_path, "r") as f:
+    with open(cfg_path, "r", encoding="utf-8-sig") as f:
         cfg = yaml.safe_load(f)
 
     ply_path = cfg["input_ply"]
@@ -251,7 +251,14 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     ze_max = cfg["ranges"]["ze_max"]
 
     step_cols = int(cfg["progress"]["step_cols"])
-    frames_to_save = list(cfg["progress"]["frames_to_save"])
+    frames_to_have = cfg["progress"].get("frames_to_have", cfg["progress"].get("frames_to_save"))
+
+    if isinstance(frames_to_have, str) and frames_to_have.lower() == "max":
+        frames_to_save = "max"
+    elif isinstance(frames_to_have, (list, tuple, np.ndarray)):
+        frames_to_save = list(frames_to_have)
+    else:
+        frames_to_save = [int(frames_to_have)]
 
     proj_cfg = cfg.get("projection", {})
     proj_mode = proj_cfg.get("mode", "count")  # "count" or "scalar"
@@ -343,6 +350,10 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     out_dir_3d = os.path.join(out_dir, render3d_subdir)
 
     n_cols = width
+    if frames_to_save == "max":
+        max_k = int(np.ceil((n_cols - 1) / step_cols))
+        frames_to_save = list(range(max_k + 1))
+
     for k in frames_to_save:
         max_col = min(n_cols - 1, k * step_cols)
         sub = dfp[dfp["col"] <= max_col]

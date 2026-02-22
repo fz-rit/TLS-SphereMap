@@ -72,7 +72,7 @@ def analyze_column(name: str, series: pd.Series):
 
 
 def main():
-    ply_path = "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_2021/033/33_01/outputs/33_01_filtered_normaled_curvature_0.06_roughness_0.06_segmap.ply"
+    ply_path = "C:\\mylab\\data\\through_lidar_eye_demo\\33_01_filtered_normaled_curvature_0.06_roughness_0.06_segmap.ply"
 
     print(f"\nReading: {ply_path}\n")
 

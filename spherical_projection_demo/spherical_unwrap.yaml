@@ -1,5 +1,5 @@
-input_ply: "/home/fzhcis/mylab/gdrive/projects_with_Jan/point_cloud_segmentation/unwrap_outputs/harvard_forest_2021/033/33_01/outputs/33_01_filtered_normaled_curvature_0.06_roughness_0.06_segmap.ply"
-out_dir: "/home/fzhcis/mylab/gdrive/papers/rse-2025-through-lidars-eye/gif_mp4/dirs-presentation/sphere_proj_demo"
+input_ply: "C:\\mylab\\data\\through_lidar_eye_demo\\33_01_filtered_normaled_curvature_0.06_roughness_0.06_segmap.ply"
+out_dir: "C:\\mylab\\data\\through_lidar_eye_demo\\sphere_proj_demo"
 
 fields:
   azimuth: "azimuth"
@@ -18,7 +18,7 @@ grid:
 
 progress:
   step_cols: 2
-  frames_to_save: [0, 10, 20, 40, 80, 120, 179]
+  frames_to_save: "max"  # list of number [1, 10, 30 ...]or "max" to save all frame steps
 
 # What to draw in the image:
 # - count: density buildup (great for “lighting up columns” demo)
