@@ -24,12 +24,12 @@ progress:
 # - count: density buildup (great for “lighting up columns” demo)
 # - mean/max of a scalar: range image / intensity image
 projection:
-  mode: "count"             # "count" or "scalar"
+  mode: "scalar"             # "count" or "scalar"
   scalar_field: "range1metres"  # used only if mode="scalar"
   agg: "mean"               # mean/max/min/median
 
 render:
-  cmap: "gray"
+  cmap: "hot"
   dpi: 180
   vmax_percentile: 99.5
   draw_progress_line: true  # vertical line showing current az column
@@ -38,6 +38,7 @@ render:
 render3d:
   enabled: true
   out_subdir: "frames_3d"
+  camera_csv: "C:\\mylab\\data\\through_lidar_eye_demo\\sphere_proj_demo\\camera_settings.csv"
   width: 1280
   height: 720
   point_size: 2.0
@@ -49,23 +50,3 @@ render3d:
 
   # Optional speed control if rendering is slow
   max_points: 200000             # random sample cap; set null to disable
-
-  # Camera: fixed view (Open3D style)
-  camera:
-    lookat: [0.0, 0.0, 0.0]
-    front:  [0.0, -1.0, 0.0]
-    up:     [0.0, 0.0, 1.0]
-    zoom:   0.7
-
-  # Dynamic camera across frames: start near-center, then move outward + top-down
-  dynamic_camera:
-    enabled: true
-    easing: "smoothstep"
-    radius_start_mult: 0.55
-    radius_end_mult: 2.4
-    elev_start_deg: 25.0
-    elev_end_deg: 86.0
-    azimuth_start_deg: -120.0
-    azimuth_end_deg: -30.0
-    zoom_start: 0.95
-    zoom_end: 0.55

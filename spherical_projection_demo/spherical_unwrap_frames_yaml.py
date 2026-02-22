@@ -228,62 +228,33 @@ def render_pcd_screenshot(
     vis.destroy_window()
 
 
-def smoothstep01(t: float) -> float:
-    t = float(np.clip(t, 0.0, 1.0))
-    return t * t * (3.0 - 2.0 * t)
+def load_camera_csv(camera_csv_path: str) -> pd.DataFrame:
+    df_cam = pd.read_csv(camera_csv_path)
+    required = [
+        "frame_idx",
+        "frame_k",
+        "lookat_x",
+        "lookat_y",
+        "lookat_z",
+        "front_x",
+        "front_y",
+        "front_z",
+        "up_x",
+        "up_y",
+        "up_z",
+        "zoom",
+    ]
+    missing = [c for c in required if c not in df_cam.columns]
+    assert len(missing) == 0, f"camera CSV missing columns: {missing}"
+    return df_cam.sort_values("frame_idx", kind="stable").reset_index(drop=True)
 
 
-def infer_scene_center_radius(df: pd.DataFrame) -> tuple[np.ndarray, float]:
-    pts = np.stack([df["x"].to_numpy(), df["y"].to_numpy(), df["z"].to_numpy()], axis=1).astype(np.float64)
-    center = np.mean(pts, axis=0)
-    mins = np.min(pts, axis=0)
-    maxs = np.max(pts, axis=0)
-    radius = 0.5 * float(np.linalg.norm(maxs - mins))
-    radius = max(radius, 1e-6)
-    return center, radius
-
-
-def make_dynamic_camera(progress: float, center: np.ndarray, scene_radius: float, dyn_cfg: dict) -> dict:
-    assert scene_radius > 0.0
-
-    easing = str(dyn_cfg.get("easing", "smoothstep")).lower()
-    s = smoothstep01(progress) if easing == "smoothstep" else float(np.clip(progress, 0.0, 1.0))
-
-    radius_start_mult = float(dyn_cfg.get("radius_start_mult", 0.55))
-    radius_end_mult = float(dyn_cfg.get("radius_end_mult", 2.4))
-    elev_start_deg = float(dyn_cfg.get("elev_start_deg", 25.0))
-    elev_end_deg = float(dyn_cfg.get("elev_end_deg", 86.0))
-    azimuth_start_deg = float(dyn_cfg.get("azimuth_start_deg", -120.0))
-    azimuth_end_deg = float(dyn_cfg.get("azimuth_end_deg", -30.0))
-    zoom_start = float(dyn_cfg.get("zoom_start", 0.95))
-    zoom_end = float(dyn_cfg.get("zoom_end", 0.55))
-
-    radius = scene_radius * ((1.0 - s) * radius_start_mult + s * radius_end_mult)
-    elev = np.radians((1.0 - s) * elev_start_deg + s * elev_end_deg)
-    azim = np.radians((1.0 - s) * azimuth_start_deg + s * azimuth_end_deg)
-
-    direction = np.array(
-        [
-            np.cos(elev) * np.cos(azim),
-            np.cos(elev) * np.sin(azim),
-            np.sin(elev),
-        ],
-        dtype=np.float64,
-    )
-    cam_pos = center + radius * direction
-    front = center - cam_pos
-    front = front / max(np.linalg.norm(front), 1e-12)
-
-    up = np.array([0.0, 0.0, 1.0], dtype=np.float64)
-    if abs(float(np.dot(front, up))) > 0.98:
-        up = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-
-    zoom = (1.0 - s) * zoom_start + s * zoom_end
+def camera_from_csv_row(row: pd.Series) -> dict:
     return {
-        "lookat": center.tolist(),
-        "front": front.tolist(),
-        "up": up.tolist(),
-        "zoom": float(zoom),
+        "lookat": [float(row["lookat_x"]), float(row["lookat_y"]), float(row["lookat_z"])],
+        "front": [float(row["front_x"]), float(row["front_y"]), float(row["front_z"])],
+        "up": [float(row["up_x"]), float(row["up_y"]), float(row["up_z"])],
+        "zoom": float(row["zoom"]),
     }
 
 
@@ -364,16 +335,12 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
     else:
         max_points = int(max_points)
 
-    dynamic_camera_cfg = render3d.get("dynamic_camera", {})
-    dynamic_camera_enabled = bool(dynamic_camera_cfg.get("enabled", True))
-    camera = render3d.get("camera", None)
+    camera_csv = str(render3d["camera_csv"])
 
     print(f"[INFO] Reading PLY: {ply_path}")
     df = read_ply_vertex_to_df(ply_path)
     print(f"[INFO] Points: {len(df):,}")
     print(f"[INFO] Columns: {list(df.columns)}")
-
-    scene_center, scene_radius = infer_scene_center_radius(df)
 
     if az_field not in df.columns or ze_field not in df.columns:
         raise RuntimeError(
@@ -436,6 +403,11 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
     assert len(frames_to_save) > 0
     n_frames = len(frames_to_save)
+    camera_table = load_camera_csv(camera_csv)
+    assert len(camera_table) == n_frames, (
+        f"camera CSV rows ({len(camera_table)}) must match exported frames ({n_frames}). "
+        f"Re-generate CSV with current YAML settings."
+    )
 
     for frame_idx, k in enumerate(frames_to_save):
         max_col = min(n_cols - 1, k * step_cols)
@@ -464,11 +436,12 @@ def main(cfg_path: str = "spherical_unwrap.yaml"):
 
         # ----- 3D screenshot (same subset)
         if render3d_enabled:
-            if dynamic_camera_enabled:
-                t = frame_idx / max(n_frames - 1, 1)
-                frame_camera = make_dynamic_camera(t, scene_center, scene_radius, dynamic_camera_cfg)
-            else:
-                frame_camera = camera
+            cam_row = camera_table.iloc[frame_idx]
+            frame_camera = camera_from_csv_row(cam_row)
+            assert int(cam_row["frame_k"]) == int(k), (
+                f"camera CSV frame_k mismatch at frame_idx={frame_idx}: "
+                f"csv={int(cam_row['frame_k'])}, expected={int(k)}"
+            )
 
             pcd = build_open3d_pcd_from_df(
                 sub,
